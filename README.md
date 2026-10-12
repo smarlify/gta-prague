@@ -79,6 +79,7 @@ npm run build     # static build in dist/, deployable to any static host
 | --- | --- | --- | --- | --- |
 | Helsinki, Finland | [`?city=helsinki`](https://worldhood.org/?city=helsinki) | playable | City of Helsinki 3D city model + open data, HSL | wanted |
 | Tampere, Finland | [`?city=tampere`](https://worldhood.org/?city=tampere) | draft | OpenStreetMap | wanted |
+| Praha, Česko | [`?city=prague`](https://worldhood.org/?city=prague) | draft | OpenStreetMap + IPR Praha 3D model | wanted |
 <!-- CITIES:END -->
 
 Running it locally? Use `http://localhost:5173/?city=<id>`.

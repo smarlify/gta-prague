@@ -265,18 +265,21 @@ function rasterise(polys,size,cell,extent){
 export async function buildTerrain(id,{refresh=false}={}){
  const def=JSON.parse(fs.readFileSync(path.join('cities',id,'city.json'))),OUT=path.join('public/cities',id),RAW=path.join('data/raw/cities',id,'terrain');
  const [lon0,lat0]=def.origin,EXTENT=Math.round(def.radiusMetres*1.25),size=Math.round(2*EXTENT/CELL)+1;
+ // Mapterhorn's finest zoom is not published everywhere. Prague has zoom 14
+ // (about 3 m) and no zoom 15; a city can set terrainZoom in city.json.
+ const zoom=def.terrainZoom||ZOOM;
  const projection=`+proj=tmerc +lat_0=${lat0} +lon_0=${lon0} +k=1 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs`,toWgs=proj4(projection,'EPSG:4326'),toLocal=proj4('EPSG:4326',projection);
- const n=2**ZOOM,px=lon=>(lon+180)/360*n*TILE,py=lat=>{const r=lat*Math.PI/180;return (1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n*TILE;};
+ const n=2**zoom,px=lon=>(lon+180)/360*n*TILE,py=lat=>{const r=lat*Math.PI/180;return (1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n*TILE;};
  const corners=[[-EXTENT,-EXTENT],[EXTENT,-EXTENT],[EXTENT,EXTENT],[-EXTENT,EXTENT]].map(([x,z])=>toWgs.forward([x,-z]));
  const tx0=Math.floor(Math.min(...corners.map(c=>px(c[0])))/TILE)-1,tx1=Math.floor(Math.max(...corners.map(c=>px(c[0])))/TILE)+1,ty0=Math.floor(Math.min(...corners.map(c=>py(c[1])))/TILE)-1,ty1=Math.floor(Math.max(...corners.map(c=>py(c[1])))/TILE)+1;
  fs.mkdirSync(RAW,{recursive:true});const files=[];
- for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){const f=path.join(RAW,`${ZOOM}-${tx}-${ty}.webp`);files.push(f);
+ for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){const f=path.join(RAW,`${zoom}-${tx}-${ty}.webp`);files.push(f);
   if(fs.existsSync(f)&&!refresh)continue;
-  const r=await fetch(`https://tiles.mapterhorn.com/${ZOOM}/${tx}/${ty}.webp`,{headers:{'User-Agent':'city-terrain build script'}});
-  if(!r.ok)throw Error(`Mapterhorn tile ${ZOOM}/${tx}/${ty}: HTTP ${r.status}`);fs.writeFileSync(f,Buffer.from(await r.arrayBuffer()));fs.rmSync(f.replace(/\.webp$/,'.png'),{force:true});}
- console.log(`terrain: ${files.length} Mapterhorn tiles at z${ZOOM} (${(40075016*Math.cos(lat0*Math.PI/180)/n/TILE).toFixed(2)} m pixels)`);
+  const r=await fetch(`https://tiles.mapterhorn.com/${zoom}/${tx}/${ty}.webp`,{headers:{'User-Agent':'city-terrain build script'}});
+  if(!r.ok)throw Error(`Mapterhorn tile ${zoom}/${tx}/${ty}: HTTP ${r.status}`);fs.writeFileSync(f,Buffer.from(await r.arrayBuffer()));fs.rmSync(f.replace(/\.webp$/,'.png'),{force:true});}
+ console.log(`terrain: ${files.length} Mapterhorn tiles at z${zoom} (${(40075016*Math.cos(lat0*Math.PI/180)/n/TILE).toFixed(2)} m pixels)`);
  const decoded=await decodeWebp(files);
- const elevation=(x,y)=>{const tx=Math.floor(x/TILE),ty=Math.floor(y/TILE),t=decoded.get(path.join(RAW,`${ZOOM}-${tx}-${ty}.webp`)),i=((Math.floor(y)-ty*TILE)*TILE+(Math.floor(x)-tx*TILE))*3;return t.rgb[i]*256+t.rgb[i+1]+t.rgb[i+2]/256-32768;};
+ const elevation=(x,y)=>{const tx=Math.floor(x/TILE),ty=Math.floor(y/TILE),t=decoded.get(path.join(RAW,`${zoom}-${tx}-${ty}.webp`)),i=((Math.floor(y)-ty*TILE)*TILE+(Math.floor(x)-tx*TILE))*3;return t.rgb[i]*256+t.rgb[i+1]+t.rgb[i+2]/256-32768;};
  const sample=(x,y)=>{x-=.5;y-=.5;const i=Math.floor(x),j=Math.floor(y),a=x-i,b=y-j;return (elevation(i,j)*(1-a)+elevation(i+1,j)*a)*(1-b)+(elevation(i,j+1)*(1-a)+elevation(i+1,j+1)*a)*b;};
 
  // Raw elevation on the local grid (x east, z south).

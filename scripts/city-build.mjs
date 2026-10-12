@@ -9,7 +9,7 @@ import {surfaceRecord} from '../src/surface-streaming.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {gzipSync} from 'node:zlib';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 import proj4 from 'proj4';
 import polygonClipping from 'polygon-clipping';
 import earcut from 'earcut';
@@ -344,3 +344,7 @@ console.log(JSON.stringify({city:def.name,counts,starts:city.landmarks.map(l=>`$
 // ---------- Street furniture from Mapillary detections (optional: runs when MAPILLARY_TOKEN is set) ----------
 // Lamps, signals, signs, bins and boxes at their photographed positions; see scripts/mapillary-features.mjs.
 if((await import('./env.mjs')).env('MAPILLARY_TOKEN'))await (await import('./mapillary-features.mjs')).buildFurniture(id,{refresh});
+// npm appends extra arguments to the end of a compound script, so the id never
+// reached this file when city:build was `node city-build.mjs && node cities-readme.mjs`.
+const readme=spawnSync(process.execPath,['scripts/cities-readme.mjs'],{stdio:'inherit'});
+if(readme.status)process.exit(readme.status);

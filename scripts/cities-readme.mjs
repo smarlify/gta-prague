@@ -8,7 +8,7 @@ import {execFileSync} from 'node:child_process';
 const START='<!-- CITIES:START -->',END='<!-- CITIES:END -->';
 const registry=fs.existsSync('public/cities/index.json')?JSON.parse(fs.readFileSync('public/cities/index.json')).cities:[];
 const rows=[{id:'helsinki',name:'Helsinki',country:'Finland',status:'playable',maintainers:[],source:'City of Helsinki 3D city model + open data, HSL',radius:2000},
- ...registry.map(c=>({...c,country:(c.country||'').split(' / ').at(-1),source:'OpenStreetMap'}))];
+ ...registry.map(c=>({...c,country:(c.country||'').split(' / ').at(-1),source:c.attribution?.includes('IPR Praha')?'OpenStreetMap + IPR Praha 3D model':'OpenStreetMap'}))];
 const table=['| City | Play | Status | Data | Maintainers |','| --- | --- | --- | --- | --- |',
  ...rows.map(c=>`| ${c.name}${c.country?`, ${c.country}`:''} | [\`?city=${c.id}\`](https://worldhood.org/?city=${c.id}) | ${c.status||'draft'} | ${c.source} | ${c.maintainers?.length?c.maintainers.join(', '):'wanted'} |`)].join('\n');
 const readme=fs.readFileSync('README.md','utf8');

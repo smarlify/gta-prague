@@ -22,6 +22,7 @@ that the notices match the locked runtime packages and bundled fonts.
 | HSL transit data | CC BY 4.0 | `public/data/trams.json`, `buses.json`, `bus-corridors.json` |
 | OpenStreetMap-derived route outlines and landmark positions | ODbL 1.0 | `extensions/*/route.json`, `knownFor[].at` in `extensions/*/extension.json` |
 | Cities built from OpenStreetMap (`npm run city:build`) | ODbL 1.0, © OpenStreetMap contributors | `public/cities/**`, `cities/*/city.json` |
+| Prague building shells (`npm run prague:buildings`) from IPR Praha's photogrammetric 3D model, read from the public I3S scene layer of the same model published as CityGML | CC BY 4.0, datový podklad © IPR Praha | `public/cities/prague/buildings3d/**`, `public/cities/prague/buildings3d-index.json` |
 | Street furniture positions extracted by Mapillary (`npm run city:furniture`) | Mapillary Terms of Use; downstream dataset redistribution rights need confirmation | Mapillary-derived entries in `public/cities/*/furniture.json` |
 | Façade descriptions written from Mapillary street-level photos (`npm run facades:photos`) | CC BY-SA 4.0, © Mapillary contributors | `cities/*/facades.json`, `public/cities/*/facades.json` |
 | Place descriptions written from current photos on Wikimedia Commons and Mapillary (`npm run photos:fetch`) | CC BY-SA 4.0 (the photos' licences: CC BY-SA 3.0/4.0) | `cities/*/*-reference.json`, `cities/*/*-sources.json` |
