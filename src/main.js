@@ -442,7 +442,7 @@ async function visitStart(destination,button){
   while(uploads.size){if(gameIsStopped())throw Error('The game stopped while loading this place');await new Promise(requestAnimationFrame);}
   if(version!==startVisitVersion||!$('map-dialog').open)return; // Closing the map cancels the jump, while its downloads remain useful.
   closeDialogs();setStart(destination);history.replaceState(null,'',startUrl(location,city,destination));
-  if(!started)start();else toast(`Starting at ${destination.name}.`);
+  if(!started)start();else{trackGameStart(destination);toast(`Starting at ${destination.name}.`);}
  }catch(error){console.error(error);toast(`Could not load ${destination.name}. Choose it again to retry.`,{important:true});}
  finally{switchingStart=false;button.textContent=label;button.removeAttribute('aria-busy');for(const b of buttons)b.disabled=false;}
 }
@@ -560,7 +560,16 @@ function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);m
 function handleTileError(e){console.error(e);if(!document.body.classList.contains('booting'))toast('Some scenery could not load. Nearby streets will retry.');} // not over the welcome card
 const touchScreen=matchMedia('(pointer:coarse)').matches; // phones and tablets: no keyboard, so the HUD and touch buttons stay on
 if(touchScreen){document.body.classList.remove('clean-capture');document.body.classList.add('touch');}
-function start(){if(!ready)return;if(previewing){startAfterPreview=true;return;}started=true;paused=false;document.body.classList.add('driving');loadingScreen.enter();carGroup.visible=true;marker.visible=false;toast(touchScreen?'Slide to steer · Hold Go to move · Menu for the map and settings':'WASD or arrow keys to drive · Space to handbrake');$('world').focus();}
+function trackGameStart(place=startPoint){
+ if(typeof window==='undefined'||typeof window.trackEvent!=='function')return;
+ window.trackEvent('game_start',{
+  game_id:'gta_prague',
+  game_name:'GTA Prague',
+  start_location:place?.name||'unknown',
+  event_category:'game_interaction'
+ });
+}
+function start(){if(!ready)return;if(previewing){startAfterPreview=true;return;}const first=!started;started=true;paused=false;document.body.classList.add('driving');loadingScreen.enter();carGroup.visible=true;marker.visible=false;if(first)trackGameStart(startPoint);toast(touchScreen?'Slide to steer · Hold Go to move · Menu for the map and settings':'WASD or arrow keys to drive · Space to handbrake');$('world').focus();}
 function focusWorldControls(){if(started&&!paused&&!mapOpen&&!police?.busted&&!gameIsStopped())$('world').focus({preventScroll:true});}
 function showDialog(id){if(!ready||police?.busted)return;peopleInteraction?.close();mobileControls?.release();keys.clear();$(id).showModal();mapOpen=true;if(id==='map-dialog')drawCityMap();}
 function closeDialogs(){if($('map-dialog').open)startVisitVersion++;document.querySelectorAll('dialog[open]').forEach(d=>d.close());mapOpen=!!document.querySelector('dialog[open]');mobileControls?.release();keys.clear();focusWorldControls();}
