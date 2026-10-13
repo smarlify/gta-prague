@@ -1062,7 +1062,7 @@ async function boot(){
    if(import.meta.env.DEV)window.openCityDrive.setDetailVisible=(name,visible)=>{let n=0;scene.traverse(o=>{if(o.name===name){o.visible=!!visible;n++;}});return n;};
  }catch(e){
   const stage=$('load-detail').textContent;
-  console.error('Helsinki startup failed:',stage,e);
+  console.error('Worldhood startup failed:',stage,e);
   window.helsinkiBootError={stage,message:String(e.message||e),stack:e.stack};
   reportGameError(e,'startup');
  }

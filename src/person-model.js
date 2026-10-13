@@ -406,6 +406,11 @@ export function uniformTorsoGeometry(){
 }
 // Police jacket/vest print: Finnish POLIISI by default; Prague passes Policie / Městská POLICIE hl. m. Prahy.
 export const POLICE_UNIFORM={navy:'#1b2436',vest:'#d4e03c',reflective:'#c8ccd0',text:'POLIISI'};
+// Long titles become one or two string lines for jacket/vest printing.
+export function uniformLabelLines(label){
+ const text=String(label||POLICE_UNIFORM.text);
+ return text.length>18?text.replace(/\s+hl\.\s*/,'\nhl. ').split('\n'):[text];
+}
 const uniformCache=new Map();
 function uniformTexture(kind,word=POLICE_UNIFORM.text){
  if(typeof document==='undefined')return null;
@@ -413,7 +418,8 @@ function uniformTexture(kind,word=POLICE_UNIFORM.text){
  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=256;const ctx=canvas.getContext('2d'),U=POLICE_UNIFORM;
  const label=word||U.text;
  // Long municipal titles split so the jacket/vest stays readable.
- const lines=label.length>18?[label.replace(/\s+hl\.\s*/,'\nhl. ').split('\n')]:[label];
+ // split('\n') already returns an array — do not wrap it again (that made lines[0] an array).
+ const lines=uniformLabelLines(label);
  const band=(v0,v1,colour,u0=0,u1=1)=>{ctx.fillStyle=colour;ctx.fillRect(u0*512,(1-v1)*256,(u1-u0)*512,(v1-v0)*256);};
  const text=(t,u,v,h,w,colour)=>{ctx.save();ctx.fillStyle=colour;ctx.font=`900 ${h*256}px Arial, Helvetica, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
   const m=ctx.measureText(t).width;ctx.translate(u*512,(1-v)*256);ctx.scale(w*512/m,1);ctx.fillText(t,0,0);ctx.restore();};
@@ -511,7 +517,10 @@ export function createPersonBatch(capacity,options={}){
  const policeWord=typeof options.police==='object'&&options.police?.word||(options.police?POLICE_UNIFORM.text:null);
  if(policeWord){
   // Police uniforms: textured torsos (navy patrol jacket, hi-vis vest), two more draw calls in the officers' batch only.
-  for(const kind of ['jacket','vest']){const map=uniformTexture(kind,policeWord);meshes[kind]=make(uniformTorsoGeometry(),new THREE.MeshStandardMaterial({roughness:.8,map}),capacity,`Police ${kind==='vest'?'hi-vis vests':'patrol jackets'}`);}
+  for(const kind of ['jacket','vest']){
+   const map=uniformTexture(kind,policeWord);
+   meshes[kind]=make(uniformTorsoGeometry(),new THREE.MeshStandardMaterial(map?{roughness:.8,map}:{roughness:.8,color:kind==='vest'?POLICE_UNIFORM.vest:POLICE_UNIFORM.navy}),capacity,`Police ${kind==='vest'?'hi-vis vests':'patrol jackets'}`);
+  }
  }
  const list=Object.values(meshes),cursor=new Int32Array(list.length),start=new Int32Array(list.length);
  for(const m of list)m.userData.capacity=m.instanceMatrix.count;
@@ -689,7 +698,7 @@ export function createPersonBatch(capacity,options={}){
   if(!meshes.jacket)return;
   for(const kind of ['jacket','vest']){
    const map=uniformTexture(kind,word||POLICE_UNIFORM.text);
-   meshes[kind].material.map=map;meshes[kind].material.needsUpdate=true;
+   if(map){meshes[kind].material.map=map;meshes[kind].material.needsUpdate=true;}
   }
  }
  return {group,meshes,list,begin,draw,end,setPoliceWord,joints:J,drawCalls:list.length,segmentsPerPerson:segPer,lod};
