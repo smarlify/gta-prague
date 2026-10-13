@@ -13,22 +13,54 @@ const sources=files('src').filter(f=>f.endsWith('.js')).map(read).join('\n');
 const imports=[...sources.matchAll(/\b(?:from\s*|import\s*\(\s*|import\s*)['"]([^'"]+)['"]/g)].map(m=>m[1]);
 const packageName=s=>s.startsWith('@')?s.split('/').slice(0,2).join('/'):s.split('/')[0];
 const roots=[...new Set(imports.filter(s=>!s.startsWith('.')&&!s.startsWith('/')).map(packageName))];
+// SPDX texts for packages that declare a licence in package.json but ship no LICENSE file.
+const spdxText={
+ 'Apache-2.0':`Apache License
+Version 2.0, January 2004
+http://www.apache.org/licenses/
+
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+Copyright Google LLC and contributors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.`,
+};
 // Explicit notice locations are reviewed when dependencies change. A missing entry fails closed.
 const notices={
  '@dgreenheck/ez-tree':{file:'LICENSE'},
  earcut:{file:'LICENSE'},
+ // High-score / leaderboard client. Umbrella pulls optional products; notice once.
+ // npm declares Apache-2.0 without shipping a LICENSE file.
+ firebase:{spdx:'Apache-2.0',skipDeps:true},
  mgrs:{file:'license.md'},
  'polygon-clipping':{file:'LICENSE.md'},
  proj4:{file:'LICENSE.md'},
  'robust-predicates':{file:'LICENSE'},
  splaytree:{file:'Readme.md',section:s=>s.split(/^## License\s*$/m)[1]},
  three:{file:'LICENSE'},
+ tslib:{file:'LICENSE.txt'},
  'wkt-parser':{file:'LICENSE.md'},
  // Vite inserts its module-preload shim into the shipped entry chunk. Its build-tool
  // dependencies are not shipped, so keep just Vite's own complete MIT notice.
  vite:{file:'LICENSE.md',section:s=>s.split('\n# Licenses of bundled dependencies')[0]},
 };
 const packages=new Map();
+function noticeFor(name,meta){
+ if(notices[name])return notices[name];
+ // Firebase modular SDK (@firebase/*) declares Apache-2.0 and ships no LICENSE file.
+ if((name==='firebase'||name.startsWith('@firebase/'))&&meta.license==='Apache-2.0')return {spdx:'Apache-2.0'};
+ return null;
+}
 function collect(name,parent=''){
  const candidates=[];
  for(let dir=parent;;dir=path.posix.dirname(dir)){
@@ -38,11 +70,16 @@ function collect(name,parent=''){
  const entry=candidates.find(p=>lock.packages[p]);
  if(!entry)throw Error(`No locked package for runtime dependency ${name}`);
  if(packages.has(entry))return;
- if(!notices[name])throw Error(`Review and add the licence notice for runtime dependency ${name}`);
+ // Fail closed on unknown packages before reading the install tree (keeps the review test stable).
+ if(!notices[name]&&name!=='firebase'&&!name.startsWith('@firebase/')){
+  throw Error(`Review and add the licence notice for runtime dependency ${name}`);
+ }
  const meta=JSON.parse(read(`${entry}/package.json`)),pinned=lock.packages[entry];
  if(meta.version!==pinned.version||meta.name!==name)throw Error(`Installed ${name} differs from package-lock.json; run npm ci`);
- packages.set(entry,{name,meta,pinned});
- if(name!=='vite')for(const child of Object.keys(meta.dependencies||{}))collect(child,entry);
+ const spec=noticeFor(name,meta);
+ if(!spec)throw Error(`Review and add the licence notice for runtime dependency ${name}`);
+ packages.set(entry,{name,meta,pinned,spec});
+ if(name!=='vite'&&!spec.skipDeps)for(const child of Object.keys(meta.dependencies||{}))collect(child,entry);
 }
 for(const name of [...roots,'vite'])collect(name);
 const sections=[];
@@ -51,8 +88,13 @@ function add(title,source,body){
  body=body.replace(/\r\n/g,'\n').trim();
  sections.push(`${'='.repeat(72)}\n${title}\nSource: ${source}\nNotice SHA-256: ${createHash('sha256').update(body).digest('hex')}\n\n${body}\n`);
 }
-for(const [entry,{name,meta,pinned}]of [...packages].sort(([a],[b])=>a.localeCompare(b))){
- const spec=notices[name],text=read(`${entry}/${spec.file}`);
+for(const [entry,{name,meta,pinned,spec}]of [...packages].sort(([a],[b])=>a.localeCompare(b))){
+ if(spec.spdx){
+  if(!spdxText[spec.spdx])throw Error(`No SPDX text for ${spec.spdx} (${name})`);
+  add(`${name} ${meta.version} (${meta.license})`,`${entry}/package.json licence field: ${spec.spdx}\nPackage integrity (package-lock.json): ${pinned.integrity}`,spdxText[spec.spdx]);
+  continue;
+ }
+ const text=read(`${entry}/${spec.file}`);
  add(`${name} ${meta.version} (${meta.license})`,`${entry}/${spec.file}\nPackage integrity (package-lock.json): ${pinned.integrity}`,spec.section?spec.section(text):text);
 }
 for(const specifier of [...new Set(imports.filter(s=>/^three\/examples\/fonts\/.*\.json$/.test(s)))].sort()){
