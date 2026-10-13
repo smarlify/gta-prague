@@ -121,7 +121,7 @@ const kauppatoriBollards=(x,z)=>x>12&&x<300&&z>265&&z<545;
 // Lowered Baltic water on the municipal sea polygons, granite quay walls on
 // every shore edge that borders land, and the ground plane cut under the sea.
 // Three draw calls: water, quay walls (merged), transparent wall shade.
-export function createSea(water,land={},{helsinkiHarbour=true,groundExtent=0}={}){
+export function createSea(water,land={},{helsinkiHarbour=true,groundExtent=0,riverDrop=0,quayStone=false}={}){
  const group=new THREE.Group();group.name='Helsinki harbour water and quays';
  const time={value:0},geometries=[];
  for(const {rings} of water){
@@ -144,7 +144,7 @@ export function createSea(water,land={},{helsinkiHarbour=true,groundExtent=0}={}
  };
  if(geometries.length){
   // Hilly cities: each water body lies at its own surveyed level (src/terrain.js), stepping down at dams.
-  const sea=new THREE.Mesh(drapeGeometry(mergeGeometries(geometries),{water:true,lift:-WATER_LEVEL-.1}),material);sea.name='Sea surface';geometries.forEach(g=>g.dispose());
+  const sea=new THREE.Mesh(drapeGeometry(mergeGeometries(geometries),{water:true,lift:-WATER_LEVEL-.1-riverDrop}),material);sea.name='Sea surface';geometries.forEach(g=>g.dispose());
   sea.onBeforeRender=followSky;
   group.add(sea);
  }
@@ -154,9 +154,19 @@ export function createSea(water,land={},{helsinkiHarbour=true,groundExtent=0}={}
  const edges=extractQuayEdges(water,land);
  const {geometry,skirt}=buildQuayGeometry(edges,helsinkiHarbour?{skipBollards:kauppatoriBollards,pontoons:[{x:ALLAS.x,z:ALLAS.z,w:81.9,d:42.9,yaw:ALLAS.yaw,top:-.2}]}:{});
  if(geometry.attributes.position.count){
-  const quay=new THREE.Mesh(drapeGeometry(geometry),new THREE.MeshStandardMaterial({vertexColors:true,roughness:.9,side:THREE.DoubleSide}));
+  const quayMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.9,side:THREE.DoubleSide});
+  if(quayStone)quayMaterial.onBeforeCompile=shader=>{
+   shader.vertexShader='varying vec3 vQuay;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvQuay=position;');
+   shader.fragmentShader='varying vec3 vQuay;\nfloat quayHash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+    vec2 cell=floor(vQuay.xz/vec2(.42,.28));
+    float h=quayHash(cell),joint=smoothstep(.46,.5,max(abs(fract(vQuay.x/.42)-.5),abs(fract(vQuay.z/.28)-.5)));
+    vec3 stone=mix(vec3(.72,.66,.58),vec3(.86,.82,.74),h);
+    diffuseColor.rgb=mix(diffuseColor.rgb,stone,.72)*(1.-joint*.18);
+   `);
+  };
+  const quay=new THREE.Mesh(drapeGeometry(geometry),quayMaterial);
   quay.name='Granite quay walls';quay.receiveShadow=true;group.add(quay);
-  const shade=new THREE.Mesh(drapeGeometry(skirt,{water:true,lift:-WATER_LEVEL-.1}),new THREE.MeshBasicMaterial({color:'#ffffff',vertexColors:true,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2}));
+  const shade=new THREE.Mesh(drapeGeometry(skirt,{water:true,lift:-WATER_LEVEL-.1-riverDrop}),new THREE.MeshBasicMaterial({color:'#ffffff',vertexColors:true,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2}));
   shade.name='Quay shade on water';shade.renderOrder=1;group.add(shade);
  }
  const groundGeometry=createGroundGeometry(water,groundSizeForExtent(groundExtent));

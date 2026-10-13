@@ -71,11 +71,12 @@ function spread(items,gap,max){const out=[];for(const c of items){if(out.length>
 
 // Flocks for a city from its map data. `colonies` adds data-driven extra flocks
 // (see market-life.js marketGullColony): {kind,x,z,radius,count,alt,spots,perches,walkers}.
-export function planBirds(data,{seed=7,radius=data.radius||Infinity,extent=data.extent||Infinity,colonies=[],density=1,shore:shoreIn=null}={}){
+export function planBirds(data,{seed=7,radius=data.radius||Infinity,extent=data.extent||Infinity,colonies=[],density=1,shore:shoreIn=null,gulls=true}={}){
  const random=rng(seed),flocks=[],water=data.water||[],ground=data.ground??.12;
  const shore=shoreIn??shoreSamples(water,{radius,extent});
  const nearShore=(x,z,d)=>shore.some(s=>Math.abs(s.x-x)<d&&Math.abs(s.z-z)<d&&Math.hypot(s.x-x,s.z-z)<d);
  const paved=(data.pavement||[]).filter(p=>!/pyör|cycle|Portaat|Silta/i.test(p.kind||''));
+ if(gulls!==false){
  // Gulls: soaring flocks over the water, a few birds on the quay and waterside paving.
  const shuffled=[...shore].sort(()=>random()-.5);
  const gullSites=spread(shuffled,230,Math.round(Math.min(14,4+shore.length/60)*density));
@@ -85,6 +86,7 @@ export function planBirds(data,{seed=7,radius=data.radius||Infinity,extent=data.
   const pave=paved.filter(p=>{const b=p.bbox??=bounds(p.rings);return Math.hypot((b[0]+b[2])/2-s.x,(b[1]+b[3])/2-s.z)<60;}).slice(0,6);
   const spots=pave.flatMap(p=>spotsIn(p.rings,3,random,(x,z)=>nearShore(x,z,40)&&!inWater(water,x,z))).slice(0,10);
   flocks.push({kind:'gull',x:cx,z:cz,radius:16+random()*22,alt:[9,26],count:4+Math.floor(random()*4),walkers:spots.length?1+Math.floor(random()*3):0,spots,perches:quay.filter((_,i)=>i%2===0).slice(0,8),ground});
+ }
  }
  // Pigeons on squares and pedestrian areas, biggest first.
  const squares=paved.filter(p=>/Aukio|Jalankulkualue|pedestrian|square|Tori/i.test(`${p.kind} ${p.name||''}`)).map(p=>({p,area:ringArea(p.rings[0])})).filter(s=>s.area>350&&s.area<60000)

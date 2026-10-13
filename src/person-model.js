@@ -156,7 +156,7 @@ export function posePerson(actor,look,gait,out,time=0){
  const H=look.height||1.72,k=H/REFERENCE_HEIGHT,P=PROPORTIONS,build=look.body||1,fem=look.figure||0;
  const sw=(1-.07*fem)*(.92+.08*build),hw=(1+.08*fem)*(.94+.06*build);
  const Lt=P.thigh*H,Ls=P.shin*H,Lu=P.upperArm*H,Lf=P.forearm*H,Lh=P.hand*H,ankleH=P.ankle*H;
- const cycle=actor.pose==='cycle'&&actor.bike,scooter=actor.pose==='scooter',scooterFeet=scooter&&actor.scooter;
+ const cycle=actor.pose==='cycle'&&actor.bike,scooter=actor.pose==='scooter',scooterFeet=scooter&&actor.scooter,seated=!!actor.seated;
  const w=cycle||scooter?0:gait.gaitWalk??0,r=cycle||scooter?0:gait.gaitRun??0,phase=gait.gaitPhase??look.phase??0,clock=(gait.gaitClock??time)+(look.phase||0);
  const speed=gait.gaitSpeed??Math.max(0,actor.speed||0),stride=k*(look.stride||1)*(.75+.45*speed);
  // Both gaits use a continuous foot path. Running shortens support, leaving
@@ -170,7 +170,7 @@ export function posePerson(actor,look,gait,out,time=0){
  for(let side=0;side<2;side++){
   const sgn=side?1:-1,ph=phase+(side?Math.PI:0),hj=JOINT.hipL+side*3,aj=JOINT.ankleL+side*3;
   const hx=sgn*P.hipX*H*hw;
-  if(cycle||scooterFeet){continue;}
+  if(cycle||scooterFeet||seated){continue;}
   const u=(((ph-Math.PI/2)/TAU)%1+1)%1,strike=.24*w*(1-.65*r),push=Math.asin(Math.min(.9,heel/(.112*H)));
   let rise=0;
   if(u<stance){const t=u/stance;walkZ[side]=-A*FRONT+2*A*t;
@@ -203,6 +203,12 @@ export function posePerson(actor,look,gait,out,time=0){
    set(out,hj,sgn*P.hipX*H*hw,py,0);
    ik(out,hj,JOINT.kneeL+side*3,JOINT.ankleL+side*3,sgn*scooterFeet.footX,ankleH,side?scooterFeet.backZ:scooterFeet.frontZ,Lt,Ls,0,0,-1);
   }
+ }else if(seated){
+  py=actor.seatY??.48;
+  for(let side=0;side<2;side++){const sgn=side?1:-1,hj=JOINT.hipL+side*3;
+   set(out,hj,sgn*P.hipX*H*hw,py,.06*H);
+   ik(out,hj,JOINT.kneeL+side*3,JOINT.ankleL+side*3,sgn*P.hipX*H*hw,ankleH,-.42*H,Lt,Ls,0,.2,-1);
+  }
  }else{
   py=ankleH+reach+r*.015*H;
   for(let side=0;side<2;side++){const hj=JOINT.hipL+side*3,aj=JOINT.ankleL+side*3,dx=out[aj]-out[hj],dz=walkZ[side]-out[hj+2];
@@ -213,7 +219,7 @@ export function posePerson(actor,look,gait,out,time=0){
    out[hj+1]=py;ik(out,hj,JOINT.kneeL+side*3,aj,out[aj],walkY[side],walkZ[side],Lt,Ls,0,0,-1);
   }
  }
- set(out,JOINT.pelvis,sway,py,cycle?actor.bike.hipZ:0);
+ set(out,JOINT.pelvis,sway,py,cycle?actor.bike.hipZ:seated?.06*H:0);
  // Feet: flat during stance, heel strike toe-up, toe-down after push-off.
  for(let side=0;side<2;side++){
   const aj=JOINT.ankleL+side*3;
@@ -251,6 +257,8 @@ export function posePerson(actor,look,gait,out,time=0){
   else if(side===1&&actor.hold>=0&&actor.hold!==null){const q=H/1.74,t=actor.hold;target=[(.3-.17*t)*q,(.97+.42*t)*q,(-.2-.02*t)*q,1,-.6,.5];}
   // Angry driver: hand up over the head, shaken side to side (elbow out to the side).
   // ...and the other arm out to the side, palm up: "what are you doing?"
+  else if(side===0&&actor.pose==='hail'){const q=H/1.74;target=[-.38*q,1.55*q,-.12*q,-1,-.15,.25];}
+  else if(side===1&&actor.pose==='hail'){const q=H/1.74;target=[.16*q,.95*q,-.42*q,1,-.45,.35];}
   else if(side===0&&actor.pose==='wave'){const q=H/1.74,beat=Math.max(0,Math.sin(clock*3.1));target=[-.42*q,1.12*q+.1*q*beat,-.26*q,-1,-.4,.3];}
   else if(side===1&&actor.pose==='wave'){const q=H/1.74,shake=Math.sin(clock*11);target=[.32*q+.09*shake,1.96*q+.03*Math.abs(shake),-.08*q,1,0,-.3];}
   // Police: right palm up at the oncoming car ('stop'); both hands out gripping a

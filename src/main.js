@@ -17,6 +17,13 @@ import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} fr
 import {animateVehicle} from './vehicles.js';
 import {Mobility} from './mobility.js';
 import {createStreetLife} from './street-life.js';
+import {SKODA_PAINT,policeLiveryFor} from './czech-fleet.js';
+import {nearestWaterDistance} from './water-proximity.js';
+import {createWaterfowl} from './waterfowl.js';
+import {stepPavlova} from './pavlova.js';
+import {createPavlovaAmbulance} from './pavlova-scene.js';
+import {passageDeck,liftedBridgeHeight} from './passage.js';
+import {createPassageDeck} from './passage-deck.js';
 import {buildTileInWorker,materialiseBuilding,createSourceShell} from './building-loader.js';
 import {attachFacades,applyFacadeHeights} from './facade-data.js';
 import {tileLevel,applyTileLod,createMergedShells,freezeTileGroup,freezeMesh,applyTreeLod,createStaticShadowCuller} from './tile-lod.js';
@@ -108,8 +115,8 @@ import {createMobileControls} from './mobile-controls.js';
 import {updateWorldhoodBrand} from './worldhood-brand.js';
 import {installMapillaryAttribution} from './mapillary-attribution.js';
 import './worldhood-brand.css';
-import {decodeTerrain,setTerrain,hasTerrain,groundAt,groundPose,liftBuildings,footprintBase} from './terrain.js';
-import {drapeGeometry,settleObject,createTerrainGround,drawLakeMap} from './terrain-mesh.js';
+import {decodeTerrain,setTerrain,hasTerrain,groundAt,groundPose,liftBuildings,footprintBase,setCorridorHeights,setDriveHeight} from './terrain.js';
+import {drapeGeometry,settleObject,createTerrainGround,drawLakeMap,setRiverChannel,setDryPassages} from './terrain-mesh.js';
 const impacts=new ImpactSystem();impacts.onVehicleHit=(from,car,a)=>mobility?.knock(a,from,car)??null;
 const finale=new Finale({doc:document}); // shared offence log, pursuit pressure, arrest cinematic and BUSTED screen
 const locationReadout=createLocationReadout();
@@ -129,7 +136,8 @@ const driveCamera=createDriveCameraState();let cameraFov=DRIVE_FOV.min,cameraRol
 // Cobblestone rumble (src/road-surface.js): mapped sett polygons bounce the car body and, at half amplitude, the drive camera.
 const roadRumble=createRumbleState();let cameraRumble=[0,0,0],surfaceNow={surface:'off',roughness:0},rumbleNow={bob:0,roll:0,pitch:0,intensity:0};
 let treeTrunks=null,cityModelPromise,surfaceStreamer=null,extensionStreamer=null,switchingStart=false,startVisitVersion=0,places=[],speciesTrees=null;const placeHidden=new Set();
-let birds=null,birdColonies=[],crowd=null; // gulls, pigeons, crows and sparrows from the city's map data (birds.js)
+let birds=null,birdColonies=[],crowd=null,waterfowl=null; // gulls, pigeons, crows and sparrows from the city's map data (birds.js)
+let pavlova={phase:'idle'},ambulance=null;
 let cyclists,cyclistRenderer,npcScooters,npcScooterRenderer,buses,police,policeRenderer,roadblock; // shared riders and police in every city
 let distance=0,viewSpan=150,desiredSpan=150,lastTime=0,lastUI=0,lastTile=0,lastToast=0,toastTimer,areaLabel;
 let sound=false,audioContext,mobileControls=null;
@@ -218,6 +226,18 @@ surfaceMaterial.onBeforeCompile=shader=>{
  `).replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\n roughnessFactor*=1.0-wetRough*0.6;');
 };
 const buildingMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.88});
+buildingMaterial.onBeforeCompile=shader=>{
+ shader.uniforms.uPlaster={value:buildingMaterial.userData.plaster||0};
+ buildingMaterial.userData.shader=shader;
+ shader.vertexShader='varying vec3 vWall;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWall=position;');
+ shader.fragmentShader='varying vec3 vWall;uniform float uPlaster;\nfloat wallHash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+  if(uPlaster>0.5){
+   float course=smoothstep(.04,.07,abs(fract(vWall.y/.32)-.5));
+   float grain=wallHash(floor(vWall.xz*2.5))*.08;
+   diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.79,.74,.66)+grain,.55)*(1.-course*.06);
+  }
+ `);
+};
 look=createLook({scene,sky,hemi,sun,post,surfaces:[surfaceMaterial],getSea:()=>sea,initial:'golden'}); // golden evening is the default look; T cycles the others
 $('look-label').textContent=look.label;look.onChange((name,label)=>{$('look-label').textContent=label;});$('look-btn').addEventListener('click',()=>{look.cycle();toast(look.label);$('world').focus();});
 window.helsinkiLook={set:(name,opts)=>look.set(name,opts),cycle:()=>look.cycle(),get name(){return look.name;},post};
@@ -410,7 +430,7 @@ async function ensureCityModel(){
  return cityModelPromise;
 }
 function rebuildSea(groundExtent){
- const next=createSea(data.water,data,{helsinkiHarbour:city.scenery==='helsinki',groundExtent}),old=sea;
+ const next=createSea(data.water,data,{helsinkiHarbour:city.scenery==='helsinki',groundExtent,riverDrop:city.id==='prague'?.85:0,quayStone:city.id==='prague'}),old=sea;
  sea=next;cityModel.add(next.group);ground.geometry.dispose();ground.geometry=next.groundGeometry;
  if(!old)return;
  cityModel.remove(old.group);
@@ -756,6 +776,7 @@ function frame(now){
  {const pose=roadblock?.cameraPose()||finale.cameraPose(car);if(pose){camera.position.set(...pose.position);camera.lookAt(...pose.target);}} // arrest cinematic orbit
  const wantFov=chaseCamera&&started&&!inspectionCamera?cameraFov:DRIVE_FOV.min;if(camera.fov!==wantFov){camera.fov=wantFov;camera.updateProjectionMatrix();}
  playerCars.setVisible(!inspectionCamera);
+  if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode},dt);travel.gagDriver=!!pavlova.driver;playerCars.setLook(pavlova.driver?'offroad':'crossover',pavlova.driver?'#161616':'');ambulance?.update(pavlova,dt);}
   travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null});
   if(ready&&!paused&&!mapOpen&&!police?.busted){
    const birdStep=Math.min(.1,dt); // keep encounter pressure and bird motion on the same clock at low frame rates
@@ -767,6 +788,7 @@ function frame(now){
    }
    const encounter=gullEncounter.birdTarget();
    birds?.update(birdStep,{viewer:car,threats:[car],people:[mobility.people,detailPeople],lure:encounter?null:marketShop?.lure(),encounter,safeFlight:safeBirdFlight});
+   waterfowl?.update(birdStep,car);
   }
   marketShopRenderer?.update(started&&!paused&&!mapOpen?dt:0,{viewer:car,shop:marketShop,hand:police?.busted?null:travelRenderer.hand(),visible:!inspectionCamera,dropped:gullEncounter.snapshot().dropped});
 
@@ -784,7 +806,7 @@ function frame(now){
  if(now-lastUI>140&&ready){updateHUD(now);travelUI.update(travel,{started,paused,mapOpen,busted:police?.busted,hidden:captureMode});peopleUI.update(peopleInteraction?.snapshot(),{hidden:!canTalk()||captureMode||gullEncounter.snapshot().phase==='chase'});refreshMarketUI();noticeGulls();lastUI=now;}
  uploads.step(); // rationed GPU uploads for streamed tiles
  if(now-lastTile>1200&&ready&&!switchingStart){surfaceStreamer?.update(car,{radius:1000,aheadSeconds:12});extensionStreamer?.update(car);updateTiles().catch(handleTileError);lastTile=now;}
- cityAudio.update(audioContext,{enabled:sound,active:started&&!paused&&!mapOpen,driving:travel?.mode==='car',car,surface:surfaceNow,people:[...(mobility?.people||[]).filter(p=>p.edge),...detailPeople.filter(p=>Number.isFinite(p.x))],trams:tramSim?.trams||[],heading:car?.heading??cameraHeading,throttle:keys.has('KeyW')||keys.has('ArrowUp'),reverse:keys.has('KeyS')||keys.has('ArrowDown'),brake:keys.has('Space')});
+ cityAudio.update(audioContext,{enabled:sound,active:started&&!paused&&!mapOpen,driving:travel?.mode==='car',car,surface:surfaceNow,people:[...(mobility?.people||[]).filter(p=>p.edge),...detailPeople.filter(p=>Number.isFinite(p.x))],trams:tramSim?.trams||[],heading:car?.heading??cameraHeading,throttle:keys.has('KeyW')||keys.has('ArrowUp'),reverse:keys.has('KeyS')||keys.has('ArrowDown'),brake:keys.has('Space'),waterDistance:car&&world?.water?nearestWaterDistance(car.x,car.z,world.water):Infinity});
  policeRenderer?.audio(audioContext,sound&&started&&!paused&&!mapOpen&&(!police?.busted||!finale.ended));
  birds?.audio(audioContext,sound&&started&&!paused&&!mapOpen,car,frameMs/1000);
  waterfrontLandmarks?.update(now/1000);
@@ -806,6 +828,7 @@ async function boot(){
  try{
    try{registerCities((await json('/cities/index.json')).cities);}catch{} // community-built cities
    city=useCity(selectCity(location.search));updateWorldhoodBrand(city);setPlayableRadius(city.radius||2000);
+   buildingMaterial.userData.plaster=city.id==='prague'?1:0;
    const helsinki=city.scenery==='helsinki';
    if(!helsinki)finale.zone=null; // station tram scheduling belongs to Helsinki; pursuit rules are shared
    if(!helsinki&&city.projection?.startsWith('+proj'))useProjection(city.projection,city.origin);
@@ -815,6 +838,7 @@ async function boot(){
    const terrainData=city.terrain?.file?unpack(dataUrl(city.terrain.file)).then(decodeTerrain).catch(e=>{console.warn('Terrain unavailable; the city stays flat:',e);return null;}):null; // ground elevation (src/terrain.js)
    const furnitureData=city.furniture?json(dataUrl(city.furniture)).catch(()=>null):null; // street furniture detected in street-level photos (optional, any city)
    let mobilityData,landcoverData,tramData;[data,roofIndex,surfaceIndex,mobilityData,landcoverData,tramData,extensions]=await Promise.all([d,json(dataUrl('buildings3d-index.json')),json(dataUrl('surface-index.json')),json(dataUrl('mobility.json')),json(dataUrl('landcover.json')),json(dataUrl('trams.json')),loadExtensionIndex(json)]);
+   for(const e of extensions)if(e.heights?.length)setCorridorHeights(e.heights);
    if(city.facades)attachFacades(roofIndex,await json(dataUrl(city.facades)).catch(()=>null)); // photo-described street fronts (optional, any city)
    // Photo-matched places (squares with their tram stop, trees and landmarks; scripts/place-build.mjs): measured heights,
    // register trees with species heights, and the buildings their landmarks replace.
@@ -845,7 +869,7 @@ async function boot(){
     if(!stage.buildings){createFallbackBuildings(e.city.buildings);stage.buildings=true;}
     if(!stage.streets){streetLife.append({roads:stage.roads,walks:stage.walks,pavement:e.city.pavement});world.objects.add(breakableSigns.bodies);npcScooters?.refreshRoutes(mobility.walks,world);stage.streets=true;}
     if(!stage.water){rebuildSea(Math.max(...e.mapBounds.map(Math.abs)));stage.water=true;}
-    if(!stage.active){activateExtension(e);stage.active=true;}
+    if(!stage.active){activateExtension(e);if(e.heights?.length)setCorridorHeights(e.heights);stage.active=true;}
     drawMapBase();updateDataCounts();
    }});
    await extensionStreamer.ensureStart(firstStart);
@@ -853,9 +877,10 @@ async function boot(){
    // ~0.375 px per metre, as before, whatever the map frame size.
    mapCache.width=mapCache.height=Math.min(4096,Math.round(mapView.size*.375));
    // Hilly cities: everything below samples the shared height field; the flat ground plane gives way to a terrain mesh.
+   if(city.id==='prague'){setRiverChannel(data.water);setDryPassages(data.roads);}
    if(setTerrain(await terrainData)){surfaceMaterial.defines={...surfaceMaterial.defines,TERRAIN:''};surfaceMaterial.needsUpdate=true;ground.visible=false;cityModel.add(createTerrainGround(ground.material));}
    if((landcoverData.polygons||landcoverData.runs||[]).length)cityModel.add(settleObject(createLandcover(landcoverData)));
-   sea=createSea(data.water,data,{helsinkiHarbour:helsinki});cityModel.add(sea.group);ground.geometry.dispose();ground.geometry=sea.groundGeometry;
+   sea=createSea(data.water,data,{helsinkiHarbour:helsinki,riverDrop:city.id==='prague'?.85:0,quayStone:city.id==='prague'});cityModel.add(sea.group);ground.geometry.dispose();ground.geometry=sea.groundGeometry;
    // Helsinki's hand-built scenery (landmarks, harbour, street life, signs). Other cities get the generic engine only.
    async function buildHelsinkiScenery(){
    progress(30,'Loading roads and waterfront');
@@ -919,6 +944,10 @@ async function boot(){
    if(mapped?.items)for(const pl of places)mapped.items=mapped.items.filter(i=>!(pl.dropFurniture||[]).some(([x,z,r])=>Math.hypot(i.x-x,i.z-z)<r)); // replaced by the place's own lamps and masts
    if(mapped?.items?.length){mappedFurniture=createMappedFurniture(mapped,{player:()=>car,mobility:()=>mobility});cityModel.add(mappedFurniture.group);streetObstacles.push(...mappedFurniture.obstacles);knockables=combineKnockables([knockables,mappedFurniture.knockables]);}
    world={buildings:new SpatialIndex([...data.buildings,...streetObstacles.filter(o=>!o.breakable),...ads.obstacles]),roads:new SpatialIndex(data.roads.filter(r=>!/Koroke/.test(r.kind))),pavement:new SpatialIndex(data.pavement),trafficForbidden:new SpatialIndex(helsinki?[...data.pavement.filter(inHarbour),...data.roads.filter(r=>/Koroke/.test(r.kind)),...olympiaTramOnlySurfaces(data)]:data.roads.filter(r=>/Koroke/.test(r.kind))),water:data.water};
+   if(city.id==='prague'){
+    setDriveHeight((x,z)=>{const deck=passageDeck(world.roads,x,z);if(deck!==null)return deck;const road=world.roads.at(x,z);return road&&/Silta|\bmost\b/i.test(`${road.kind} ${road.name}`)?liftedBridgeHeight(groundAt,x,z):groundAt(x,z);});
+    const passageMesh=createPassageDeck(data.roads);if(passageMesh.children.length)cityModel.add(passageMesh);
+   }
    world.cameraBuildings=new SpatialIndex(data.buildings);world.sightBuildings=world.cameraBuildings; // mapped buildings only: the camera boom and the police surge's line of sight ignore street furniture
    const marketCameraObstacles=new SpatialIndex((market.stalls||[]).map(s=>solidBox({x:s.x,z:s.z,width:s.w+.5,depth:s.d+.5,yaw:s.facing||0})));
    world.travelCameraBuildings={at:(x,z)=>world.cameraBuildings.at(x,z)||marketCameraObstacles.at(x,z)}; // walking cameras must stay outside canopy roofs and counters
@@ -929,13 +958,14 @@ async function boot(){
    setStart(firstStart);history.replaceState(null,'',startUrl(location,city,firstStart));
    progress(58,'Preparing the driving map');await new Promise(r=>setTimeout(r,30));drawMapBase();
    progress(68,'Loading buildings and textures');focus.set(car.x,0,car.z);await Promise.all([ensureCityModel(),updateTiles()]);
-   progress(88,'Loading traffic and pedestrians');mobility=helsinki?new Mobility(correctHarbourLanes(mobilityData),world,{stationCars:16,corridorCars:HARBOUR_CORRIDOR_CARS,corridor:harbourCorridor(world.roads)}):new Mobility(mobilityData,world);mobility.reset(car);angryDrivers=createAngryDrivers({vehicleOf:a=>streetLife?.traffic?.vehicleOf(a)});scene.add(angryDrivers.group);mobility.onCrash=a=>angryDrivers.trigger(a,mobility.time);streetLife=createStreetLife(scene,mobility);streetLife.update(0,car);world.objects.add(breakableSigns.bodies);
+   progress(88,'Loading traffic and pedestrians');mobility=helsinki?new Mobility(correctHarbourLanes(mobilityData),world,{stationCars:16,corridorCars:HARBOUR_CORRIDOR_CARS,corridor:harbourCorridor(world.roads)}):new Mobility(mobilityData,world);mobility.reset(car);angryDrivers=createAngryDrivers({vehicleOf:a=>streetLife?.traffic?.vehicleOf(a)});scene.add(angryDrivers.group);mobility.onCrash=a=>angryDrivers.trigger(a,mobility.time);streetLife=createStreetLife(scene,mobility,{paintColors:city.id==='prague'?SKODA_PAINT:null});streetLife.update(0,car);world.objects.add(breakableSigns.bodies);
    trafficCars=mobility.cars.map(actor=>{const visual=streetLife.traffic.vehicleOf(actor);return {id:`traffic-${actor.id}`,label:visual?.type==='taxi'?'Taxi':'Car',actor,visual:{type:visual?.type||'sedan',paint:visual?.paint.getStyle()},claim(){if(actor.playerTaken||actor.edge===null||Math.abs(actor.speed)>1.2)return false;actor.playerTaken=true;actor.edge=null;actor.speed=0;return true;},release(){delete actor.playerTaken;}};});
-   police=new PoliceSimulation(mobility.roads,world);policeRenderer=createPoliceRenderer(scene,police);police.onIncident=(...incident)=>finale.incident(...incident);roadblock=createRoadblock(scene,{world,police,carModel:carGroup,playerLook:travelRenderer.look,isVisible:trafficInView,obstacles:()=>[...mobility.cars.filter(c=>c.edge),...(tramSim?.bodies||[]),...(buses?.bodies||[]),...travel.parkedBodies(),...police.obstacles],onWarning:message=>toast(message,{important:true})});
+   police=new PoliceSimulation(mobility.roads,world);policeRenderer=createPoliceRenderer(scene,police,{livery:policeLiveryFor(city.id)});police.onIncident=(...incident)=>finale.incident(...incident);roadblock=createRoadblock(scene,{world,police,carModel:carGroup,playerLook:travelRenderer.look,isVisible:trafficInView,obstacles:()=>[...mobility.cars.filter(c=>c.edge),...(tramSim?.bodies||[]),...(buses?.bodies||[]),...travel.parkedBodies(),...police.obstacles],onWarning:message=>toast(message,{important:true})});
    tramSim=new TramSimulation(tramData,world);tramSim.reset(car);tramRenderer=createTramRenderer(scene,tramSim);tramRenderer.update(car);
    cyclists=new Cyclists(data);cyclistRenderer=createCyclistRenderer(scene,cyclists);cyclistRenderer.update(car);
    npcScooters=new ScooterRiders(mobility.walks,world);npcScooters.reset(car);npcScooterRenderer=createScooterRiderRenderer(scene,npcScooters);npcScooterRenderer.update(car);
-   birds=createBirds(data,{colonies:birdColonies});cityModel.add(birds.group);
+   birds=createBirds(data,{colonies:birdColonies,gulls:city.id!=='prague'});cityModel.add(birds.group);
+   if(city.id==='prague'){waterfowl=createWaterfowl(cityModel,data.water);ambulance=createPavlovaAmbulance(scene);}
    safeBirdFlight=createBirdFlightClearance({buildings:world.cameraBuildings,stalls:market.stalls||[],water:world.water});
    marketShop=new MarketShop({stalls:market.stalls||[]});if(marketShop.stalls.length)marketShopRenderer=createMarketShopRenderer(cityModel,marketShop.stalls); // only where the city has market stalls
    // Bystanders react to a pedestrian hit: graph walkers through mobility, free crowds directly (crowd-reaction.js).
