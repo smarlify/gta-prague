@@ -23,6 +23,7 @@ import {createWaterfowl} from './waterfowl.js';
 import {stepPavlova} from './pavlova.js';
 import {createPavlovaAmbulance} from './pavlova-scene.js';
 import {passageDeck,liftedBridgeHeight,stripBoredTunnels} from './passage.js';
+import {pragueSceneryTrees} from './prague-scenery.js';
 import {createPassageDeck} from './passage-deck.js';
 import {buildTileInWorker,materialiseBuilding,createSourceShell} from './building-loader.js';
 import {attachFacades,applyFacadeHeights} from './facade-data.js';
@@ -743,7 +744,7 @@ function frame(now){
     }else if(!r.crashed){const h=travel.hitPeople(previous,[...mobility.people,...detailPeople],impacts,{police,obstacles:travelObstacles()});
      if(h?.fell){car=travel.actor;playerCars.sync(travel);toast(h.fell>5?'Ouch. You hit someone and went flying.':'You hit someone and came off. Press Enter to get back on.');lastToast=now;}else if(h?.bumped&&now-lastToast>1500){toast('Sorry!');lastToast=now;}}
     distance=car.distance;
-    if(r.collision&&now-lastToast>2200){if(r.collision==='boundary')showEdgeInvite();if(r.collision==='water')toast('The water is best enjoyed from the shore.');lastToast=now;}
+    if(r.collision==='water'&&driving){const sink=travel.sinkInWater();car=travel.actor;playerCars.sync(travel);if(sink.ok&&now-lastToast>1200){toast('Car sinking — swim to shore, then Enter a stopped car.');lastToast=now;}}else if(r.collision&&now-lastToast>2200){if(r.collision==='boundary')showEdgeInvite();lastToast=now;}
    }
    const beforeTransitImpact=Math.abs(car.speed);
    tramSim.step(step,car,[...mobility.cars,...(buses?.obstacles||[]),...police.obstacles,...parked]);
@@ -762,12 +763,12 @@ function frame(now){
  }else if(ready&&police?.busted){policeRenderer.update(dt);roadblock?.update(dt,car);if(finale.cinematicStep(dt,roadblock?.playing)){$('busted-overlay').classList.toggle('live',!!roadblock?.active);$('busted-overlay').hidden=false;$('busted-continue').focus();}} // arrest cinematic: strobes keep flashing, then the end screen
  if(car){
    speedometer.update(car,dt,{mode:travel.mode});
-   travel.advanceTransition(paused||mapOpen?0:dt);playerCars.sync(travel,dt);const vehicle=travel.car;
+   travel.advanceTransition(paused||mapOpen?0:dt);playerCars.sync(travel,dt);const vehicle=travel.sunkCar||travel.car||car;
    treeFocus.value.set(car.x,car.z);
    treeFade.value=chaseCamera&&started?0:1;
    surfaceNow=world?surfaceDetailAt(world,car.x,car.z):surfaceNow;rumbleNow=rumbleFor(travel.mode==='car'&&started&&!paused&&!mapOpen?surfaceNow.surface:'asphalt',travel.mode==='car'?car.speed:0,paused||mapOpen?0:dt,roadRumble,surfaceNow.roughness);
    const slope=groundPose(vehicle.x,vehicle.z,vehicle.heading,1.4,.8); // terrain: wheels on the ground, body pitched and rolled with the slope
-   carGroup.position.set(vehicle.x,.12+rumbleNow.bob+slope.y,vehicle.z);carGroup.rotation.y=vehicle.heading;carGroup.rotation.x=rumbleNow.pitch+slope.pitch;
+   const sinkY=(vehicle.sunk||vehicle.sinkProgress)?-(vehicle.sinkProgress||0)*3.2:0;carGroup.visible=travel.mode==='car'||!!travel.sunkCar;carGroup.position.set(vehicle.x,.12+rumbleNow.bob+slope.y+sinkY,vehicle.z);carGroup.rotation.y=vehicle.heading;carGroup.rotation.x=rumbleNow.pitch+slope.pitch+(sinkY?-0.25*Math.min(1,-sinkY/3):0);
    carGroup.rotation.z=(started?-vehicle.steer*Math.min(Math.abs(vehicle.speed)*.002,.04):0)+rumbleNow.roll+slope.roll;
    animateVehicle(carGroup,vehicle.speed,vehicle.steer,paused||mapOpen?0:dt,keys.has('Space')||keys.has('KeyS')||keys.has('ArrowDown'));
    for(const w of carGroup.userData.wheels)w.pivot.scale.y=vehicle.flat?.7:1;if(vehicle.flat)carGroup.position.y-=.08; // shredded tyres: squashed wheels, car sits on its rims
@@ -856,7 +857,7 @@ async function boot(){
    let mobilityData,landcoverData,tramData,surfaceTextures;[data,roofIndex,surfaceIndex,mobilityData,landcoverData,tramData,extensions,surfaceTextures]=await Promise.all([d,json(dataUrl('buildings3d-index.json')),json(dataUrl('surface-index.json')),json(dataUrl('mobility.json')),json(dataUrl('landcover.json')),json(dataUrl('trams.json')),loadExtensionIndex(json),surfaceTexturesP]);
    // Prague bored tunnels are unplayable (invisible collisions). Strip them at
    // load; short building passages and covered ways stay. Bridges untouched.
-   if(city.id==='prague'){const stripped=stripBoredTunnels(data,mobilityData);data=stripped.city;mobilityData=stripped.mobility;}
+   if(city.id==='prague'){const stripped=stripBoredTunnels(data,mobilityData);data=stripped.city;mobilityData=stripped.mobility;data.trees=[...data.trees,...pragueSceneryTrees()];}
    if(surfaceTextures?.ground)applyGroundTexture(ground.material,surfaceTextures.ground);
    for(const e of extensions)if(e.heights?.length)setCorridorHeights(e.heights);
    if(city.facades)attachFacades(roofIndex,await json(dataUrl(city.facades)).catch(()=>null)); // photo-described street fronts (optional, any city)

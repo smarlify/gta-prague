@@ -46,6 +46,18 @@ export function canExitBuildings(from,to,buildings){
  }
  return contact&&Math.hypot(to.x-from.x,to.z-from.z)>1e-9;
 }
+// Solid building hits on the carriageway. Footprints that spill onto mapped
+// asphalt (tunnel remnants, bad curb/building overlaps) are ignored so open
+// road stays driveable. Passages under real buildings still clear via passageAt.
+// Fence / bridge-fence solids live in world.objects, not this filter.
+export function blocksDriveSample(x,z,world){
+ if(passageAt(world.roads,x,z))return false;
+ const buildings=world.collisionBuildings||world.buildings;
+ if(!buildings?.at(x,z))return false;
+ if(world.roads.at(x,z))return false;
+ return true;
+}
+
 export function driveStep(car,keys,dt,world) {
  const collisionBuildings=world.collisionBuildings||world.buildings;
  const powered=(car.battery??1)>0,distanceBefore=car.distance;
@@ -80,7 +92,7 @@ export function driveStep(car,keys,dt,world) {
    if(!insidePlayable(nx,nz,3)){collision='boundary';break;}
    const samples=carSamples(car,nx,nz);
    const from={...car,heading:i?car.heading:oldHeading},next={...car,x:nx,z:nz};
-   if(world.objects?.blocksStep(from,next)||samples.some(([x,z])=>collisionBuildings.at(x,z)&&!passageAt(world.roads,x,z))&&!canExitBuildings(from,next,collisionBuildings)){collision='building';break;}
+   if(world.objects?.blocksStep(from,next)||samples.some(([x,z])=>blocksDriveSample(x,z,world))&&!canExitBuildings(from,next,collisionBuildings)){collision='building';break;}
    if(samples.some(([x,z])=>!world.roads.at(x,z)&&!world.pavement.at(x,z)&&!passageAt(world.roads,x,z)&&(world.water.some(w=>pointInPolygon(x,z,w.rings))||lakeAt(x,z)!==null))){collision='water';break;}
    car.distance+=Math.hypot(nx-car.x,nz-car.z);car.x=nx;car.z=nz;
  }
