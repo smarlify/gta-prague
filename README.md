@@ -1,36 +1,37 @@
-# worldhood
+# GTA Prague
 
-**Explore the world, and build your own corner of it.**
+**Drive, walk and explore a playable Prague.**
 
-There have been city games before. But for the first time, anyone can recreate the world, street by street.
+A Prague-first fork of [Worldhood](https://worldhood.org): an open-source city playground in your
+browser. Explore Prague by car, on foot, by bicycle or on an e-scooter. Greet people, try another
+car, or help recreate a place you know. Helsinki and Tampere remain in the build. The streets and
+buildings come from open map and city data, with local details added by contributors.
 
-An open-source city playground in your browser. Explore Helsinki and Tampere by car, on foot,
-by bicycle or on an e-scooter. Greet people, try another car, or help recreate a place you know.
-The streets and buildings come from open map and city data, with local details added by contributors.
-
-**Play: [worldhood.org](https://worldhood.org)**
+**Play (review app):** `https://gta-prague-….herokuapp.com/` (private EU Heroku app `gta-prague`).
+Upstream Worldhood: [worldhood.org](https://worldhood.org).
 
 The current game is single-player. A shared online world and player-owned territories are future
 plans. Adding and improving cities currently happens through this repository, rather than an in-game editor.
 
 The game runs entirely in the browser (three.js + Vite), with no account, backend or API key needed
 to play. Optional contributor tools that fetch data or process reference photos may require their
-own API keys; see `.env.example` and the city-building guide.
+own API keys; see `.env.example` and the city-building guide. The review build uses Umami and
+Google Analytics (`gtag` `G-Y3MF445LTX`).
 
 ## Two ways to help
 
 **🏙️ Build your city, properly.** Bring a place you know into the game. The bar is high: a city
-goes live on worldhood.org only when someone who lives there recognises every street. Real
-buildings, trees, trams, signs and paving, checked against photos. Drafts are welcome while you
-work. No coding needed: start with the [plain-language guide](docs/START_HERE.md).
+is ready when someone who lives there recognises every street. Real buildings, trees, trams, signs
+and paving, checked against photos. Drafts are welcome while you work. No coding needed: start
+with the [plain-language guide](docs/START_HERE.md).
 
-**🎮 Shape the gameplay.** What should you actually *do* in worldhood? Prototype activities,
-vehicles, people, missions, weather and sound. Play it, keep what's fun. Anything good works in
-every city. Start from the [wishlist](docs/IDEAS.md) and the [engine code map](docs/GAMEPLAY.md).
+**🎮 Shape the gameplay.** What should you actually *do* here? Prototype activities, vehicles,
+people, missions, weather and sound. Play it, keep what's fun. Anything good works in every city.
+Start from the [wishlist](docs/IDEAS.md) and the [engine code map](docs/GAMEPLAY.md).
 
 How we work: [vision](docs/VISION.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [GOVERNANCE.md](GOVERNANCE.md) · [Discord](https://discord.gg/c6SaPvxhJG)
 
-Originally built by [Lasse](https://www.linkedin.com/in/lassesaari/). Have an idea? [Tell me](https://www.linkedin.com/in/lassesaari/).
+Originally built by [Lasse](https://www.linkedin.com/in/lassesaari/) as Worldhood. Have an idea? [Tell me](https://www.linkedin.com/in/lassesaari/).
 
 ## Run
 
@@ -39,11 +40,15 @@ npm ci
 npm run dev
 ```
 
-Use Node.js 22 or newer. Open the URL Vite prints in a modern browser with WebGL2.
+Use Node.js 24 (`engines.node` is `24.x`). Open the URL Vite prints in a modern browser with WebGL2.
+With no `?city=` in the URL, the default city is Prague (`prague`).
 
-This checkout uses the shared git hooks (`core.hooksPath` points at the Plexima kit). The Plexima manifest is the local `__manifest` link.
+This checkout uses the shared git hooks: `core.hooksPath` → `/Users/dave/Development/__git-hooks`
+(the Plexima kit). The Plexima manifest is the local `__manifest` link.
 
-The review app is a private Heroku app in the EU region, on the same account as Playful and Marooned. Deploy the open branch with `git push heroku HEAD:main`.
+The review app is the private EU Heroku app `gta-prague`, on the same account as Playful and
+Marooned. Deploy the open branch with `git push heroku HEAD:main`. The live URL looks like
+`https://gta-prague-….herokuapp.com/`.
 
 | Key | Action |
 | --- | --- |
@@ -81,12 +86,12 @@ npm run build     # static build in dist/, deployable to any static host
 <!-- CITIES:START -->
 | City | Play | Status | Data | Maintainers |
 | --- | --- | --- | --- | --- |
+| Praha, Česko (default) | [`?city=prague`](/?city=prague) | draft | OpenStreetMap + IPR Praha 3D model | wanted |
 | Helsinki, Finland | [`?city=helsinki`](https://worldhood.org/?city=helsinki) | playable | City of Helsinki 3D city model + open data, HSL | wanted |
 | Tampere, Finland | [`?city=tampere`](https://worldhood.org/?city=tampere) | draft | OpenStreetMap | wanted |
-| Praha, Česko | [`?city=prague`](https://worldhood.org/?city=prague) | draft | OpenStreetMap + IPR Praha 3D model | wanted |
 <!-- CITIES:END -->
 
-Running it locally? Use `http://localhost:5173/?city=<id>`.
+Running it locally? Use `http://localhost:5173/` (Prague) or `http://localhost:5173/?city=<id>`.
 
 ## Improve the game engine
 
@@ -156,16 +161,20 @@ someone to help.
 
 ## The map
 
-- The core area is a 2 km circle around Helsinki Cathedral.
-- **Extensions** add more areas: the Mannerheimintie → Töölö → Seurasaari corridor, Länsiväylä over
-  Lauttasaari and Koivusaari, and on into Espoo (Keilaniemi, Otaniemi, Tapiola) on Espoo's own open 3D city model.
-- **Pick a city and start point** in the URL: `?city=helsinki&start=seurasaari-bridge` or
-  `?city=tampere`.
-- Coordinates are local metres (X east, Z south) from each city’s configured origin. Helsinki uses 24.9522 E, 60.1701 N and the municipal
-  ETRS-GK25 projection (EPSG:3879).
+- **Default city:** Prague. The playable core is a 2 km circle around Staroměstské náměstí.
+  Starts are the river and New Town driving loop; the castle and Charles Bridge stay places you
+  see, not spawn points. Building shells use IPR Praha’s photogrammetric LOD2 model where packed.
+- Helsinki’s core remains a 2 km circle around Helsinki Cathedral, with optional Helsinki/Espoo
+  extension corridors in that city’s data.
+- **Pick a city and start point** in the URL: `?city=prague`, `?city=helsinki&start=seurasaari-bridge`,
+  or `?city=tampere`. Omit `?city=` to load Prague.
+- Coordinates are local metres (X east, Z south) from each city’s configured origin. Prague uses
+  14.42125 E, 50.08747 N. Helsinki uses 24.9522 E, 60.1701 N and the municipal ETRS-GK25
+  projection (EPSG:3879).
 
 The game is not a survey-exact digital twin:
-- Terrain depends on the city: Tampere uses bundled elevation data; Helsinki and the Espoo extension currently use flattened ground.
+- Terrain depends on the city: Prague and Tampere use bundled elevation data; Helsinki and the
+  Espoo extension currently use flattened ground.
 - Some façades and landmark details are approximations.
 - Traffic, pedestrians and police are simulated.
 
