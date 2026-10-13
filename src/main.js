@@ -104,6 +104,7 @@ import {createStreetFurniture,combineKnockables} from './street-furniture.js';
 import {breakableSigns} from './breakable-signs.js';
 import {createParkedMicromobility} from './parked-micromobility.js';
 import {Finale} from './finale.js';
+import {bindHighScoreUI} from './high-score.js';
 import {createRoadblock} from './roadblock.js';
 import {createMappedFurniture} from './mapped-furniture.js';
 import {createPlace} from './place-scene.js';
@@ -603,11 +604,12 @@ function focusWorldControls(){if(started&&!paused&&!mapOpen&&!police?.busted&&!g
 function showDialog(id){if(!ready||police?.busted)return;peopleInteraction?.close();mobileControls?.release();keys.clear();$(id).showModal();mapOpen=true;if(id==='map-dialog')drawCityMap();}
 function closeDialogs(){if($('map-dialog').open)startVisitVersion++;document.querySelectorAll('dialog[open]').forEach(d=>d.close());mapOpen=!!document.querySelector('dialog[open]');mobileControls?.release();keys.clear();focusWorldControls();}
 function setPaused(value){if(value)peopleInteraction?.close();if(!started||mapOpen||police?.busted)return;paused=value;mobileControls?.release();keys.clear();$('pause-overlay').hidden=!paused;if(!paused)focusWorldControls();}
+const highScore=bindHighScoreUI(document,{getDistance:()=>finale?.summary?.raw?.distance??car?.distance??distance});
 function setBusted(active){
  // The arrest starts with a short cinematic (finale.cameraPose); the end screen appears when finale.cinematicStep says so.
  if(!active)$('busted-overlay').hidden=true;document.body.classList.toggle('busted',active);mobileControls?.release();keys.clear();
  for(const el of document.querySelectorAll('.topbar,.dashboard,.right-tools,#touch-controls,#touch-aux,#travel-controls'))el.inert=active;
- if(active){gullEncounter.reset();birds?.clearEncounter();paused=false;$('pause-overlay').hidden=true;roadblock?.startArrest(car);finale.arrest({car,police,knockables});}else{roadblock?.clearArrest();$('busted-overlay').classList.remove('live');finale.dismiss();$('world').focus();}
+ if(active){gullEncounter.reset();birds?.clearEncounter();paused=false;$('pause-overlay').hidden=true;roadblock?.startArrest(car);finale.arrest({car,police,knockables});}else{highScore.reset();roadblock?.clearArrest();$('busted-overlay').classList.remove('live');finale.dismiss();$('world').focus();}
 }
 function reset(){if(!ready)return;setBusted(false);setStart(startPoint);toast('Back on the road.');}
 // BUSTED screen: Continue (Enter/Esc) respawns on the spot — wanted cleared, car repaired, police gone and
@@ -760,7 +762,7 @@ function frame(now){
   }
   knockables?.update();streetLife.update(dt,car);tramRenderer.update(car);cyclistRenderer.update(car);npcScooterRenderer.update(car,dt);policeRenderer.update(dt);roadblock?.update(dt,car);
   if(police.message){toast(police.message);police.message=null;}
- }else if(ready&&police?.busted){policeRenderer.update(dt);roadblock?.update(dt,car);if(finale.cinematicStep(dt,roadblock?.playing)){$('busted-overlay').classList.toggle('live',!!roadblock?.active);$('busted-overlay').hidden=false;$('busted-continue').focus();}} // arrest cinematic: strobes keep flashing, then the end screen
+ }else if(ready&&police?.busted){policeRenderer.update(dt);roadblock?.update(dt,car);if(finale.cinematicStep(dt,roadblock?.playing)){$('busted-overlay').classList.toggle('live',!!roadblock?.active);$('busted-overlay').hidden=false;highScore.offer(finale.summary?.raw?.distance??car?.distance??distance);$('busted-continue').focus();}} // arrest cinematic: strobes keep flashing, then the end screen
  if(car){
    speedometer.update(car,dt,{mode:travel.mode});
    travel.advanceTransition(paused||mapOpen?0:dt);playerCars.sync(travel,dt);const vehicle=travel.sunkCar||travel.car||car;

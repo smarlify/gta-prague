@@ -126,6 +126,19 @@
             <section class="end-panel" aria-labelledby="busted-offences-title"><p class="eyebrow" id="busted-offences-title">OFFENCES THIS DRIVE</p><ul id="busted-offences"></ul></section>
             <section class="end-panel" aria-labelledby="busted-stats-title"><p class="eyebrow" id="busted-stats-title">THE DRIVE</p><div id="busted-stats" class="end-stats"></div></section>
           </div>
+          <section id="high-score-panel" class="high-score-panel" hidden aria-labelledby="high-score-title">
+            <p class="eyebrow" id="high-score-title">HIGH SCORE</p>
+            <p class="high-score-line">Distance this run: <strong id="high-score-value">0 m</strong></p>
+            <p id="high-score-status" class="high-score-status" role="status"></p>
+            <button type="button" id="high-score-google" class="primary-btn high-score-google">Continue with Google</button>
+            <form id="high-score-guest" class="high-score-guest" hidden>
+              <label for="high-score-name">Guest name</label>
+              <div class="high-score-guest-row">
+                <input id="high-score-name" name="name" type="text" maxlength="40" autocomplete="nickname" placeholder="Your name">
+                <button type="submit" id="high-score-guest-submit" class="ghost-btn">Save as guest</button>
+              </div>
+            </form>
+          </section>
           <div class="end-actions"><button id="busted-continue" class="primary-btn">Continue <span aria-hidden="true">↗</span><kbd>ENTER</kbd></button><button id="busted-restart" class="ghost-btn">Restart <kbd>R</kbd></button></div>
           <span class="end-note">Continue puts you back on the road right here, car repaired and wanted level cleared · Restart returns to your starting point</span>
         </div>
