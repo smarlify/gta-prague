@@ -11,9 +11,9 @@ import {createBreakableSigns} from './breakable-signs.js';
 import {groundAt} from './terrain.js';
 import {drapeGeometry,settleObject} from './terrain-mesh.js';
 
-export function createStreetLife(scene,mobility){
+export function createStreetLife(scene,mobility,{paintColors=null}={}){
  const group=new THREE.Group();scene.add(group);
- const traffic=createTrafficRenderer(mobility.cars);group.add(traffic.group);
+ const traffic=createTrafficRenderer(mobility.cars,{paintColors});group.add(traffic.group);
  // Walking pedestrians share the articulated person model used by every crowd.
  // Appearance and gait state live beside (not on) the mobility actors.
  const count=mobility.people.length,looks=mobility.people.map((a,i)=>personLook(5003+(a.id??i)*11)),gaits=mobility.people.map(()=>({}));

@@ -1,6 +1,6 @@
 // WebAudio for the recorded city beds. Levels, distance and pan come from
 // audio-math.js; this file only loads the CC0 excerpts and applies them.
-import {mixerGains,ambienceMix,carSample,crowdLevel,nearestSources,attenuation,stereoPan,tramDepartures} from './audio-math.js';
+import {mixerGains,ambienceMix,carSample,crowdLevel,nearestSources,attenuation,stereoPan,tramDepartures,waterGain} from './audio-math.js';
 
 const FILES={
  city:'/sounds/city.mp3',
@@ -8,6 +8,7 @@ const FILES={
  car:'/sounds/car.mp3',
  tram:'/sounds/tram.mp3',
  depart:'/sounds/tram-depart.mp3',
+ water:'/sounds/water.mp3',
 };
 const TRAM_SLOTS=3,TRAM_RANGE=90;
 
@@ -48,7 +49,7 @@ function makeLoop(ctx,buffer,destination){
 
 export function createCityAudio(){
  let context=null,master,buses,loops,tramVoices,departBuffer,waiting=new Map(),ready=false,loading=null;
- const levels={ready:false,city:0,crowd:0,car:0,carRate:1,tram:0};
+ const levels={ready:false,city:0,crowd:0,car:0,carRate:1,tram:0,water:0};
  let analyser=null,listener={x:0,z:0};
 
  function ensure(ctx){
@@ -60,10 +61,10 @@ export function createCityAudio(){
   buses={engine:branch(),vehicles:branch(),ambience:branch()};
   loading=Promise.all([
    loadBuffer(ctx,FILES.city,true),loadBuffer(ctx,FILES.crowd,true),loadBuffer(ctx,FILES.car,true),
-   loadBuffer(ctx,FILES.tram,true),loadBuffer(ctx,FILES.depart,false),
-  ]).then(([city,crowd,car,tram,depart])=>{
+   loadBuffer(ctx,FILES.tram,true),loadBuffer(ctx,FILES.depart,false),loadBuffer(ctx,FILES.water,true),
+  ]).then(([city,crowd,car,tram,depart,water])=>{
    if(ctx!==context)return;
-   loops={city:makeLoop(ctx,city,buses.ambience),crowd:makeLoop(ctx,crowd,buses.ambience),car:makeLoop(ctx,car,buses.engine)};
+   loops={city:makeLoop(ctx,city,buses.ambience),crowd:makeLoop(ctx,crowd,buses.ambience),car:makeLoop(ctx,car,buses.engine),water:makeLoop(ctx,water,buses.ambience)};
    tramVoices=Array.from({length:TRAM_SLOTS},()=>makeLoop(ctx,tram,buses.vehicles));
    departBuffer=depart;ready=true;levels.ready=true;
   }).catch(err=>{console.warn('City sounds failed to load',err);loading=null;context=null;});
@@ -91,7 +92,7 @@ export function createCityAudio(){
   update(ctx,state={}){
    if(ctx)ensure(ctx);
    if(!ready||ctx!==context)return;
-   const {enabled=false,active=false,driving=false,car=null,surface=null,people=[],trams=[],heading=0,throttle=false,reverse=false,brake=false}=state;
+   const {enabled=false,active=false,driving=false,car=null,surface=null,people=[],trams=[],heading=0,throttle=false,reverse=false,brake=false,waterDistance=Infinity}=state;
    const mix=mixerGains({enabled,active}),now=ctx.currentTime;
    listener=car||listener;
    master.gain.setTargetAtTime(mix.master,now,.08);
@@ -102,6 +103,8 @@ export function createCityAudio(){
    loops.city.gain.gain.setTargetAtTime(city,now,.2);levels.city=city;
    const crowd=crowdLevel(people,listener)*.62;
    loops.crowd.gain.gain.setTargetAtTime(crowd,now,.15);levels.crowd=crowd;
+   const river=waterGain(waterDistance)*.4;
+   loops.water.gain.gain.setTargetAtTime(river,now,.25);levels.water=river;
    const sample=carSample(car?.speed||0,surface,{throttle,reverse,brake});
    const carGain=driving&&car?sample.gain:0;
    loops.car.gain.gain.setTargetAtTime(carGain,now,.12);

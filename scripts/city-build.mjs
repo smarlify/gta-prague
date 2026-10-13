@@ -13,7 +13,8 @@ import {execFileSync,spawnSync} from 'node:child_process';
 import proj4 from 'proj4';
 import polygonClipping from 'polygon-clipping';
 import earcut from 'earcut';
-import {bounds,SpatialIndex,registerPlayableArea,setPlayableRadius} from '../src/geo.js';
+import {bounds,pointInPolygon,SpatialIndex,registerPlayableArea,setPlayableRadius} from '../src/geo.js';
+import {keptPassage,skipHighwayWay} from '../src/passage.js';
 import {nearestRoadPoint} from '../src/physics.js';
 import {surfaceChunks} from './world-formats.mjs';
 import {usableBusPaths} from '../src/bus-simulation.js';
@@ -23,7 +24,10 @@ import {routePoint} from '../src/mobility.js';
 const id=process.argv[2],refresh=process.argv.includes('--refresh');
 if(!/^[a-z0-9-]+$/.test(id||''))throw Error('Usage: npm run city:build -- <id>');
 const def=JSON.parse(fs.readFileSync(path.join('cities',id,'city.json')));
-const RAW=path.join('data/raw/cities',id),OUT=path.join('public/cities',id),URL_DIR=`/cities/${id}`;
+const RAW=path.join('data/raw/cities',id),LIVE=path.join('public/cities',id),OUT=path.join(RAW,'stage'),URL_DIR=`/cities/${id}`;
+// Downloads and the new packs land in a stage folder. The playable city is
+// replaced only after that stage has files, so a failed Overpass call cannot
+// wipe public/cities/<id> the way an early rmSync did.
 fs.mkdirSync(RAW,{recursive:true});fs.rmSync(OUT,{recursive:true,force:true});for(const d of ['buildings3d','surfaces'])fs.mkdirSync(path.join(OUT,d),{recursive:true});
 const [lon0,lat0]=def.origin,R=def.radiusMetres,EXTENT=Math.round(R*1.25);
 const projection=`+proj=tmerc +lat_0=${lat0} +lon_0=${lon0} +k=1 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs`;
@@ -33,29 +37,50 @@ const square=[[[-EXTENT,-EXTENT],[EXTENT,-EXTENT],[EXTENT,EXTENT],[-EXTENT,EXTEN
 
 // ---------- Overpass (cached; falls back to a mirror when the main server is busy) ----------
 const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
-function overpass(name,body){
+function overpass(name,body,{optional=false,attempts=6,maxTime=180}={}){
  const file=path.join(RAW,name+'.json');if(fs.existsSync(file)&&!refresh)return JSON.parse(fs.readFileSync(file));
- const q=`[out:json][timeout:240];${body}`;
- for(let attempt=0;attempt<6;attempt++){
+ const q=`[out:json][timeout:${maxTime}];${body}`;
+ for(let attempt=0;attempt<attempts;attempt++){
   const endpoint=ENDPOINTS[attempt%ENDPOINTS.length];
-  try{const text=execFileSync('curl',['-sS','-f','--max-time','300','-A','worldhood/0.1 (city build)','--data-urlencode',`data=${q}`,endpoint],{encoding:'utf8',maxBuffer:1<<30});
+  try{const text=execFileSync('curl',['-sS','-f','--max-time',String(maxTime),'-A','worldhood/0.1 (city build)','--data-urlencode',`data=${q}`,endpoint],{encoding:'utf8',maxBuffer:1<<30});
    const json=JSON.parse(text);fs.writeFileSync(file,text);console.log(`  ${name}: ${json.elements.length} elements`);return json;}
-  catch(error){console.log(`  ${name}: retry ${attempt+1} (${String(error.message).slice(0,80)})`);execFileSync('sleep',[String(10+attempt*10)]);}
+  catch(error){console.log(`  ${name}: retry ${attempt+1} (${String(error.message).slice(0,80)})`);if(optional&&attempt+1>=attempts){console.log(`  ${name}: skipped`);return {elements:[]};}execFileSync('sleep',[String(optional?5:10+attempt*10)]);}
  }
  throw Error(`Overpass failed for ${name}`);
 }
 const around=`(around:${Math.round(EXTENT*1.42)},${lat0},${lon0})`;
 console.log(`Fetching OpenStreetMap around ${def.name}…`);
-const areas=overpass('areas',`(way["building"]${around};relation["building"]["type"="multipolygon"]${around};way["natural"="water"]${around};relation["natural"="water"]${around};way["waterway"="riverbank"]${around};way["leisure"~"^(park|garden|playground|pitch)$"]${around};relation["leisure"="park"]${around};way["landuse"~"^(grass|forest|recreation_ground|meadow|cemetery|village_green)$"]${around};way["natural"~"^(wood|scrub|grassland)$"]${around};way["area:highway"]${around};way["highway"="pedestrian"]["area"="yes"]${around};);out geom tags;`);
-const ways=overpass('highways',`(way["highway"]${around};);out body;>;out skel qt;`);
+const areas=overpass('areas',`(way["building"]${around};relation["building"]["type"="multipolygon"]${around};way["natural"="water"]${around};relation["natural"="water"]${around};way["waterway"="riverbank"]${around};relation["waterway"="riverbank"]${around};way["waterway"="river"]${around};relation["waterway"="river"]${around};way["leisure"~"^(park|garden|playground|pitch)$"]${around};relation["leisure"="park"]${around};way["landuse"~"^(grass|forest|recreation_ground|meadow|cemetery|village_green)$"]${around};way["natural"~"^(wood|scrub|grassland)$"]${around};way["area:highway"]${around};way["highway"="pedestrian"]["area"="yes"]${around};);out geom tags;`);
+const ways=overpass('highways',`(way["highway"]${around};way["tunnel"="building_passage"]${around};way["covered"="yes"]["railway"~"^(tram|light_rail)$"]${around};);out body;>;out skel qt;`);
 // Two light queries rather than one heavy one: public Overpass servers time out on large mixed requests.
 const nodePoints=overpass('nodes',`(node["natural"="tree"]${around};node["highway"="traffic_signals"]${around};);out;`);
 const places=overpass('places',`(nwr["name"]["tourism"~"^(attraction|museum|viewpoint|gallery)$"]${around};nwr["name"]["place"="square"]${around};nwr["name"]["amenity"~"^(townhall|theatre|concert_hall|library|place_of_worship)$"]${around};nwr["name"]["railway"="station"]${around};nwr["name"]["historic"~"^(monument|memorial|castle|building|church)$"]${around};);out center tags;`);
 const points={elements:[...nodePoints.elements,...places.elements]};
-// Public transport: route relations with geometry clipped to the city box, plus named stops.
+// Public transport: one mixed route query times out at this radius (HTTP 504).
+// Ids first, then geometry in small batches. New cache names, so the old 2 km
+// transit.json and stops.json are not reused. Successful area/highway caches are.
 const box=(()=>{const inv=proj4(projection,'EPSG:4326');const [w,sLat]=inv.forward([-EXTENT,-EXTENT]),[e,n]=inv.forward([EXTENT,EXTENT]);return [sLat,w,n,e].map(v=>+v.toFixed(5));})();
-const transit=overpass('transit',`(relation["type"="route"]["route"~"^(tram|bus|trolleybus|light_rail)$"](${box.join(',')}););out geom(${box.join(',')});`);
-const stopNodes=overpass('stops',`(node["railway"="tram_stop"]${around};node["public_transport"="stop_position"]${around};node["highway"="bus_stop"]${around};);out;`);
+const transitElements=[],seenTransit=new Set();
+for(const name of fs.existsSync(RAW)?fs.readdirSync(RAW):[]){
+ if(!/^transit-geom-.*\.json$/.test(name))continue;
+ const cached=JSON.parse(fs.readFileSync(path.join(RAW,name),'utf8'));
+ for(const e of cached.elements||[]){if(e.type==='relation'){if(seenTransit.has(e.id))continue;seenTransit.add(e.id);}transitElements.push(e);}
+}
+console.log(`  transit geometry already cached: ${seenTransit.size} relations`);
+for(const route of ['tram','trolleybus','light_rail','bus']){
+ const ids=overpass(`transit-ids-${route}`,`(relation["type"="route"]["route"="${route}"](${box.join(',')}););out ids;`);
+ const rels=ids.elements.filter(e=>e.type==='relation'&&!seenTransit.has(e.id)).map(e=>e.id);
+ if(route==='bus'){console.log(`  bus: ${rels.length} relations left for a second pass; this bake keeps tram and trolleybus geometry`);continue;}
+ const batch=1;
+ console.log(`  ${route}: ${rels.length} relations still to fetch, one at a time`);
+ for(let i=0;i<rels.length;i+=batch){
+  const slice=rels.slice(i,i+batch),part=overpass(`transit-geom-${route}-id${slice[0]}`,`(relation(id:${slice.join(',')}););out geom(${box.join(',')});`,{optional:true,attempts:2,maxTime:45});
+  for(const e of part.elements){if(e.type==='relation'){if(seenTransit.has(e.id))continue;seenTransit.add(e.id);}transitElements.push(e);}
+ }
+}
+const transit={elements:transitElements};
+const stopNodes=overpass('stops-wide',`(node["railway"="tram_stop"]${around};node["public_transport"="stop_position"]${around};node["highway"="bus_stop"]${around};);out;`);
+console.log('Building city packs from the cached map data…');
 
 // ---------- Geometry helpers ----------
 const key=p=>`${p[0].toFixed(2)},${p[1].toFixed(2)}`;
@@ -101,7 +126,7 @@ for(const e of areas.elements){
  if(t.building&&!['roof','no'].includes(t.building)){
   const height=Math.min(levelsHeight(t),120);
   for(const rings of multi){const item={...base,rings,bbox:bounds(rings),kind:t.building,material:t['building:material']||'',height};city.buildings.push(item);footprints.push(item);}
- }else if(t.natural==='water'||t.waterway==='riverbank')for(const rings of multi)city.water.push({...base,rings,bbox:bounds(rings),kind:t.water||'water'});
+ }else if(t.natural==='water'||t.waterway==='riverbank'||t.waterway==='river')for(const rings of multi)city.water.push({...base,rings,bbox:bounds(rings),kind:t.water||t.waterway||'water'});
  else if(t['area:highway']||t.highway==='pedestrian')for(const rings of multi)(/footway|pedestrian|cycleway/.test(t['area:highway']||t.highway)?city.pavement:city.roads).push({...base,rings,bbox:bounds(rings),kind:t['area:highway']||'Jalankulkualue',material:surfaceMaterial(t.surface)});
  else{const kind=/forest|wood|scrub/.test(t.landuse||t.natural||'')?'Metsä':t.leisure==='playground'?'Leikkipaikka':t.leisure==='pitch'?'Kenttä':'Nurmikko';for(const rings of multi)city.parks.push({...base,rings,bbox:bounds(rings),kind});}
 }
@@ -113,27 +138,52 @@ function surfaceMaterial(surface=''){
  if(/wood/.test(surface))return 'Puu';
  return 'Asfaltti';
 }
+// River relations are often a centreline, not a bank polygon. Buffer those
+// into a channel when the line is not already inside a mapped water body.
+function centrelineRuns(e){
+ const lines=[];
+ if(e.type==='way'&&e.geometry?.length>1)lines.push(e.geometry.map(g=>local(g.lon,g.lat)));
+ if(e.type==='relation')for(const m of e.members||[])if(m.type!=='node'&&m.geometry?.length>1&&m.role!=='inner')lines.push(m.geometry.map(g=>local(g.lon,g.lat)));
+ return lines.filter(l=>l.length>1);
+}
+function lineInWater(line){
+ let n=0,hit=0;const step=Math.max(1,Math.floor(line.length/8));
+ for(let i=0;i<line.length;i+=step){n++;const [x,z]=line[i];if(city.water.some(w=>x>=w.bbox[0]&&x<=w.bbox[2]&&z>=w.bbox[1]&&z<=w.bbox[3]&&pointInPolygon(x,z,w.rings)))hit++;}
+ return n>0&&hit/n>.6;
+}
+const RIVER_WIDTH=180;
+for(const e of areas.elements){
+ const t=e.tags||{};if(t.waterway!=='river'||t.natural==='water'||t.waterway==='riverbank')continue;
+ if(polygonsOf(e).length)continue;
+ const width=parseFloat(t.width)>4?parseFloat(t.width):RIVER_WIDTH;
+ const base={id:`osm-${e.type}-${e.id}-channel`,name:t.name||'',address:''};
+ for(const line of centrelineRuns(e)){if(lineInWater(line))continue;
+  for(const rings of bufferLine(line,width))city.water.push({...base,rings,bbox:bounds(rings),kind:'river'});}
+}
 
 // ---------- Highways: polygons + routable graphs ----------
-const nodes=new Map(),highwayWays=[];
-for(const e of ways.elements){if(e.type==='node')nodes.set(e.id,local(e.lon,e.lat));else if(e.type==='way')highwayWays.push(e);}
+const nodes=new Map(),highwayWays=[],seenWays=new Set();
+for(const e of ways.elements){if(e.type==='node')nodes.set(e.id,local(e.lon,e.lat));else if(e.type==='way'&&!seenWays.has(e.id)){seenWays.add(e.id);highwayWays.push(e);}}
 const CAR={motorway:16,trunk:14,primary:12,secondary:10,tertiary:8.5,unclassified:6.5,residential:6.5,living_street:5.5,service:4.5,motorway_link:7,trunk_link:7,primary_link:7,secondary_link:7,tertiary_link:6.5};
 const WALK={footway:3,pedestrian:6,path:2.2,cycleway:2.8,steps:2.5,track:3};
 const use=new Map();for(const w of highwayWays)for(const n of w.nodes)use.set(n,(use.get(n)||0)+1);
 for(const w of highwayWays){
- const t=w.tags||{};if(t.tunnel&&t.tunnel!=='no'||t.area==='yes'||t.highway==='proposed'||t.highway==='construction')continue;
+ const t=w.tags||{};if(skipHighwayWay(t))continue;
+ const passage=keptPassage(t);
  const line=w.nodes.map(n=>nodes.get(n)).filter(Boolean);if(line.length<2)continue;
- const width=parseFloat(t.width)||CAR[t.highway]||WALK[t.highway];if(!width)continue;
+ const width=Math.max(parseFloat(t.width)||CAR[t.highway]||WALK[t.highway]||(passage?8:0),passage?8:0);if(!width)continue;
  const bridge=t.bridge&&t.bridge!=='no'?' (Silta)':'';
- const item={id:`osm-way-${w.id}`,name:t.name||'',kind:(CAR[t.highway]?(t.highway==='service'?'Ajorata, muu':'Ajorata'):(t.highway==='cycleway'?'Erotettu pyörätie':'Jalkakäytävä'))+bridge,material:surfaceMaterial(t.surface)};
- for(const rings of bufferLine(line,width))(CAR[t.highway]?city.roads:city.pavement).push({...item,rings,bbox:bounds(rings)});
+ const drivable=!!CAR[t.highway]||!!passage;
+ const item={id:`osm-way-${w.id}`,name:t.name||'',passage:passage||undefined,kind:(drivable?(t.highway==='service'&&!passage?'Ajorata, muu':'Ajorata'):(t.highway==='cycleway'?'Erotettu pyörätie':'Jalkakäytävä'))+bridge+(passage?' (Tunel)':''),material:surfaceMaterial(t.surface)};
+ for(const rings of bufferLine(line,width))(drivable?city.roads:city.pavement).push({...item,rings,bbox:bounds(rings)});
 }
 const signals=points.elements.filter(e=>e.type==='node'&&e.tags?.highway==='traffic_signals').map(e=>({p:local(e.lon,e.lat),name:e.tags.name||''}));
 function graph(walking){
  const ids=new Map(),out={nodes:[],edges:[]};const nodeId=n=>{if(!ids.has(n)){ids.set(n,out.nodes.length);out.nodes.push(nodes.get(n));}return ids.get(n);};
  for(const w of highwayWays){
-  const t=w.tags||{};if(t.tunnel&&t.tunnel!=='no'||t.area==='yes')continue;
-  const ok=walking?(WALK[t.highway]||t.sidewalk&&t.sidewalk!=='no'||['residential','living_street','tertiary','secondary','primary','unclassified'].includes(t.highway)):(CAR[t.highway]&&t.access!=='private'&&t.service!=='parking_aisle'&&t.motor_vehicle!=='no');
+  const t=w.tags||{};if(skipHighwayWay(t,{graph:true}))continue;
+  const passage=keptPassage(t);
+  const ok=walking?(WALK[t.highway]||t.sidewalk&&t.sidewalk!=='no'||['residential','living_street','tertiary','secondary','primary','unclassified'].includes(t.highway)||!!passage):(!!(CAR[t.highway]||passage)&&t.access!=='private'&&t.service!=='parking_aisle'&&t.motor_vehicle!=='no');
   if(!ok)continue;
   const oneway=!walking&&(t.oneway==='yes'||t.oneway==='1'||t.oneway==='-1'||t.junction==='roundabout'||t.highway==='motorway'),reverse=t.oneway==='-1';
   const crossing=walking&&(t.footway==='crossing'||t.highway==='crossing');
@@ -147,7 +197,10 @@ function graph(walking){
  }
  return out;
 }
-const mobility={source:'OpenStreetMap contributors, ODbL',note:'Routable graph split at shared OSM nodes; signals from highway=traffic_signals.',signals,roads:graph(false),walks:graph(true)};
+const mobility={source:'OpenStreetMap contributors, ODbL',note:'Routable graph split at shared OSM nodes; signals from highway=traffic_signals. Tunnel, building_passage and covered ways stay in the graph.',signals,roads:graph(false),walks:graph(true)};
+// Passage decks punch a dry slot out of the river so water does not flood a tunnel.
+{const cuts=city.roads.filter(r=>r.passage).map(r=>r.rings);
+ if(cuts.length)city.water=city.water.flatMap(w=>{let parts;try{parts=polygonClipping.difference(w.rings,...cuts);}catch{return [w];}return parts.filter(rings=>rings?.[0]?.length>3).map(rings=>({...w,rings,bbox:bounds(rings)}));});}
 
 // ---------- Public transport ----------
 // Chain each relation's member ways in order (flipping where needed), split at gaps,
@@ -279,6 +332,18 @@ for(const c of [...manual,...candidates]){
 }
 if(!city.landmarks.length)throw Error('No drivable start point found; add one under "starts" in city.json');
 
+// A 6 km disk would push walking edges and trees past GitHub's file limit.
+// Keep the old 2 km core walkable and drop the rest.
+const WALK_CORE=2000;
+function cropGraph(graph,core){
+ const edges=graph.edges.filter(e=>e.points.some(([x,z])=>Math.hypot(x,z)<=core));
+ const used=new Set();for(const e of edges){used.add(e.from);used.add(e.to);}
+ const map=new Map();const nodes=[];
+ for(const i of [...used].sort((a,b)=>a-b)){map.set(i,nodes.length);nodes.push(graph.nodes[i]);}
+ return {nodes,edges:edges.map(e=>({...e,from:map.get(e.from),to:map.get(e.to)}))};
+}
+if(R>WALK_CORE){mobility.walks=cropGraph(mobility.walks,WALK_CORE);city.trees=city.trees.filter(t=>Math.hypot(t.p[0],t.p[1])<=WALK_CORE);}
+
 // ---------- Write ----------
 fs.writeFileSync(path.join(OUT,'city.pack'),gzipSync(Buffer.from(JSON.stringify(city)),{level:9}));
 fs.writeFileSync(path.join(OUT,'buildings3d-index.json'),JSON.stringify(index));
@@ -290,7 +355,7 @@ function dissolve(){
  const roadRank=['Nupukivi','Betonikivi','Puu','Kivituhka','Asfaltti'],paveClass=p=>/Silta/.test(p.kind)&&p.material==='Puu'?'wood':/pyör|Pyör/.test(p.kind)?'cycle':'walk';
  const parkClass=p=>/Mets/.test(p.kind)?'Metsä':/Leikki/.test(p.kind)?'Leikkipaikka':/Kenttä/.test(p.kind)?'Kenttä':'Nurmikko';
  const grid=items=>{const m=new Map();for(const it of items){const b=it.bbox;for(let x=Math.floor(b[0]/T);x<=Math.floor(b[2]/T);x++)for(let z=Math.floor(b[1]/T);z<=Math.floor(b[3]/T);z++){const k=`${x},${z}`;if(!m.has(k))m.set(k,[]);m.get(k).push(it);}}return m;};
- const G={roads:grid(city.roads),pavement:grid(city.pavement),parks:grid(city.parks)},keys=new Set([...G.roads.keys(),...G.pavement.keys(),...G.parks.keys()]);
+ const G={roads:grid(city.roads.filter(r=>!r.passage)),pavement:grid(city.pavement),parks:grid(city.parks)},keys=new Set([...G.roads.keys(),...G.pavement.keys(),...G.parks.keys()]);
  const safe=f=>{try{return f();}catch{return [];}};
  for(const k of keys){
   const [x,z]=k.split(',').map(Number),cell=[[[x*T,z*T],[(x+1)*T,z*T],[(x+1)*T,(z+1)*T],[x*T,(z+1)*T],[x*T,z*T]]];
@@ -311,6 +376,7 @@ function dissolve(){
  return out;
 }
 const rendered=dissolve();
+rendered.roads.push(...city.roads.filter(r=>r.passage));
 const chunks=surfaceChunks(rendered);const surfaceIndex=[];
 for(const [k,values] of chunks){const file=`surfaces/${k}.bin`;fs.writeFileSync(path.join(OUT,file+'.pack'),gzipSync(Buffer.from(new Float32Array(values).buffer),{level:9}));surfaceIndex.push(surfaceRecord(file,values));}
 fs.writeFileSync(path.join(OUT,'surface-index.json'),JSON.stringify(surfaceIndex));
@@ -330,6 +396,20 @@ fs.mkdirSync(path.join(OUT,'extensions'),{recursive:true});
 const extensionCatalog=path.join(OUT,'extensions/index.json');
 if(!fs.existsSync(extensionCatalog))fs.writeFileSync(extensionCatalog,JSON.stringify({schemaVersion:1,extensions:[]}));
 const counts={official:officialCount,buildings:registry,roads:city.roads.length,pavement:city.pavement.length,parks:city.parks.length,water:city.water.length,trees:city.trees.length,roadEdges:mobility.roads.edges.length,walkEdges:mobility.walks.edges.length,signals:signals.length,starts:city.landmarks.length,tramRoutes:tramPaths.length,tramLines:[...new Set(tramPaths.map(p=>p.line))].join(' '),busRoutes:busPaths.length,busCorridors:usableBuses.length,stops:transitStops.length};
+function publishStage(){
+ const tooBig=[];
+ const walk=dir=>{for(const name of fs.readdirSync(dir)){const p=path.join(dir,name),st=fs.statSync(p);if(st.isDirectory())walk(p);else if(st.size>=100*1024*1024)tooBig.push(`${p} ${(st.size/1024/1024).toFixed(1)}MB`);else if(st.size>=90*1024*1024)console.log(`  large file ${p} ${(st.size/1024/1024).toFixed(1)}MB`);}};
+ walk(OUT);
+ if(!fs.existsSync(path.join(OUT,'city.pack'))||!fs.existsSync(path.join(OUT,'mobility.json')))throw Error('Stage is missing city.pack or mobility.json');
+ if(tooBig.length)throw Error(`Not replacing the playable city. Files at or over 100 MB: ${tooBig.join('; ')}`);
+ const backup=path.join(RAW,'previous-public');
+ fs.rmSync(backup,{recursive:true,force:true});
+ if(fs.existsSync(LIVE))fs.renameSync(LIVE,backup);
+ try{fs.renameSync(OUT,LIVE);}catch(error){if(fs.existsSync(backup))fs.renameSync(backup,LIVE);throw error;}
+ console.log(`published ${LIVE}; previous packs kept at ${backup} until terrain finishes`);
+ return backup;
+}
+const previousCity=publishStage();
 const regFile='public/cities/index.json',registryFile=fs.existsSync(regFile)?JSON.parse(fs.readFileSync(regFile)):{schemaVersion:1,cities:[]};
 registryFile.cities=[...registryFile.cities.filter(c=>c.id!==id),{id,name:def.name,country:def.country,dataRoot:URL_DIR,origin:def.origin,radius:R,projection,defaultStart:city.landmarks[0].name,status:def.status,maintainers:def.maintainers,liveries:def.liveries||undefined,
  attribution:'Map data © OpenStreetMap contributors, ODbL 1.0 (openstreetmap.org/copyright).'+(def.official?` ${def.official.attribution}.`:'')+' Building heights from OSM tags or estimated by building type.',fetchedAt:city.fetchedAt,counts}];
@@ -338,7 +418,10 @@ fs.writeFileSync(regFile,JSON.stringify(registryFile,null,1));
 // Photo-matched places (cities/<id>/<place>-reference.json): square paving, tram stops, species trees, landmarks.
 {const places=await import('./place-build.mjs');for(const p of places.placesOf(id))console.log(`place ${p}:`,JSON.stringify(places.buildPlace(id,p,{refresh})));}
 // Hills: ground elevation from open terrain tiles (scripts/city-terrain.mjs); "terrain": false in city.json keeps the city flat.
-if(def.terrain!==false)try{await (await import('./city-terrain.mjs')).buildTerrain(id,{refresh});}catch(error){console.log(`terrain skipped, the city stays flat: ${error.message}`);}
+let terrainOk=def.terrain===false;
+if(def.terrain!==false)try{await (await import('./city-terrain.mjs')).buildTerrain(id,{refresh:false});terrainOk=true;}catch(error){console.log(`terrain skipped, the city stays flat: ${error.message}`);}
+if(terrainOk)fs.rmSync(previousCity,{recursive:true,force:true});
+else console.log(`previous playable city kept at ${previousCity}`);
 console.log(JSON.stringify({city:def.name,counts,starts:city.landmarks.map(l=>`${l.name} (${l.street})`)},null,1));
 
 // ---------- Street furniture from Mapillary detections (optional: runs when MAPILLARY_TOKEN is set) ----------

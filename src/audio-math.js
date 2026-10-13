@@ -129,6 +129,12 @@ export function ambienceMix({seaDistance=Infinity,marketDistance=Infinity,speed=
 }
 // Gull cries happen at random when near water; chance per second.
 export function gullRatePerSecond(seaLevel){return seaLevel>.05?.08+seaLevel*.45:0;}
+// River loop: full beside the water, gone by about 70 m. The master stays silent until the sound button.
+export function waterGain(distanceMetres){
+ if(!Number.isFinite(distanceMetres))return 0;
+ const near=1-distanceMetres/70;
+ return near<=0?0:near*near;
+}
 
 // Positional voice assignment: nearest `slots` entities keep a voice; the
 // returned list is sorted by distance and limited to audible range.

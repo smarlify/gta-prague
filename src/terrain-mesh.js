@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import {groundAt,waterAt,hasTerrain,terrain,footprintBase} from './terrain.js';
+import {pointInPolygon} from './geo.js';
+import {pointInPassage} from './passage.js';
+import {groundAt,waterAt,hasTerrain,terrain,footprintBase,driveAt} from './terrain.js';
 
 // Geometry that follows the ground (src/terrain.js). Flat cities skip all of this.
 
@@ -35,9 +37,9 @@ export function subdivideGeometry(source,maxEdge=4,{height=null,tolerance=.03}={
 export function drapeGeometry(geometry,{maxEdge=4,lift=0,water=false,mark=false,lines=false}={}){
  if(!hasTerrain())return geometry;
  if(lines)geometry.userData.lines=true;
- const surface=(x,z)=>{if(water){const w=waterAt(x,z);if(w!==null)return w;}return groundAt(x,z);};
- const g=maxEdge?subdivideGeometry(geometry,maxEdge,{height:lines?null:surface}):geometry,p=g.attributes.position,added=mark?new Float32Array(p.count):null;
- for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),h=surface(x,z)+lift;p.setY(i,p.getY(i)+h);if(added)added[i]=h;}
+ const surface=(x,z,y0=0)=>{if(water){const w=waterAt(x,z);if(w!==null)return w;}if(y0>0.06&&y0<0.09)return driveAt(x,z);return groundAt(x,z);};
+ const g=maxEdge?subdivideGeometry(geometry,maxEdge,{height:lines?null:(x,z)=>surface(x,z,0.07)}):geometry,p=g.attributes.position,added=mark?new Float32Array(p.count):null;
+ for(let i=0;i<p.count;i++){const x=p.getX(i),y0=p.getY(i),z=p.getZ(i),h=surface(x,z,y0)+lift;p.setY(i,y0+h);if(added)added[i]=h;}
  if(added)g.setAttribute('terrainY',new THREE.BufferAttribute(added,1));
  p.needsUpdate=true;if(g.attributes.normal&&!lines)g.computeVertexNormals();g.computeBoundingSphere();g.computeBoundingBox();
  return g;
@@ -78,15 +80,30 @@ export function settleObject(root,{maxEdge=4,skip=null}={}){
  visit(root);return root;
 }
 
+// River polygons the elevation grid never marked. The Vltava in the 2 km pack is one of them.
+let riverPolys=[],dryPassages=[];
+export function setRiverChannel(water){
+ riverPolys=(water||[]).filter(w=>/river|riverbank/i.test(`${w.kind||''} ${w.name||''}`)&&w.rings?.[0]?.length>3);
+}
+export function setDryPassages(roads){dryPassages=(roads||[]).filter(r=>r.passage&&r.rings);}
+function inRiver(x,z){
+ for(const w of riverPolys){
+  const b=w.bbox;if(b&&(x<b[0]||x>b[2]||z<b[1]||z>b[3]))continue;
+  if(pointInPolygon(x,z,w.rings))return true;
+ }
+ return false;
+}
+
 // The bare ground: chunked grids following the terrain half a metre below street level (as the flat
 // ground plane was), with a coarse skirt out to the horizon. Normals give the hills their shading.
 export function createTerrainGround(material,{cell=10,chunk=32,size=11000,depth=-.5}={}){
  const f=terrain(),group=new THREE.Group();group.name='Terrain ground';if(!f)return group;
  const E=Math.floor(f.extent/cell)*cell,n=Math.round(2*E/cell);
- const grid=(xs,zs)=>{const pos=[],nor=[],idx=[],w=xs.length;
-  for(const z of zs)for(const x of xs){pos.push(x,groundAt(x,z)+depth,z);const dx=groundAt(x+1,z)-groundAt(x-1,z),dz=groundAt(x,z+1)-groundAt(x,z-1),l=Math.hypot(dx,2,dz);nor.push(-dx/l,2/l,-dz/l);}
-  for(let j=0;j+1<zs.length;j++)for(let i=0;i+1<w;i++){const a=j*w+i,b=a+1,c=a+w,d=c+1;idx.push(a,c,b,b,c,d);}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setIndex(idx);g.computeBoundingSphere();g.computeBoundingBox();return g;};
+ const channel=(x,z)=>{if(pointInPassage(dryPassages,x,z))return false;if(inRiver(x,z))return true;const w=waterAt(x,z);return w!==null&&groundAt(x,z)<=w+.2;};
+ const grid=(xs,zs)=>{const pos=[],nor=[],uv=[],idx=[],w=xs.length;
+  for(const z of zs)for(const x of xs){pos.push(x,groundAt(x,z)+depth,z);uv.push(x,z);const dx=groundAt(x+1,z)-groundAt(x-1,z),dz=groundAt(x,z+1)-groundAt(x,z-1),l=Math.hypot(dx,2,dz);nor.push(-dx/l,2/l,-dz/l);}
+  for(let j=0;j+1<zs.length;j++)for(let i=0;i+1<w;i++){if([[xs[i],zs[j]],[xs[i+1],zs[j]],[xs[i],zs[j+1]],[xs[i+1],zs[j+1]]].every(([x,z])=>channel(x,z)))continue;const a=j*w+i,b=a+1,c=a+w,d=c+1;idx.push(a,c,b,b,c,d);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeBoundingSphere();g.computeBoundingBox();return g;};
  const range=(a,b,step)=>{const out=[];for(let x=a;x<b-1e-6;x+=step)out.push(x);out.push(b);return out;};
  for(let cz=0;cz<n;cz+=chunk)for(let cx=0;cx<n;cx+=chunk){
   const xs=range(-E+cx*cell,-E+Math.min(n,cx+chunk)*cell,cell),zs=range(-E+cz*cell,-E+Math.min(n,cz+chunk)*cell,cell);

@@ -26,10 +26,12 @@ export function createPlayerTravelRenderer(scene){
    ring.visible=actorVisible&&travel.mode==='walk'&&travel.riding!==ride&&Math.hypot(ride.x-p.x,ride.z-p.z)<3.2;
   }
   person.begin();hand=null;
-  if(actorVisible&&travel.mode!=='car'){
-   const pose=travel.mode==='walk'?'walk':travel.mode==='bike'?'cycle':'scooter';
+  if(actorVisible&&(travel.mode!=='car'||travel.gagDriver)){
+   const driving=travel.mode==='car'&&travel.gagDriver;
+   const pose=driving?'hail':travel.mode==='walk'?'walk':travel.mode==='bike'?'cycle':'scooter';
    const model=models.get(travel.riding?.id),bike=model?.anchors||PLAYER_BIKE,lift=model?.lift??.12;
-   const actor={...p,speed:Math.abs(p.speed),pose,gaitDirection:pose==='walk'&&p.speed<0?-1:1,groundY:pose==='scooter'?PLAYER_SCOOTER.groundY+lift-.12:pose==='cycle'?lift:.12,running:Math.abs(p.speed)>2.5,grip:true,
+   const h=p.heading,lx=-Math.cos(h),lz=Math.sin(h),fx=-Math.sin(h),fz=-Math.cos(h);
+   const actor={...p,x:driving?p.x+lx*.38+fx*.15:p.x,z:driving?p.z+lz*.38+fz*.15:p.z,speed:driving?0:Math.abs(p.speed),pose,gaitDirection:pose==='walk'&&p.speed<0?-1:1,groundY:driving?.42:pose==='scooter'?PLAYER_SCOOTER.groundY+lift-.12:pose==='cycle'?lift:.12,running:!driving&&Math.abs(p.speed)>2.5,grip:!driving,seated:driving,seatY:.5,
     bike:{...bike,crank:p.distance*bike.crankPerMetre},scooter:PLAYER_SCOOTER};
    if(pose==='walk'&&hold!==null&&!p.knockdown)actor.hold=hold;
    advanceGait(actor,gait,dt,look);person.draw(actor,look,gait);

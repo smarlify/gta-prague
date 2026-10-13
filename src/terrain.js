@@ -37,15 +37,37 @@ export function decodeTerrain(buffer){
  return out;
 }
 
-let field=null;
+let field=null,corridorCells=null,driveHeightFn=null;
+// Vehicles and road surfaces ask this. Buildings keep groundAt, so a tunnel
+// deck does not sink the houses above it.
+export function setDriveHeight(fn){driveHeightFn=fn||null;}
+export function driveAt(x,z){return driveHeightFn?driveHeightFn(x,z):groundAt(x,z);}
 export function setTerrain(f){field=f||null;return field;}
 export const terrain=()=>field;
 export const hasTerrain=()=>field!==null;
+export function setCorridorHeights(samples){
+ if(!samples){corridorCells=null;return;}
+ if(!corridorCells)corridorCells=new Map();
+ for(const sample of samples){
+  if(!Number.isFinite(sample?.x)||!Number.isFinite(sample?.z)||!Number.isFinite(sample?.h))continue;
+  const key=`${Math.round(sample.x/40)},${Math.round(sample.z/40)}`;
+  const list=corridorCells.get(key)||[];list.push(sample);corridorCells.set(key,list);
+ }
+}
+function corridorHeight(x,z){
+ if(!corridorCells)return null;
+ let best=null,bestD=80*80,cx=Math.round(x/40),cz=Math.round(z/40);
+ for(let ix=cx-2;ix<=cx+2;ix++)for(let iz=cz-2;iz<=cz+2;iz++)for(const sample of corridorCells.get(`${ix},${iz}`)||[]){
+  const d=(sample.x-x)**2+(sample.z-z)**2;if(d<bestD){bestD=d;best=sample.h;}
+ }
+ return best;
+}
 
 // Bilinear ground height in metres relative to the city's base level; 0 when the city is flat.
 export function groundAt(x,z){
- const f=field;if(f===null)return 0;
+ const f=field;if(f===null)return corridorHeight(x,z)??0;
  const n=f.size-1;let u=(x+f.extent)/f.cell,v=(z+f.extent)/f.cell;
+ if(u<0||u>n||v<0||v>n){const extra=corridorHeight(x,z);if(extra!==null)return extra;}
  u=u<0?0:u>n?n:u;v=v<0?0:v>n?n:v;
  let i=Math.floor(u),j=Math.floor(v);if(i===n)i--;if(j===n)j--;
  const a=u-i,b=v-j,g=f.ground,k=j*f.size+i;
@@ -82,9 +104,9 @@ export function drapePositions(position,{lift=0,water=false}={}){
 // height (never below the ground under its centre), pitch (nose up positive) and roll (right side up positive).
 export function groundPose(x,z,heading,halfLength=2.2,halfWidth=.9,out={y:0,pitch:0,roll:0}){
  if(field===null){out.y=out.pitch=out.roll=0;return out;}
- const s=Math.sin(heading),c=Math.cos(heading);
- const front=groundAt(x-s*halfLength,z-c*halfLength),back=groundAt(x+s*halfLength,z+c*halfLength),right=groundAt(x+c*halfWidth,z-s*halfWidth),left=groundAt(x-c*halfWidth,z+s*halfWidth);
- out.y=Math.max(groundAt(x,z),(front+back)/2,(left+right)/2);out.pitch=Math.atan2(front-back,2*halfLength);out.roll=Math.atan2(right-left,2*halfWidth);
+ const s=Math.sin(heading),c=Math.cos(heading),h=driveAt;
+ const front=h(x-s*halfLength,z-c*halfLength),back=h(x+s*halfLength,z+c*halfLength),right=h(x+c*halfWidth,z-s*halfWidth),left=h(x-c*halfWidth,z+s*halfWidth);
+ out.y=Math.max(h(x,z),(front+back)/2,(left+right)/2);out.pitch=Math.atan2(front-back,2*halfLength);out.roll=Math.atan2(right-left,2*halfWidth);
  return out;
 }
 // Building tiles ([x,y,z,u,v] per vertex, parts with start/count): each part stands on the lowest ground

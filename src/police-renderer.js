@@ -31,7 +31,7 @@ function createKit(){
 }
 const unitIndex=id=>Number(String(id).replace(/\D/g,''))||0;
 
-export function createPoliceRenderer(scene,simulation){
+export function createPoliceRenderer(scene,simulation,{livery='fi'}={}){
  const models=new Map(),kit=createKit(),siren=createSiren();
  // No real lights: a PointLight costs every lit fragment in the city even when
  // no police exist (measured ~2–4 FPS). The nearest two cars instead get an
@@ -41,7 +41,7 @@ export function createPoliceRenderer(scene,simulation){
  // finale cinematic on this extra time, which only advances while busted.
  let arrestClock=0;
  function make(index){
-  const m=createPoliceBody(unitVariant(index));m.name='Police pursuit car';
+  const m=createPoliceBody(unitVariant(index),livery);m.name='Police pursuit car';
   const {mounts}=m.userData,g=kit.geometry,owned=[];
   const add=(geometry,material,x,y,z,rx=0,ry=0)=>{const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);mesh.rotation.set(rx,ry,0,'YXZ');m.add(mesh);return mesh;};
   // Unit number decals (bonnet, rear glass, quarter windows): one tiny texture per car.

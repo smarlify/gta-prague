@@ -1,8 +1,5 @@
 node_modules/
 dist/
-
-# Local link to the shared Plexima manifest.
-__manifest
 data/raw/
 .DS_Store
 .env
@@ -21,3 +18,7 @@ docs/RELEASE_REVIEW.md
 # Blender working files: rebuild with scripts/build-senate-assets.py (they record local paths)
 *.blend
 *.blend1
+
+# Local link to the shared DEV/AI manifest and git-hooks.
+__manifest
+__git-hooks

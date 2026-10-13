@@ -11,7 +11,7 @@
  "terrainZoom": 14,
  "maintainers": [],
  "status": "draft",
- "note": "2 km around Starom\u011bstsk\u00e9 n\u00e1m\u011bst\u00ed. Starts are the river and New Town driving loop; the castle and Charles Bridge stay places you see, not spawn points.",
+ "note": "2 km around Staroměstské náměstí. Starts are the river and New Town driving loop; the castle and Charles Bridge stay places you see, not spawn points. Bridges, tunnels, the Vltava channel and Czech fleet live on this circle; longer roads stay later corridors.",
  "liveries": {
   "tram": {
    "green": "#c8102e",
@@ -22,17 +22,65 @@
    "paint": "#c8102e",
    "white": "#f3eee4"
   },
-  "note": "DPP city fleet: red body with a cream band, estimated from the public \u0160koda 15T tram and red-and-cream city bus. Not an official colour specification."
+  "note": "DPP city fleet: red body with a cream band, estimated from the public Škoda 15T tram and red-and-cream city bus. Not an official colour specification."
  },
  "starts": [
-  {"name": "N\u00e1rodn\u00ed divadlo", "at": [14.41355, 50.08105]},
-  {"name": "Most Legi\u00ed", "at": [14.4117, 50.0819]},
-  {"name": "Smetanovo n\u00e1b\u0159e\u017e\u00ed", "at": [14.4132, 50.084]},
-  {"name": "Masarykovo n\u00e1b\u0159e\u017e\u00ed", "at": [14.4152, 50.0782]},
-  {"name": "Malostransk\u00e9 n\u00e1b\u0159e\u017e\u00ed", "at": [14.4085, 50.0862]},
-  {"name": "M\u00e1nes\u016fv most", "at": [14.4126, 50.0906]},
-  {"name": "N\u00e1rodn\u00ed muzeum", "at": [14.4309, 50.0796]},
-  {"name": "Kl\u00e1rov", "at": [14.4115, 50.0915]}
+  {
+   "name": "Národní divadlo",
+   "at": [
+    14.41355,
+    50.08105
+   ]
+  },
+  {
+   "name": "Most Legií",
+   "at": [
+    14.4117,
+    50.0819
+   ]
+  },
+  {
+   "name": "Smetanovo nábřeží",
+   "at": [
+    14.4132,
+    50.084
+   ]
+  },
+  {
+   "name": "Masarykovo nábřeží",
+   "at": [
+    14.4152,
+    50.0782
+   ]
+  },
+  {
+   "name": "Malostranské nábřeží",
+   "at": [
+    14.4085,
+    50.0862
+   ]
+  },
+  {
+   "name": "Mánesův most",
+   "at": [
+    14.4126,
+    50.0906
+   ]
+  },
+  {
+   "name": "Národní muzeum",
+   "at": [
+    14.4309,
+    50.0796
+   ]
+  },
+  {
+   "name": "Klárov",
+   "at": [
+    14.4115,
+    50.0915
+   ]
+  }
  ],
  "source": {
   "geocoder": "Nominatim / OpenStreetMap",

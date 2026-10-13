@@ -10,15 +10,22 @@ export function createPlayerCarRenderer(scene){
  const active=new THREE.Group(),parked=new THREE.Group();active.name='Current player car';parked.name='Player parked cars';scene.add(active,parked);
  // Terrain pitch/roll are measured in the car's frame, then turned by heading.
  active.rotation.order='YXZ';
- const starter=createVehicle(0,true),entries=new Map();let home=null,current=null;
+ const starter=createVehicle(0,true),entries=new Map();let home=null,current=null,first,lookKey='crossover|';
  const build=(model,owned=false)=>{
   const shared=new Set();model.traverse(m=>{if(m.isMesh)shared.add(m.geometry);});
   const damage=createVehicleDamage(model),privateGeometry=new Set(),materials=new Set();
   model.traverse(m=>{if(m.isMesh){if(!shared.has(m.geometry))privateGeometry.add(m.geometry);if(m.material.name==='paint')materials.add(m.material);}});
   return {model,damage,dispose(){model.removeFromParent();for(const g of privateGeometry)g.dispose();if(owned)for(const m of materials){unregisterEnvMaterial(m);m.dispose();}}};
  };
- const first=build(starter);active.add(starter);active.userData=starter.userData;
- return {group:active,sync(travel,dt=0){
+ const firstBuilt=build(starter);first=firstBuilt;active.add(starter);active.userData=starter.userData;
+ return {group:active,setLook(type='crossover',paint=''){
+  const key=`${type}|${paint}`;if(key===lookKey)return;lookKey=key;
+  const model=createVehicle(0,true,type);if(paint)model.traverse(m=>{if(m.isMesh&&m.material?.name==='paint')m.material.color.set(paint);});
+  const next=build(model,true);
+  if(current===first){active.add(next.model);current=next;}
+  first.model.removeFromParent();first.dispose();first=next;
+  if(home)entries.set(home,first);active.userData=first.model.userData;
+ },sync(travel,dt=0){
   if(home!==travel.homeCar){for(const entry of entries.values())if(entry!==first)entry.dispose();entries.clear();home=travel.homeCar;entries.set(home,first);current=null;first.damage.update({damageVersion:-1});}
   for(const car of travel.cars)if(!entries.has(car)){const visual=car.visual||{},model=createVehicle(0,false,visual.type||'sedan');if(visual.paint)model.traverse(m=>{if(m.isMesh&&m.material.name==='paint')m.material.color.set(visual.paint);});entries.set(car,build(model,true));}
   const selected=entries.get(travel.car);

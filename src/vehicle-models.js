@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {registerEnvMaterial} from './environment.js';
+import {PAINT_FLAKE_UNIFORM,PAINT_FLAKE_SCALE_UNIFORM} from './surface-textures.js';
 
 // Original geometry, not manufacturer CAD. Crossover dimensions are based on
 // Toyota Finland MY26 Yaris Cross: 4.172 x 1.765 x 1.595 m, wheelbase 2.560 m.
@@ -14,6 +15,7 @@ const specs={
  suv:{l:4.43,w:1.85,h:1.76,wb:2.65,rf:-.55,rr:1.30,rg:1.94,belt:1.09,r:.36,clad:true,rails:true},
  van:{l:4.47,w:1.84,h:1.91,wb:2.78,rf:-.80,rr:1.91,rg:2.04,belt:1.07,r:.33,van:true},
  taxi:{l:4.60,w:1.81,h:1.49,wb:2.70,rf:-.46,rr:1.60,rg:2.05,belt:.96,r:.32,rails:true,taxi:true},
+ offroad:{l:4.55,w:1.92,h:1.86,wb:2.72,rf:-.7,rr:1.45,rg:2.0,belt:1.15,r:.4,clad:true},
 };
 const palette=['#b8bcb8','#e5e7e1','#284c65','#be3529','#344a3e','#393b41','#a29b8b','#577383','#794537'];
 const templates=new Map();
@@ -21,8 +23,24 @@ const templates=new Map();
 // trim and satin rubber. Every reflective material shares the one sky PMREM
 // (see environment.js), so instanced traffic batches reflect the same sky as
 // the player car at no per-frame cost.
+function attachPaintFlake(paint){
+ // Vehicle meshes drop UVs on merge; sample flake from object-space XZ/Y instead.
+ paint.onBeforeCompile=shader=>{
+  shader.uniforms.uFlake=PAINT_FLAKE_UNIFORM;
+  shader.uniforms.uFlakeScale=PAINT_FLAKE_SCALE_UNIFORM;
+  shader.vertexShader='varying vec3 vPaintPos;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvPaintPos=position;');
+  shader.fragmentShader='varying vec3 vPaintPos;uniform sampler2D uFlake;uniform float uFlakeScale;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+   float flake=texture2D(uFlake,vPaintPos.xz*uFlakeScale+vec2(vPaintPos.y*uFlakeScale*0.37)).r;
+   diffuseColor.rgb*=1.0+(flake-0.5)*0.14;
+  `).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
+   roughnessFactor*=mix(1.0,0.88+flake*0.22,0.4);
+  `).replace('material.clearcoatRoughness = clearcoatRoughness;','material.clearcoatRoughness = clamp(clearcoatRoughness+(flake-0.5)*0.1,0.0,1.0);');
+ };
+ paint.customProgramCacheKey=()=>'paint-flake';
+}
 export function createVehicleMaterials(){
  const paint=new THREE.MeshPhysicalMaterial({color:'#ffffff',metalness:.28,roughness:.34,clearcoat:1,clearcoatRoughness:.1});
+ attachPaintFlake(paint);
  const glass=new THREE.MeshPhysicalMaterial({color:'#101d24',metalness:.62,roughness:.06});
  const rubber=new THREE.MeshStandardMaterial({color:'#1b1e22',metalness:0,roughness:.74});
  const black=new THREE.MeshStandardMaterial({color:'#15191c',metalness:.35,roughness:.42});
