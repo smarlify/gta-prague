@@ -41,6 +41,10 @@ npm run dev
 
 Use Node.js 22 or newer. Open the URL Vite prints in a modern browser with WebGL2.
 
+This checkout uses the shared git hooks (`core.hooksPath` points at the Plexima kit). The Plexima manifest is the local `__manifest` link.
+
+The review app is a private Heroku app in the EU region, on the same account as Playful and Marooned. Deploy the open branch with `git push heroku HEAD:main`.
+
 | Key | Action |
 | --- | --- |
 | W / S or ↑ / ↓ | Accelerate / brake and reverse |
