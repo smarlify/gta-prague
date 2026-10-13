@@ -28,13 +28,11 @@
   gtag('js', new Date());
   gtag('config', 'G-Y3MF445LTX');
 
-  // Test GA on page load
   gtag('event', 'page_view', {
     page_title: document.title,
     page_location: window.location.href
   });
 
-  // Global GA event tracking function
   window.trackEvent = function(eventName, parameters = {}) {
     if (typeof gtag !== 'undefined') {
       gtag('event', eventName, parameters);
@@ -52,7 +50,6 @@
  *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:18px/1.65 Spectral,Georgia,serif}
  main{max-width:720px;margin:0 auto;padding:56px 22px 80px}
  .brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink);font-weight:600;letter-spacing:-.025em;font-size:28px}
- .brand b{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--accent);color:#fff;font-size:22px;letter-spacing:0}
  h1{font-weight:600;font-size:42px;line-height:1.12;margin:48px 0 18px;letter-spacing:-.5px}
  h2{font-weight:600;font-size:25px;margin:42px 0 8px}
  p{margin:0 0 16px}.lead{font-size:21px;color:var(--muted)} strong{font-weight:600}
@@ -60,6 +57,8 @@
  .cta{display:flex;flex-wrap:wrap;gap:12px;margin:28px 0}
  .cta a{font-family:"DM Sans",sans-serif;display:inline-block;padding:13px 20px;border-radius:10px;text-decoration:none;font-size:19px;font-weight:700}
  .cta .primary{background:var(--accent);color:#fff}.cta .secondary{border:1px solid var(--line);color:var(--ink);background:#fff}
+ .play-links{margin:0 0 16px;font-size:17px;color:var(--muted)}
+ .play-links a{font-weight:600}
  ol{padding-left:22px}li{margin:6px 0}
  img.map{width:100%;border-radius:14px;margin:12px 0;border:1px solid var(--line)}
  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
@@ -68,36 +67,37 @@
 </head>
 <body>
 <main>
- <a class="brand" href="/"><img src="/favicon.svg" width="38" height="38" alt="">GTA Praha 🇨🇿</a>
- <h1>Explore the world, and build your own corner of it.</h1>
- <p class="lead"><strong>There have been city games before. But for the first time, anyone can recreate the world, street by street.</strong></p>
- <p>Explore real cities in your browser: drive, get out and walk, take a bike or scooter, and greet the people you meet. Open map data gives each city its shape; contributors add the details that make it feel like home.</p>
+ <a class="brand" href="/">🚔 GTA Praha 🇨🇿</a>
+ <h1>Drive, walk and explore a playable Prague.</h1>
+ <p class="lead"><strong>GTA Praha</strong> is a Prague-first fork of <a href="https://worldhood.org">Worldhood</a>: an open-source city playground in your browser. Explore Prague by car, on foot, by bicycle or on an e-scooter. Helsinki and Tampere remain in the build.</p>
+ <p class="play-links">Play at <a href="https://gtapraha.online/">gtapraha.online</a> or <a href="https://gtapraha.cz/">gtapraha.cz</a>.</p>
+ <p>The streets and buildings come from open map and city data, with local details added by contributors. The current game is single-player. A shared online world and player-owned territories are future plans.</p>
 
- <div class="cta"><a class="primary" href="/">Explore Prague</a><a class="secondary" href="https://github.com/worldhood/worldhood/blob/main/docs/BUILD_YOUR_CITY.md">Build your city</a></div>
+ <div class="cta"><a class="primary" href="/">Explore Prague</a><a class="secondary" href="https://github.com/smarlify/gta-prague/blob/main/docs/BUILD_YOUR_CITY.md">Build your city</a></div>
 
  <h2>How it started</h2>
- <p>Worldhood began as a one-night experiment: <a href="https://lnkd.in/p/eYCkmVRr">Helsinki rebuilt as a driveable open world</a>, from the city's own 3D model, streets, trees and tram lines. People immediately asked the same two questions: <strong>can I drive my city?</strong> and <strong>can I help make the engine better?</strong></p>
+ <p>Worldhood began as a one-night experiment: <a href="https://lnkd.in/p/eYCkmVRr">Helsinki rebuilt as a driveable open world</a>, from the city's own 3D model, streets, trees and tram lines. GTA Praha takes that engine and centres it on Prague, with Czech districts, police and open data from IPR Praha alongside OpenStreetMap.</p>
 
  <h2>The vision</h2>
- <p>One shared game, many real cities, with room for people to build their own corner. Improve a place you know, or improve the engine that every city uses. The current game is single-player. Building inside the game and visiting other players’ creations are future ambitions; today, city contributions happen through the repository.</p>
- <p>Start with a few streets and make them worth exploring. Open data gives a place its shape; local knowledge and permitted reference material make it recognisable. Draft areas are welcome with their limitations explained. Read the <a href="https://github.com/worldhood/worldhood/blob/main/docs/VISION.md">project vision</a> to see where we want to go together.</p>
- <img class="map" src="cities-map.svg" alt="Map of worldhood cities" onerror="this.remove()">
+ <p>One shared game, many real cities, with room for people to build their own corner. Improve a place you know, or improve the engine that every city uses. Building inside the game and visiting other players’ creations are future ambitions; today, city contributions happen through the repository.</p>
+ <p>Start with a few streets and make them worth exploring. Open data gives a place its shape; local knowledge and permitted reference material make it recognisable. Draft areas are welcome with their limitations explained. Read the <a href="https://github.com/smarlify/gta-prague/blob/main/docs/VISION.md">project vision</a> to see where we want to go together.</p>
+ <img class="map" src="cities-map.svg" alt="Map of cities in the build" onerror="this.remove()">
 
  <h2>Two ways to help</h2>
- <p><strong>Build your city, properly.</strong> Bring a place you know into the game. The bar is high: a city goes live here only when someone who lives there recognises every street. Real buildings, trees, trams, signs and paving, checked against photos. Drafts are welcome while you work.</p>
+ <p><strong>Build your city, properly.</strong> Bring a place you know into the game. The bar is high: a city is ready when someone who lives there recognises every street. Real buildings, trees, trams, signs and paving, checked against photos. Drafts are welcome while you work.</p>
  <ol>
-  <li>Point your coding agent at the <a href="https://github.com/worldhood/worldhood">repository</a>, or clone it yourself.</li>
+  <li>Point your coding agent at the <a href="https://github.com/smarlify/gta-prague">repository</a>, or clone it yourself.</li>
   <li>Run <code>npm run city:new</code> and <code>npm run city:build</code>. These tools turn available open map data into a starting version of your city.</li>
-  <li>Refine it street by street using permitted reference material, following the <a href="https://github.com/worldhood/worldhood/blob/main/docs/BUILD_YOUR_CITY.md">playbook</a>, until a local would recognise it.</li>
+  <li>Refine it street by street using permitted reference material, following the <a href="https://github.com/smarlify/gta-prague/blob/main/docs/BUILD_YOUR_CITY.md">playbook</a>, until a local would recognise it.</li>
   <li>Open a pull request with your sources, screenshots and known gaps so others can review and build on it.</li>
  </ol>
- <p>Not a programmer? The <a href="https://github.com/worldhood/worldhood/blob/main/docs/START_HERE.md">plain-language guide</a> takes you through it step by step.</p>
- <p><strong>Shape the gameplay.</strong> What should you actually <em>do</em> in worldhood? Prototype activities, vehicles, people, missions, weather and sound. Play it, keep what's fun. Anything good works in every city. The <a href="https://github.com/worldhood/worldhood/blob/main/docs/IDEAS.md">wishlist</a> is open.</p>
+ <p>Not a programmer? The <a href="https://github.com/smarlify/gta-prague/blob/main/docs/START_HERE.md">plain-language guide</a> takes you through it step by step.</p>
+ <p><strong>Shape the gameplay.</strong> What should you actually <em>do</em> here? Prototype activities, vehicles, people, missions, weather and sound. Play it, keep what's fun. Anything good works in every city. The <a href="https://github.com/smarlify/gta-prague/blob/main/docs/IDEAS.md">wishlist</a> is open.</p>
 
  <h2>Open, credited, free</h2>
- <p>The code is MIT-licensed. Map data stays under its own open licences (city open data, CC BY 4.0; OpenStreetMap, ODbL) and is credited in the game. No account or installation is needed to play. Some scenery contains fictional in-game advertising; credits and permissions are listed in the repository.</p>
+ <p>The code is <a href="https://github.com/smarlify/gta-prague/blob/main/LICENSE">MIT-licensed</a>. Map data stays under its own open licences (city open data, CC BY 4.0; OpenStreetMap, ODbL) and is credited in the game and in <a href="https://github.com/smarlify/gta-prague/blob/main/NOTICE.md">NOTICE.md</a>. No account or installation is needed to play. Some scenery contains fictional in-game advertising; credits and permissions are listed in the repository.</p>
 
- <footer>Contributors welcome. Originally built by <a href="https://www.linkedin.com/in/lassesaari/">Lasse Saari</a>. GTA Prague co-authored by <a href="https://github.com/davidnekovarcz">Dave</a>. Have an idea? <a href="https://www.linkedin.com/in/lassesaari/">Tell Lasse</a>.</footer>
+ <footer>Contributors welcome. Originally built by <a href="https://www.linkedin.com/in/lassesaari/">Lasse Saari</a> as Worldhood. GTA Prague co-authored by <a href="https://github.com/davidnekovarcz">Dave Nekovář</a>. Have an idea? <a href="https://www.linkedin.com/in/lassesaari/">Tell Lasse</a> · <a href="https://www.linkedin.com/in/dave-nekovar/">Message Dave</a>.</footer>
 </main>
 </body>
 </html>

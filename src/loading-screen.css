@@ -21,7 +21,7 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
 #intro.boot-screen .boot-brand{display:flex;align-items:center;width:fit-content;gap:var(--s-12);padding:0;margin:0 0 var(--s-24);background:none;border-radius:0;box-shadow:none;backdrop-filter:none;font:600 var(--t-28)/1 var(--display);letter-spacing:-.025em;color:inherit}
 #intro.boot-screen .boot-brand .brand-icon{width:40px;height:40px}
 #intro.boot-screen .boot-brand .brand-name{display:block}
-#intro.boot-screen .boot-tagline{margin:0 0 var(--s-32);font:500 var(--t-28)/32px var(--display);letter-spacing:-.025em;color:inherit}
+#intro.boot-screen .boot-tagline{margin:0 0 var(--s-32);font:500 var(--t-26)/28px var(--display);letter-spacing:-.025em;color:inherit}
 #intro.boot-screen #boot-title{margin:0 0 var(--s-16);font:600 var(--t-20)/28px var(--display);letter-spacing:-.015em;color:inherit}
 
 /* UI: DM Sans */
