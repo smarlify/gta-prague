@@ -966,6 +966,7 @@ async function boot(){
    if(mapped?.items?.length){mappedFurniture=createMappedFurniture(mapped,{player:()=>car,mobility:()=>mobility});cityModel.add(mappedFurniture.group);streetObstacles.push(...mappedFurniture.obstacles);knockables=combineKnockables([knockables,mappedFurniture.knockables]);}
    world={buildings:new SpatialIndex([...data.buildings,...streetObstacles.filter(o=>!o.breakable),...ads.obstacles]),roads:new SpatialIndex(data.roads.filter(r=>!/Koroke/.test(r.kind))),pavement:new SpatialIndex(data.pavement),trafficForbidden:new SpatialIndex(helsinki?[...data.pavement.filter(inHarbour),...data.roads.filter(r=>/Koroke/.test(r.kind)),...olympiaTramOnlySurfaces(data)]:data.roads.filter(r=>/Koroke/.test(r.kind))),water:data.water};
    if(city.id==='prague'){
+    world.roadClearsBuildings=true; // OSM footprints spilled onto asphalt are not solid mid-road walls
     setDriveHeight((x,z)=>{const deck=passageDeck(world.roads,x,z);if(deck!==null)return deck;const road=world.roads.at(x,z);return road&&/Silta|\bmost\b/i.test(`${road.kind} ${road.name}`)?liftedBridgeHeight(groundAt,x,z):groundAt(x,z);});
     const passageMesh=createPassageDeck(data.roads);if(passageMesh.children.length)cityModel.add(passageMesh);
    }

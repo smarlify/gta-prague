@@ -33,8 +33,9 @@ test('Petřín and Letná get pink cherry blossom clusters',()=>{
 test('building footprints on asphalt do not block driving; off-road buildings still do',()=>{
  const building={rings:[[[-2,-2],[2,-2],[2,2],[-2,2],[-2,-2]]],bbox:[-2,-2,2,2]};
  const road={rings:[[[-20,-4],[20,-4],[20,4],[-20,4],[-20,-4]]],bbox:[-20,-4,20,4]};
- const world={buildings:new SpatialIndex([building]),collisionBuildings:new SpatialIndex([building]),roads:new SpatialIndex([road]),pavement:new SpatialIndex([])};
+ const world={roadClearsBuildings:true,buildings:new SpatialIndex([building]),collisionBuildings:new SpatialIndex([building]),roads:new SpatialIndex([road]),pavement:new SpatialIndex([])};
  assert.equal(blocksDriveSample(0,0,world),false,'phantom building on the carriageway');
+ assert.equal(blocksDriveSample(0,0,{...world,roadClearsBuildings:false}),true,'other cities keep building-on-road solids');
  assert.equal(blocksDriveSample(0,10,world),false,'empty');
  const wall={rings:[[[8,6],[12,6],[12,12],[8,12],[8,6]]],bbox:[8,6,12,12]};
  world.buildings=new SpatialIndex([wall]);world.collisionBuildings=world.buildings;

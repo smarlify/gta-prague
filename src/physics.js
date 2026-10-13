@@ -46,15 +46,15 @@ export function canExitBuildings(from,to,buildings){
  }
  return contact&&Math.hypot(to.x-from.x,to.z-from.z)>1e-9;
 }
-// Solid building hits on the carriageway. Footprints that spill onto mapped
-// asphalt (tunnel remnants, bad curb/building overlaps) are ignored so open
-// road stays driveable. Passages under real buildings still clear via passageAt.
-// Fence / bridge-fence solids live in world.objects, not this filter.
+// Solid building hits. Passages under real buildings clear via passageAt.
+// When world.roadClearsBuildings (Prague), footprints that spill onto mapped
+// asphalt are ignored so open road stays driveable; fence / bridge-fence
+// solids still live in world.objects.
 export function blocksDriveSample(x,z,world){
  if(passageAt(world.roads,x,z))return false;
  const buildings=world.collisionBuildings||world.buildings;
  if(!buildings?.at(x,z))return false;
- if(world.roads.at(x,z))return false;
+ if(world.roadClearsBuildings&&world.roads.at(x,z))return false;
  return true;
 }
 
