@@ -84,6 +84,16 @@ design.
 The game uses bundled map data at runtime. OpenStreetMap, Overpass, Nominatim, OSRM and municipal
 data services are contacted by contributor build scripts, which cache their results.
 
+## Review on Heroku
+
+The open branch is reviewed on a private Heroku app in the EU region, on the same personal account as Playful and Marooned. It is an Eco dyno. `npm start` serves the Vite build in `dist/` with the `serve` package. Heroku runs `scripts/heroku-build.mjs`, which installs the dev dependencies Vite needs, builds, then removes `public/` because that tree has already been copied into `dist/`.
+
+```sh
+git push heroku HEAD:main
+```
+
+Cloudflare Pages remains a possible public static host. The Heroku process only serves the built files. It does not add a game server.
+
 ## Run it locally
 
 ```sh

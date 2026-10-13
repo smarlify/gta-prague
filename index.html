@@ -4,33 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="theme-color" content="#f3f0e9" />
-    <meta name="description" content="Explore the world, and build your own corner of it. An open-source city playground to drive, walk, cycle and explore." />
-    <title>worldhood — Explore the world</title>
+    <meta name="description" content="GTA Prague. Drive, walk and explore a playable Prague." />
+    <title>GTA Prague</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="worldhood" />
-    <meta property="og:title" content="worldhood" />
-    <meta property="og:description" content="check out some hoods, then build your own." />
-    <meta property="og:url" content="https://worldhood.org/" />
+    <meta property="og:site_name" content="GTA Prague" />
+    <meta property="og:title" content="GTA Prague" />
+    <meta property="og:description" content="GTA Prague. Drive, walk and explore a playable Prague." />
+    <meta property="og:url" content="https://gta-prague-c9dc1d12a959.herokuapp.com/" />
     <meta property="og:image" content="https://worldhood.org/og-image.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="worldhood: driving past Market Square in Helsinki towards Uspenski Cathedral at golden hour" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="GTA Prague" />
+    <meta name="twitter:description" content="GTA Prague. Drive, walk and explore a playable Prague." />
   </head>
   <body class="booting clean-capture">
     <main id="app">
-      <canvas id="world" tabindex="-1" aria-label="Angled 3D driving view of Helsinki city centre"></canvas>
+      <canvas id="world" tabindex="-1" aria-label="Angled 3D driving view of Prague"></canvas>
       <div class="vignette"></div>
       <header class="topbar">
-        <a class="wordmark" href="/" aria-label="worldhood home"><span class="brand-icon"><img src="/favicon.svg" width="48" height="48" alt="" /></span><span class="brand-name">worldhood</span></a>
+        <a class="wordmark" href="/" aria-label="GTA Prague"><span class="brand-icon"><img src="/favicon.svg" width="48" height="48" alt="" /></span><span class="brand-name">GTA Prague</span></a>
         <nav><button id="view-btn" class="nav-btn" title="Switch between angled follow and high camera"><span>▧</span><span id="view-label">Follow</span></button><button id="map-btn" class="nav-btn" aria-label="City map"><span>⌘</span> City map <kbd>M</kbd></button><button id="look-btn" class="nav-btn" aria-label="Time of day and weather" title="T: cycle time of day and weather"><span>☼</span><span id="look-label">Midday</span> <kbd>T</kbd></button><button id="help-btn" class="icon-btn" aria-label="Help and controls">?</button><button id="sound-btn" class="icon-btn" aria-label="Enable sound" title="Enable sound">♪<span class="mute-slash">/</span></button></nav>
       </header>
       <aside id="wanted" hidden aria-label="Police wanted level"><div id="wanted-stars"></div><div id="wanted-status"></div></aside>
       <div class="location-tag"><span class="tiny-cross">✳</span><span id="district-label">SENAATINTORI</span><span class="location-rule"></span><span class="coordinates" id="coordinates">60.169° N · 24.952° E</span></div>
       <section class="intro boot-screen" id="intro" aria-labelledby="boot-title" aria-busy="true">
-        <a class="wordmark boot-brand" href="/" aria-label="worldhood home"><span class="brand-icon"><img src="/favicon.svg" width="48" height="48" alt="" /></span><span class="brand-name">worldhood</span></a>
+        <a class="wordmark boot-brand" href="/" aria-label="GTA Prague"><span class="brand-icon"><img src="/favicon.svg" width="48" height="48" alt="" /></span><span class="brand-name">GTA Prague</span></a>
         <p class="boot-tagline">check out some hoods,<br />then build your own.</p>
         <div class="boot-main">
         <p class="boot-place-label"><span id="boot-place-label">Your starting point</span><span id="start-count" class="start-count" aria-hidden="true" hidden></span></p>

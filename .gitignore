@@ -1,5 +1,8 @@
 node_modules/
 dist/
+
+# Local link to the shared Plexima manifest.
+__manifest
 data/raw/
 .DS_Store
 .env

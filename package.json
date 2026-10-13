@@ -3,9 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
+    "start": "serve -s dist -l tcp://0.0.0.0:$PORT",
+    "heroku-postbuild": "node scripts/heroku-build.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "demo": "vite build && vite preview --host 0.0.0.0 --port 4173 --strictPort",
     "data:fetch": "node scripts/acquire-data.mjs",
@@ -47,6 +52,7 @@
     "fast-xml-parser": "^5.4.0",
     "polygon-clipping": "^0.15.7",
     "proj4": "^2.20.0",
+    "serve": "^14.2.4",
     "three": "^0.183.0"
   },
   "devDependencies": {

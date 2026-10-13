@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
-import {selectCity,pickStart,slug,startUrl,dataUrl,useCity,CITIES} from '../src/cities.js';
+import {selectCity,pickStart,slug,startUrl,dataUrl,useCity,CITIES,registerCities} from '../src/cities.js';
 
 const starts=[{name:'Olympia Terminal'},{name:'Töölö (National Opera)'},{name:'Seurasaari bridge'},{name:'Senate Square'}];
 test('start names become accent-free URL slugs',()=>{
@@ -15,9 +15,16 @@ test('?start= finds exact, prefix and partial matches, or nothing',()=>{
  assert.equal(pickStart(starts,'opera').name,'Töölö (National Opera)');
  assert.equal(pickStart(starts,'tampere'),null);assert.equal(pickStart(starts,''),null);
 });
-test('?city= defaults to Helsinki and rejects cities not in the build',()=>{
- assert.equal(selectCity('').id,'helsinki');assert.equal(selectCity('?city=Helsinki').id,'helsinki');
- assert.throws(()=>selectCity('?city=tampere'),/not in this build yet/);
+test('?city= defaults to Prague and rejects cities not in the build',()=>{
+ assert.throws(()=>selectCity(''),/Default city “prague” is not in this build/);
+ const registry=JSON.parse(readFileSync('public/cities/index.json','utf8'));
+ registerCities(registry.cities);
+ assert.equal(selectCity('').id,'prague');
+ assert.equal(selectCity('?city=').id,'prague');
+ assert.equal(selectCity('?city=helsinki').id,'helsinki');
+ assert.equal(selectCity('?city=Helsinki').id,'helsinki');
+ assert.equal(selectCity('?city=tampere').id,'tampere');
+ assert.throws(()=>selectCity('?city=oulu'),/not in this build yet/);
 });
 test('the address bar keeps city and start shareable; data stays under the city root',()=>{
  assert.equal(startUrl(new URL('http://x/?foo=1'),CITIES.helsinki,starts[2]),'/?foo=1&city=helsinki&start=seurasaari-bridge');
