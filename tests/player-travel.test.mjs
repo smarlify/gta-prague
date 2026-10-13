@@ -75,6 +75,16 @@ test('riders have bounded speeds at different frame rates, stop promptly, and ca
  }
 });
 
+test('on flat ground Shift reaches the run cap and W alone stays at walk speed',()=>{
+ const travel=new PlayerTravel(makeCar(0,0),world());travel.interact();
+ Object.assign(travel.actor,{x:50,z:50,heading:0,speed:0});
+ for(let i=0;i<240;i++)travel.step(press('KeyW'),1/60);
+ assert.ok(Math.abs(travel.actor.speed-2)<.05,`walk without Shift tops out near 2 m/s: ${travel.actor.speed}`);
+ travel.actor.speed=0;
+ for(let i=0;i<240;i++)travel.step(press('KeyW','ShiftLeft'),1/60);
+ assert.ok(Math.abs(travel.actor.speed-9.6)<.05,`Shift on flat ground reaches about 9.6 m/s: ${travel.actor.speed}`);
+});
+
 test('a new starting point resets all travel modes, and generation works away from Helsinki coordinates',()=>{
  const travel=new PlayerTravel(makeCar(0,0),world());travel.interact();mount(travel,'bike');
  const fresh=makeCar(85,-90,1.2);travel.reset(fresh,world());
