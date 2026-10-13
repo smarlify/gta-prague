@@ -7,13 +7,14 @@ export const CITIES={
  helsinki:{id:'helsinki',name:'Helsinki',dataRoot:'/data',origin:[24.9522,60.1701],projection:'EPSG:3879',radius:2000,defaultStart:'olympia-terminal',scenery:'helsinki',
   attribution:'City of Helsinki and HSL open data, CC BY 4.0'}
 };
-export const DEFAULT_CITY='helsinki';
+export const DEFAULT_CITY='prague';
 
 // Cities built with `npm run city:build` are listed in public/cities/index.json.
 export function registerCities(list=[]){for(const c of list)if(c?.id&&!CITIES[c.id])CITIES[c.id]={radius:1500,...c};return CITIES;}
 
 // Every runtime data URL goes through dataUrl so a city's files live under its own root.
-let dataRoot=CITIES[DEFAULT_CITY].dataRoot;
+// Praha is registered from public/cities/index.json before the first request.
+let dataRoot=CITIES[DEFAULT_CITY]?.dataRoot||'/cities/prague';
 export const dataUrl=path=>`${dataRoot}/${path}`;
 export function useCity(city){dataRoot=city.dataRoot;return city;}
 
