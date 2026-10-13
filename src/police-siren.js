@@ -1,12 +1,12 @@
 // Siren distance curve. Volume and brightness fall with distance to the
-// nearest pursuing unit so a car spawning hundreds of metres away is quiet /
-// inaudible; only nearby units reach the previous full loudness.
+// nearest pursuing unit: full loudness only up close, quiet but still heard
+// out to a few hundred metres, then soft silence at the outer edge.
 import {seamlessLoop} from './audio.js';
 import {attenuation} from './audio-math.js';
-export const SIREN_RANGE=200;
+export const SIREN_RANGE=500;
 export const SURGE_SIREN=1.8;
 export const SIREN_REF=16;
-export const SIREN_ROLLOFF=2.4;
+export const SIREN_ROLLOFF=2.0;
 export const SIREN_PEAK=.16;
 export function sirenMix(units,player,time,intensity=1){
  let d=Infinity;if(player)for(const u of units)d=Math.min(d,Math.hypot(u.x-player.x,u.z-player.z));

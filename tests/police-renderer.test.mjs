@@ -45,8 +45,10 @@ test('police steering, brake lamps, strobes and beacon update without altering c
 
 test('siren is silent without police, louder when closer, and yelps up close',()=>{
  const player={x:0,z:0};
- assert.equal(sirenMix([],player,0).volume,0);assert.equal(sirenMix([{x:400,z:0}],player,0).volume,0);
- assert.equal(sirenMix([{x:500,z:0}],player,0).volume,0,'units ~500 m away are inaudible');
+ assert.equal(sirenMix([],player,0).volume,0);
+ const distant=sirenMix([{x:400,z:0}],player,0);
+ assert.ok(distant.volume>0&&distant.volume<.01,'units ~400 m away are quiet but still heard');
+ assert.equal(sirenMix([{x:500,z:0}],player,0).volume,0,'units at the outer edge are inaudible');
  const far=sirenMix([{x:120,z:0}],player,1),near=sirenMix([{x:20,z:0}],player,1),close=sirenMix([{x:8,z:0}],player,1);
  assert.ok(near.volume>far.volume&&far.volume>0);
  assert.ok(close.volume>=near.volume*.95,'full loudness only when truly close');
