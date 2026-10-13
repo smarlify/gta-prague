@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="theme-color" content="#f3f0e9" />
     <meta name="description" content="GTA Praha. Drive, walk and explore a playable Prague." />
-    <title>🚔 GTA Praha 🇨🇿</title>
+    <title>GTA Praha 🚔</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:type" content="website" />
@@ -61,6 +61,11 @@
         <p class="boot-tagline">check out some hoods,<br />then build your own.</p>
         <div class="boot-main">
         <p class="boot-place-label"><span id="boot-place-label">Your starting point</span><span id="start-count" class="start-count" aria-hidden="true" hidden></span></p>
+        <div class="district-picker" id="start-district-picker" hidden>
+          <button id="district-prev" class="start-arrow" type="button" aria-label="Previous district"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <span id="start-district" class="start-district">Praha 1</span>
+          <button id="district-next" class="start-arrow" type="button" aria-label="Next district"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
         <div class="start-picker"><button id="start-prev" class="start-arrow" type="button" aria-label="Previous starting point" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><h1 id="boot-title">Loading game</h1><button id="start-next" class="start-arrow" type="button" aria-label="Next starting point" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>
         <p id="start-status" class="visually-hidden" role="status" aria-live="polite"></p>
         <div id="boot-loader"><div class="boot-progress-heading"><span id="load-detail" role="status">Loading resources</span><span id="load-percent">0%</span></div><div class="load-progress" role="progressbar" aria-label="Game setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="load-fill"></div></div></div>

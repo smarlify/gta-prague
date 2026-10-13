@@ -17,7 +17,7 @@ import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} fr
 import {animateVehicle} from './vehicles.js';
 import {Mobility} from './mobility.js';
 import {createStreetLife} from './street-life.js';
-import {SKODA_PAINT,policeLiveryFor} from './czech-fleet.js';
+import {SKODA_PAINT,policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
 import {nearestWaterDistance} from './water-proximity.js';
 import {createWaterfowl} from './waterfowl.js';
 import {stepPavlova} from './pavlova.js';
@@ -53,7 +53,7 @@ import {createStationStreetLife} from './station-street-life.js';
 import {createStationStatues} from './station-statues.js';
 import {createStationBuildingDetails} from './station-building.js';
 import {createLocationReadout,describeLocation,useProjection} from './location-readout.js';
-import {areaCaption,HELSINKI_AREAS} from './area-caption.js';
+import {areaCaption,HELSINKI_AREAS,PRAGUE_AREAS} from './area-caption.js';
 import {createWaterfrontLandmarks} from './waterfront-landmarks.js';
 import {createStreetNameSigns} from './street-name-signs.js';
 import {createPalaceLife} from './palace-life.js';
@@ -712,8 +712,7 @@ function updateHUD(now){
  if(car.damage>.02)$('gear').textContent=`DAMAGE ${Math.round(car.damage*100)}% · R TO RESET`;
  if(car.battery===0)$('gear').textContent='R TO RECHARGE';else if(car.battery<=.2)$('gear').textContent='LOW BATTERY · R TO RECHARGE';
  if(!driving){$('gear').textContent=TRAVEL_MODES[travel.mode].label.toUpperCase();$('speed').title='Speed in kilometres per hour';}
- let nearest=data.landmarks[0],best=Infinity;for(const l of data.landmarks){const d=Math.hypot(l.x-car.x,l.z-car.z);if(d<best){best=d;nearest=l;}}$('district-label').textContent=nearest.district.toUpperCase();
- if(areaLabel){const caption=document.querySelector('.minimap-caption')?.firstChild,text=`${areaLabel(car.x,car.z,now)} `;if(caption&&caption.textContent!==text)caption.textContent=text;}
+ if(areaLabel){const text=areaLabel(car.x,car.z,now);$('district-label').textContent=text;const caption=document.querySelector('.minimap-caption')?.firstChild;if(caption&&caption.textContent!==`${text} `)caption.textContent=`${text} `;}
  const location=currentLocation();locationReadout.update(location);
  $('coordinates').textContent=`${location.coordinates.latitude.toFixed(6)}° N · ${location.coordinates.longitude.toFixed(6)}° E`;
  drawMinimap();
@@ -867,7 +866,7 @@ async function boot(){
    // The catalog lists every destination; only the requested region blocks startup.
    if(helsinki)data.landmarks.push({...HARBOUR_START});
    for(const e of extensions)data.landmarks.push(...(e.starts||[]));
-   areaLabel=areaCaption(helsinki?[...HELSINKI_AREAS,...extensions.flatMap(e=>e.starts||[])]:data.landmarks,city.name);
+   areaLabel=areaCaption(city.id==='prague'?[...PRAGUE_AREAS,...data.landmarks]:helsinki?[...HELSINKI_AREAS,...extensions.flatMap(e=>e.starts||[])]:data.landmarks,city.name);
    const requestedStart=new URLSearchParams(location.search).get('start'),firstStart=pickStart(data.landmarks,requestedStart)||pickStart(data.landmarks,city.defaultStart)||(helsinki?HARBOUR_START:data.landmarks[0]);
    treeTrunks=createTreeTrunks({lanes:mobilityData.roads.edges});
    const regionStages=new Map(),transitQueue=[],addTransit=e=>{if(!tramSim||!buses)transitQueue.push(e);else installTransit(e.transitLines,{trams:tramSim,tramRenderer,buses:buses.simulation});};
@@ -978,7 +977,7 @@ async function boot(){
    progress(68,'Loading buildings and textures');focus.set(car.x,0,car.z);await Promise.all([ensureCityModel(),updateTiles()]);
    progress(88,'Loading traffic and pedestrians');mobility=helsinki?new Mobility(correctHarbourLanes(mobilityData),world,{stationCars:16,corridorCars:HARBOUR_CORRIDOR_CARS,corridor:harbourCorridor(world.roads)}):new Mobility(mobilityData,world);mobility.reset(car);angryDrivers=createAngryDrivers({vehicleOf:a=>streetLife?.traffic?.vehicleOf(a)});scene.add(angryDrivers.group);mobility.onCrash=a=>angryDrivers.trigger(a,mobility.time);streetLife=createStreetLife(scene,mobility,{paintColors:city.id==='prague'?SKODA_PAINT:null});streetLife.update(0,car);world.objects.add(breakableSigns.bodies);
    trafficCars=mobility.cars.map(actor=>{const visual=streetLife.traffic.vehicleOf(actor);return {id:`traffic-${actor.id}`,label:visual?.type==='taxi'?'Taxi':'Car',actor,visual:{type:visual?.type||'sedan',paint:visual?.paint.getStyle()},claim(){if(actor.playerTaken||actor.edge===null||Math.abs(actor.speed)>1.2)return false;actor.playerTaken=true;actor.edge=null;actor.speed=0;return true;},release(){delete actor.playerTaken;}};});
-   police=new PoliceSimulation(mobility.roads,world);policeRenderer=createPoliceRenderer(scene,police,{livery:policeLiveryFor(city.id)});police.onIncident=(...incident)=>finale.incident(...incident);roadblock=createRoadblock(scene,{world,police,carModel:carGroup,playerLook:travelRenderer.look,isVisible:trafficInView,obstacles:()=>[...mobility.cars.filter(c=>c.edge),...(tramSim?.bodies||[]),...(buses?.bodies||[]),...travel.parkedBodies(),...police.obstacles],onWarning:message=>toast(message,{important:true})});
+   police=new PoliceSimulation(mobility.roads,world);policeRenderer=createPoliceRenderer(scene,police,{livery:policeLiveryFor(city.id),cityId:city.id});police.onIncident=(...incident)=>finale.incident(...incident);roadblock=createRoadblock(scene,{world,police,carModel:carGroup,playerLook:travelRenderer.look,isVisible:trafficInView,obstacles:()=>[...mobility.cars.filter(c=>c.edge),...(tramSim?.bodies||[]),...(buses?.bodies||[]),...travel.parkedBodies(),...police.obstacles],onWarning:message=>toast(message,{important:true}),uniformWord:()=>{const a=policeAgencyFor(city.id,police.level);return city.id==='prague'?a.uniform:a.word;}});
    tramSim=new TramSimulation(tramData,world);tramSim.reset(car);tramRenderer=createTramRenderer(scene,tramSim);tramRenderer.update(car);
    cyclists=new Cyclists(data);cyclistRenderer=createCyclistRenderer(scene,cyclists);cyclistRenderer.update(car);
    npcScooters=new ScooterRiders(mobility.walks,world);npcScooters.reset(car);npcScooterRenderer=createScooterRiderRenderer(scene,npcScooters);npcScooterRenderer.update(car);
@@ -995,7 +994,7 @@ async function boot(){
    progress(100,'Ready');
    ready=true;carGroup.visible=true;marker.visible=true;loadingScreen.ready(startPoint.name);
    if(!helsinki)$('boot-place-label').textContent=`Your starting point in ${city.name}`;
-   startPicker=createStartPicker({starts:data.landmarks,current:startPoint,onChange:previewStart});
+   startPicker=createStartPicker({starts:data.landmarks,current:startPoint,onChange:previewStart,districts:city.id==='prague'});
    const menu=$('landmark-buttons');data.landmarks.forEach((l,i)=>{const b=document.createElement('button');b.textContent=`${i+1}  ${l.name}`;b.addEventListener('click',()=>visitStart(l,b));menu.append(b);});
    updateDataCounts();
    if(!helsinki){

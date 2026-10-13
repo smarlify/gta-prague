@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync,readFileSync} from 'node:fs';
-import {areaName,areaCaption,HELSINKI_AREAS} from '../src/area-caption.js';
+import {areaName,areaCaption,HELSINKI_AREAS,PRAGUE_AREAS} from '../src/area-caption.js';
 
 const INDEX='public/data/extensions/index.json',starts=existsSync(INDEX)?JSON.parse(readFileSync(INDEX)).extensions.flatMap(e=>e.starts):[];
 const helsinki=[...HELSINKI_AREAS,...starts];
@@ -22,4 +22,9 @@ test('other cities: districts named after the city read as its centre; far away 
 test('the caption recomputes at most twice a second',()=>{
  const caption=areaCaption([{district:'A',x:0,z:0},{district:'B',x:1000,z:0}],'City');
  assert.equal(caption(0,0,0),'A');assert.equal(caption(1000,0,200),'A','throttled');assert.equal(caption(1000,0,500),'B');
+});
+test('Prague anchors name the neighbourhood, not PRAHA CENTRE',()=>{
+ assert.match(areaName(PRAGUE_AREAS,-50,50,'Praha'),/STARÉ MĚSTO|STARE MESTO/);
+ assert.match(areaName(PRAGUE_AREAS,-1800,-1200,'Praha'),/DEJVICE/);
+ assert.match(areaName(PRAGUE_AREAS,-1100,1500,'Praha'),/SMÍCHOV|SMICHOV/);
 });
