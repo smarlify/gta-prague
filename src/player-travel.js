@@ -5,7 +5,7 @@ import {sweptContact} from './contact-geometry.js';
 import {slopeAt} from './terrain.js';
 
 export const TRAVEL_MODES=Object.freeze({
- walk:{label:'On foot',speed:2,run:4.8,acceleration:8,braking:12,halfWidth:.28,halfLength:.28},
+ walk:{label:'On foot',speed:2,run:9.6,acceleration:8,braking:12,halfWidth:.28,halfLength:.28},
  bike:{label:'Bicycle',speed:7,acceleration:2.4,braking:7,halfWidth:.34,halfLength:.9},
  scooter:{label:'Scooter',speed:25/3.6,acceleration:2.8,braking:8,halfWidth:.3,halfLength:.62},
 });
