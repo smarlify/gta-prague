@@ -564,7 +564,7 @@ function trackGameStart(place=startPoint){
  if(typeof window==='undefined'||typeof window.trackEvent!=='function')return;
  window.trackEvent('game_start',{
   game_id:'gta_prague',
-  game_name:'GTA Prague',
+  game_name:'GTA Praha',
   start_location:place?.name||'unknown',
   event_category:'game_interaction'
  });

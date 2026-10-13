@@ -1,4 +1,4 @@
-# GTA Prague
+# GTA Praha
 
 **Drive, walk and explore a playable Prague.**
 
@@ -7,7 +7,8 @@ browser. Explore Prague by car, on foot, by bicycle or on an e-scooter. Greet pe
 car, or help recreate a place you know. Helsinki and Tampere remain in the build. The streets and
 buildings come from open map and city data, with local details added by contributors.
 
-**Play (review app):** `https://gta-prague-….herokuapp.com/` (private EU Heroku app `gta-prague`).
+**Play:** [gtapraha.online](https://gtapraha.online) (primary; also [gtapraha.cz](https://gtapraha.cz)).
+Review app: `https://gta-prague-….herokuapp.com/` (private EU Heroku app `gta-prague`).
 Upstream Worldhood: [worldhood.org](https://worldhood.org).
 
 The current game is single-player. A shared online world and player-owned territories are future
