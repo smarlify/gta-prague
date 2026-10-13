@@ -1,0 +1,48 @@
+{
+ "schemaVersion": 1,
+ "id": "prague",
+ "name": "Praha",
+ "country": "Česko",
+ "origin": [
+  14.42125,
+  50.08747
+ ],
+ "radiusMetres": 2000,
+ "terrainZoom": 14,
+ "maintainers": [],
+ "status": "draft",
+ "note": "2 km around Starom\u011bstsk\u00e9 n\u00e1m\u011bst\u00ed. Starts are the river and New Town driving loop; the castle and Charles Bridge stay places you see, not spawn points.",
+ "liveries": {
+  "tram": {
+   "green": "#c8102e",
+   "yellow": "#f2ead8",
+   "black": "#1a1c1f"
+  },
+  "bus": {
+   "paint": "#c8102e",
+   "white": "#f3eee4"
+  },
+  "note": "DPP city fleet: red body with a cream band, estimated from the public \u0160koda 15T tram and red-and-cream city bus. Not an official colour specification."
+ },
+ "starts": [
+  {"name": "N\u00e1rodn\u00ed divadlo", "at": [14.41355, 50.08105]},
+  {"name": "Most Legi\u00ed", "at": [14.4117, 50.0819]},
+  {"name": "Smetanovo n\u00e1b\u0159e\u017e\u00ed", "at": [14.4132, 50.084]},
+  {"name": "Masarykovo n\u00e1b\u0159e\u017e\u00ed", "at": [14.4152, 50.0782]},
+  {"name": "Malostransk\u00e9 n\u00e1b\u0159e\u017e\u00ed", "at": [14.4085, 50.0862]},
+  {"name": "M\u00e1nes\u016fv most", "at": [14.4126, 50.0906]},
+  {"name": "N\u00e1rodn\u00ed muzeum", "at": [14.4309, 50.0796]},
+  {"name": "Kl\u00e1rov", "at": [14.4115, 50.0915]}
+ ],
+ "source": {
+  "geocoder": "Nominatim / OpenStreetMap",
+  "displayName": "Praha, Česko"
+ },
+ "buildings3d": {
+  "provider": "IPR Praha",
+  "licence": "CC BY 4.0",
+  "attribution": "datový podklad © IPR Praha",
+  "layer": "https://services5.arcgis.com/SBTXIEUGWbqzUecw/arcgis/rest/services/Budovy_3D_WSL1/SceneServer/layers/0",
+  "note": "Photogrammetric LOD2 roofs and walls. IPR also publishes this model as CityGML; the public scene layer is the copy this build downloads for the playable circle."
+ }
+}

@@ -1,0 +1,62 @@
+{
+  "licence": "CC0 1.0",
+  "source": "BigSoundBank (La Sonothèque)",
+  "page": "https://bigsoundbank.com",
+  "note": "Short excerpts. Trimmed, faded and encoded so the beds can loop. The full recordings are not in this repository. CC0 does not require attribution; the names are kept so the sources stay findable.",
+  "clips": [
+    {
+      "file": "city.mp3",
+      "role": "City street bed",
+      "title": "Street and Roads",
+      "number": "s0608",
+      "page": "https://bigsoundbank.com/street-and-roads-s0608.html",
+      "author": "Joseph SARDIN",
+      "licence": "CC0 1.0"
+    },
+    {
+      "file": "crowd.mp3",
+      "role": "Pedestrians",
+      "title": "Lourdes pedestrian street",
+      "number": "s2676",
+      "page": "https://bigsoundbank.com/lourdes-pedestrian-street-s2676.html",
+      "author": "Pierre SIBANARCO",
+      "licence": "CC0 1.0"
+    },
+    {
+      "file": "car.mp3",
+      "role": "Player car interior",
+      "title": "Car interior, 50 km/h",
+      "number": "s3099",
+      "page": "https://bigsoundbank.com/car-interior-50-km-h-s3099.html",
+      "author": "Joseph SARDIN & Axeline T.",
+      "licence": "CC0 1.0"
+    },
+    {
+      "file": "tram.mp3",
+      "role": "Tram roll",
+      "title": "Tram passing #2",
+      "number": "s3372",
+      "page": "https://bigsoundbank.com/tram-passing-2-s3372.html",
+      "author": "Joseph SARDIN & Axeline T.",
+      "licence": "CC0 1.0"
+    },
+    {
+      "file": "tram-depart.mp3",
+      "role": "Tram leaving a stop",
+      "title": "Tram Starts and Departs #1",
+      "number": "s3538",
+      "page": "https://bigsoundbank.com/tram-starts-and-departs-1-s3538.html",
+      "author": "Joseph SARDIN",
+      "licence": "CC0 1.0"
+    },
+    {
+      "file": "siren.mp3",
+      "role": "Police siren",
+      "title": "Gendarmerie, Outdoor Siren",
+      "number": "s0886",
+      "page": "https://bigsoundbank.com/siren-french-gendarmerie-s0886.html",
+      "author": "Joseph SARDIN",
+      "licence": "CC0 1.0"
+    }
+  ]
+}

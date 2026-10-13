@@ -22,6 +22,8 @@ that the notices match the locked runtime packages and bundled fonts.
 | HSL transit data | CC BY 4.0 | `public/data/trams.json`, `buses.json`, `bus-corridors.json` |
 | OpenStreetMap-derived route outlines and landmark positions | ODbL 1.0 | `extensions/*/route.json`, `knownFor[].at` in `extensions/*/extension.json` |
 | Cities built from OpenStreetMap (`npm run city:build`) | ODbL 1.0, © OpenStreetMap contributors | `public/cities/**`, `cities/*/city.json` |
+| Prague building shells (`npm run prague:buildings`) from IPR Praha's photogrammetric 3D model, read from the public I3S scene layer of the same model published as CityGML | CC BY 4.0, datový podklad © IPR Praha | `public/cities/prague/buildings3d/**`, `public/cities/prague/buildings3d-index.json` |
+| City, crowd, car, tram and police recordings (short excerpts) | CC0 1.0 | `public/sounds/` |
 | Street furniture positions extracted by Mapillary (`npm run city:furniture`) | Mapillary Terms of Use; downstream dataset redistribution rights need confirmation | Mapillary-derived entries in `public/cities/*/furniture.json` |
 | Façade descriptions written from Mapillary street-level photos (`npm run facades:photos`) | CC BY-SA 4.0, © Mapillary contributors | `cities/*/facades.json`, `public/cities/*/facades.json` |
 | Place descriptions written from current photos on Wikimedia Commons and Mapillary (`npm run photos:fetch`) | CC BY-SA 4.0 (the photos' licences: CC BY-SA 3.0/4.0) | `cities/*/*-reference.json`, `cities/*/*-sources.json` |
@@ -39,6 +41,10 @@ that the notices match the locked runtime packages and bundled fonts.
 
 **Forking for another city?** Keep the MIT notice for the code, replace `public/data` with your own
 city's data under its licence, and update this file and the in-game Sources panel.
+
+## Sound recordings
+
+- **City beds** from [BigSoundBank](https://bigsoundbank.com) (La Sonothèque), dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). The game ships short excerpts, trimmed and faded so they can loop: a street (`s0608`, Joseph SARDIN), a pedestrian street (`s2676`, Pierre SIBANARCO), a car interior at 50 km/h (`s3099`, Joseph SARDIN & Axeline T.), a tram passing (`s3372`, Joseph SARDIN & Axeline T.), a tram leaving a stop (`s3538`, Joseph SARDIN) and a French two-tone siren (`s0886`, Joseph SARDIN). CC0 does not require this credit. Page URLs are in `public/sounds/sources.json`.
 
 ## Map and city data
 

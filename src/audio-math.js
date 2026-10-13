@@ -143,3 +143,21 @@ export function tramDepartures(trams,previousWaiting){
 }
 // Impact loudness from the damage the ImpactSystem applied (amount ∝ speed²).
 export function impactLevel(damageDelta){return damageDelta>0?clamp(.35+damageDelta*6,0,1):0;}
+
+// The player-car loop is a recording of a steady 50 km/h interior, so playback
+// rate is 1 there and lower at a crawl. Gain follows the EV load curve. Setts
+// and other rough surfaces add the rumble they have above asphalt.
+export function carSample(speed,surface,input={}){
+ const kind=surface?.surface==='off'?'grass':surfaceKind(surface?.material?surface:null);
+ const engine=engineModel(speed,input),roll=rollingMix(kind,speed),asphalt=rollingMix('asphalt',speed);
+ const playbackRate=clamp(.72+Math.abs(speed)/(50/3.6)*.28,.7,1.35);
+ const gain=clamp(engine.volume*.9+Math.max(0,roll.rumble-asphalt.rumble)*1.1,0,1);
+ return {kind,playbackRate,gain};
+}
+// Pedestrian-bed level from the nearest people. One person nearby is a murmur;
+// a small group reaches full level.
+export function crowdLevel(people,listener,range=26){
+ const near=nearestSources(people,listener,6,range);if(!near.length)return 0;
+ let sum=0;for(const n of near)sum+=attenuation(n.distance,{ref:3.5,max:range,rolloff:1.5});
+ return clamp(sum/2,0,1);
+}

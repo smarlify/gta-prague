@@ -76,8 +76,7 @@ when switched with **T**. Other shaders can read `WEATHER_UNIFORMS.wetness` and 
   - sea and market ambience;
   - tram departure cues.
 
-  What's missing is `src/audio.js`, the WebAudio layer that plays it. Use synthesised sounds or
-  CC0/CC BY samples, credited in `NOTICE.md`.
+  `src/audio.js` plays those levels with CC0 excerpts (a city bed, crowd, the player car, tram roll and departure, and the police two-tone). Credits are in `NOTICE.md` and `public/sounds/sources.json`. Gull calls stay synthesised.
 - **Seagulls in Helsinki (S–M).** Calls near water from `gullRatePerSecond`. Add gulls flying and
   perched on quays and market stalls that scatter when you drive close.
 - **Tram bells and stop announcements (S).** A bell on departure or when you block the tracks;
