@@ -46,8 +46,12 @@ test('police steering, brake lamps, strobes and beacon update without altering c
 test('siren is silent without police, louder when closer, and yelps up close',()=>{
  const player={x:0,z:0};
  assert.equal(sirenMix([],player,0).volume,0);assert.equal(sirenMix([{x:400,z:0}],player,0).volume,0);
- const far=sirenMix([{x:150,z:0}],player,1),near=sirenMix([{x:20,z:0}],player,1);
+ assert.equal(sirenMix([{x:500,z:0}],player,0).volume,0,'units ~500 m away are inaudible');
+ const far=sirenMix([{x:120,z:0}],player,1),near=sirenMix([{x:20,z:0}],player,1),close=sirenMix([{x:8,z:0}],player,1);
  assert.ok(near.volume>far.volume&&far.volume>0);
+ assert.ok(close.volume>=near.volume*.95,'full loudness only when truly close');
+ assert.ok(far.volume<near.volume*.35,'mid-range pursuit is much quieter than nearby');
+ assert.ok(far.cutoff<near.cutoff,'distant sirens are low-pass muffled');
  const pitches=new Set();for(let t=0;t<.32;t+=.04)pitches.add(Math.round(sirenMix([{x:20,z:0}],player,t).frequency));
  assert.ok(pitches.size>4,'pitch sweeps');
 });

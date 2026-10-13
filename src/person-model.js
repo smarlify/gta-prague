@@ -404,7 +404,7 @@ export function uniformTorsoGeometry(){
  const g=torsoGeometry().rotateY(Math.PI),p=g.attributes.position,uv=g.attributes.uv;
  for(let i=0;i<p.count;i++)uv.setY(i,p.getY(i));return g;
 }
-// Police jacket/vest print: Finnish POLIISI by default; Prague passes Policie / Městská policie.
+// Police jacket/vest print: Finnish POLIISI by default; Prague passes Policie / Městská POLICIE hl. m. Prahy.
 export const POLICE_UNIFORM={navy:'#1b2436',vest:'#d4e03c',reflective:'#c8ccd0',text:'POLIISI'};
 const uniformCache=new Map();
 function uniformTexture(kind,word=POLICE_UNIFORM.text){
@@ -412,15 +412,21 @@ function uniformTexture(kind,word=POLICE_UNIFORM.text){
  const key=`${kind}:${word}`;if(uniformCache.has(key))return uniformCache.get(key);
  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=256;const ctx=canvas.getContext('2d'),U=POLICE_UNIFORM;
  const label=word||U.text;
+ // Long municipal titles split so the jacket/vest stays readable.
+ const lines=label.length>18?[label.replace(/\s+hl\.\s*/,'\nhl. ').split('\n')]:[label];
  const band=(v0,v1,colour,u0=0,u1=1)=>{ctx.fillStyle=colour;ctx.fillRect(u0*512,(1-v1)*256,(u1-u0)*512,(v1-v0)*256);};
  const text=(t,u,v,h,w,colour)=>{ctx.save();ctx.fillStyle=colour;ctx.font=`900 ${h*256}px Arial, Helvetica, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
   const m=ctx.measureText(t).width;ctx.translate(u*512,(1-v)*256);ctx.scale(w*512/m,1);ctx.fillText(t,0,0);ctx.restore();};
+ const stack=(u,v,h,w,colour)=>{
+  if(lines.length<2){text(lines[0],u,v,h,w,colour);return;}
+  text(lines[0],u,v+h*.28,h*.62,w,colour);text(lines[1],u,v-h*.22,h*.42,w*.95,colour);
+ };
  if(kind==='vest'){
   band(0,1,U.vest);band(.2,.27,U.reflective);band(.36,.43,U.reflective);
-  band(.55,.8,U.navy,.36,.64);text(label,.5,.675,.2,.25,U.reflective);
-  band(.62,.7,U.navy,.84,.96);text(label,.9,.66,.07,.1,U.vest);
+  band(.55,.8,U.navy,.36,.64);stack(.5,.675,.2,.25,U.reflective);
+  band(.62,.7,U.navy,.84,.96);text(lines[0].split(/\s+/)[0]||lines[0],.9,.66,.07,.1,U.vest);
  }else{
-  band(0,1,U.navy);band(.06,.1,'#11161f');text(label,.5,.66,.17,.24,U.reflective);
+  band(0,1,U.navy);band(.06,.1,'#11161f');stack(.5,.66,.17,.24,U.reflective);
   band(.64,.69,U.reflective,.86,.94);band(.6,.7,'#2a3550',.06,.12);
  }
  const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;uniformCache.set(key,t);return t;

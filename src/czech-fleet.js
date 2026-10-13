@@ -6,10 +6,10 @@ export function policeLiveryFor(cityId){
  return cityId==='prague'?'praha':'fi';
 }
 
-// Wanted 0–2: state Policie (silver + POLICIE). Wanted 3+: Prague municipal (white + MĚSTSKÁ).
+// Wanted ≤2: Prague municipal (white + Městská). Wanted ≥3: state Policie (POLICIE / praha).
 // Other cities keep Finnish POLIISI.
 export function policeAgencyFor(cityId,level=0){
  if(cityId!=='prague')return {word:'POLIISI',uniform:'Poliisi',livery:'fi'};
- if(level>=3)return {word:'MĚSTSKÁ',uniform:'Městská policie',livery:'praha-mestska'};
- return {word:'POLICIE',uniform:'Policie',livery:'praha'};
+ if(level>=3)return {word:'POLICIE',uniform:'Policie',livery:'praha'};
+ return {word:'MĚSTSKÁ POLICIE',uniform:'Městská POLICIE hl. m. Prahy',livery:'praha-mestska'};
 }

@@ -12,7 +12,7 @@ const ease=v=>{v=Math.min(1,Math.max(0,v));return v*v*(3-2*v);};
 const lerp=(a,b,t)=>a+(b-a)*t;
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 
-// Patrol jacket/vest lettering comes from the city agency (POLIISI / Policie / Městská policie).
+// Patrol jacket/vest lettering comes from the city agency (POLIISI / Policie / Městská POLICIE hl. m. Prahy).
 const OFFICER_LOOK={shirt:'#1b2436',trousers:'#1a2232',hat:'#1b2436',hairStyle:'police',shoes:'#121214',coat:0,skirt:false,bagType:null,
  uniform:'jacket',outer:'uniform',scarf:null,accessory:null,phoneWalk:false,stoop:0,age:'adult',stride:1};
 const VEST_LOOK={...OFFICER_LOOK,uniform:'vest'};

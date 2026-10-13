@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
 export {policeLiveryFor,policeAgencyFor};
 const pragueLivery=l=>l==='praha'||l==='praha-mestska';
-const doorWord=l=>l==='praha-mestska'?'MĚSTSKÁ':l==='praha'?'POLICIE':'POLIISI';
+const doorWord=l=>l==='praha-mestska'?'MĚSTSKÁ POLICIE':l==='praha'?'POLICIE':'POLIISI';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Finnish Poliisi patrol vehicles, modelled from reference photography
@@ -124,8 +124,13 @@ function drawSide(ctx,spec,P,aspect){
   rect(1.55,2.3,spec.belt+.03,spec.h-.14,POLICE_BLUE);const [ex,ey]=P(1.92,(spec.belt+spec.h-.11)/2);ctx.save();ctx.translate(ex,ey);ctx.scale(aspect,1);drawEmblem(ctx,0,0,h(.46));ctx.restore();
  }
  // Lettering across the doors (POLIISI on both sides, as in the reference photos).
- const word=spec.word||'POLIISI';
- const [tx,ty]=P(spec.text.z,spec.text.y);fitText(ctx,word,tx,ty,h(spec.text.cap),w(spec.text.w),pragueLivery(spec.livery)?POLICE_BLUE:POLICE_WHITE,aspect);
+ // Municipal Prague: two-line "MĚSTSKÁ POLICIE" / "hl. m. Prahy" so the door is not bare "MĚSTSKÁ".
+ const word=spec.word||'POLIISI',ink=pragueLivery(spec.livery)?POLICE_BLUE:POLICE_WHITE;
+ const [tx,ty]=P(spec.text.z,spec.text.y);
+ if(spec.livery==='praha-mestska'){
+  fitText(ctx,'MĚSTSKÁ POLICIE',tx,ty-h(.05),h(spec.text.cap*.7),w(spec.text.w),ink,aspect);
+  fitText(ctx,'hl. m. Prahy',tx,ty+h(.11),h(spec.text.cap*.36),w(spec.text.w*.95),ink,aspect);
+ }else fitText(ctx,word,tx,ty,h(spec.text.cap),w(spec.text.w),ink,aspect);
  // Door shut lines and wheel-well shadows.
  ctx.strokeStyle='rgba(20,24,30,.55)';ctx.lineWidth=2;
  for(const z of doors){ctx.beginPath();ctx.moveTo(...P(z,spec.sill+.02));ctx.lineTo(...P(z,spec.belt-.02));ctx.stroke();}

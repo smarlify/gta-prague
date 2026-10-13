@@ -40,10 +40,13 @@ test('Prague police and traffic colours',()=>{
  assert.equal(policeLiveryFor('helsinki'),'fi');
  assert.ok(SKODA_PAINT.includes('#f4f5f2'));
  assert.ok(SKODA_PAINT.includes('#1c1e21'));
- assert.equal(policeAgencyFor('prague',1).word,'POLICIE');
- assert.equal(policeAgencyFor('prague',1).livery,'praha');
- assert.equal(policeAgencyFor('prague',3).word,'MĚSTSKÁ');
- assert.equal(policeAgencyFor('prague',3).livery,'praha-mestska');
+ assert.equal(policeAgencyFor('prague',1).word,'MĚSTSKÁ POLICIE');
+ assert.equal(policeAgencyFor('prague',1).livery,'praha-mestska');
+ assert.equal(policeAgencyFor('prague',1).uniform,'Městská POLICIE hl. m. Prahy');
+ assert.equal(policeAgencyFor('prague',2).livery,'praha-mestska');
+ assert.equal(policeAgencyFor('prague',3).word,'POLICIE');
+ assert.equal(policeAgencyFor('prague',3).livery,'praha');
+ assert.equal(policeAgencyFor('prague',5).livery,'praha');
  assert.equal(policeAgencyFor('helsinki',5).word,'POLIISI');
 });
 

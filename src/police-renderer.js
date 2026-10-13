@@ -5,8 +5,8 @@ import {groundPose} from './terrain.js';
 const slope={y:0,pitch:0,roll:0};
 import {createPoliceBody,unitNumber,unitNumberTexture,unitVariant,POLICE_BLUE,POLICE_YELLOW,policeAgencyFor} from './police-model.js';
 
-// Patrol units: Finnish POLIISI by default; Prague switches Policie / Městská
-// from wanted level at spawn (units keep the agency they arrived with).
+// Patrol units: Finnish POLIISI by default; Prague switches Městská (≤2) /
+// Policie (≥3) from wanted level at spawn (units keep the agency they arrived with).
 export {POLICE_BLUE,POLICE_YELLOW};
 
 // Rapid alternating triple-flash strobe: side 0 flashes three times, then side 1.
