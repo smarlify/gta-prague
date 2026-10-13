@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
-import {PoliceSimulation,sweptContact,wantedLevel,incidentHeat,escapeTime,closingSpeed,CRASH_MIN_SPEED,RECKLESS,INCIDENT_WINDOW,recklessDriving} from '../src/police.js';
+import {PoliceSimulation,sweptContact,wantedLevel,incidentHeat,escapeTime,closingSpeed,CRASH_MIN_SPEED,RECKLESS,INCIDENT_WINDOW,CONTACT_COOLDOWN,recklessDriving,TRAFFIC_HEAT_CAP,isLethalPedestrian} from '../src/police.js';
 import {prepareGraph} from '../src/mobility.js';
 import {correctHarbourLanes,vehicleFitsRoad} from '../src/road-safety.js';
 import {SpatialIndex} from '../src/geo.js';
@@ -11,18 +11,24 @@ import {HARBOUR_START} from '../src/demo-route.js';
 const world={roads:{at:()=>true},buildings:{at:()=>false}};
 const graph=()=>prepareGraph({nodes:[[0,100],[0,0],[0,-100],[0,-200]],edges:[{from:0,to:1,lane:0,points:[[0,100],[0,0]]},{from:1,to:2,lane:0,points:[[0,0],[0,-100]]},{from:2,to:3,lane:0,points:[[0,-100],[0,-200]]}]});
 const player=()=>({x:0,z:-25,heading:0,speed:0});
-test('severity: pedestrian > car crash > light tap (nothing)',()=>{
+test('severity: pedestrian kill > car crash ≈ one star > light tap (nothing)',()=>{
  assert.ok(incidentHeat('pedestrian')>incidentHeat('vehicle',10));assert.ok(incidentHeat('vehicle',10)>0);assert.equal(incidentHeat('vehicle',2),0);
  const tap=new PoliceSimulation(graph(),world);assert.equal(tap.report('vehicle',1,CRASH_MIN_SPEED-.5),false);assert.equal(tap.level,0);assert.equal(tap.heat,0);
- const crash=new PoliceSimulation(graph(),world);assert.equal(crash.report('vehicle',1,9),true);assert.equal(crash.level,2);assert.match(crash.message,/patrol/);
- const person=new PoliceSimulation(graph(),world);person.report('pedestrian',1);assert.equal(person.level,2,'hitting a person is at least two stars immediately');
+ const crash=new PoliceSimulation(graph(),world);assert.equal(crash.report('vehicle',1,9),true);assert.equal(crash.level,1);assert.match(crash.message,/patrol/);
+ const person=new PoliceSimulation(graph(),world);person.report('pedestrian',1);assert.equal(person.level,1,'one pedestrian kill is about one star');
  assert.ok(person.heat>crash.heat);assert.equal(wantedLevel(0),0);
 });
-test('four separate crashes close together reach five stars without hurting people',()=>{
+test('traffic and collisions stay at municipal two stars; only pedestrian kills reach Policie',()=>{
  const p=new PoliceSimulation(graph(),world),levels=[];
- for(let i=0;i<4;i++){p.time=i*1.5;p.report('vehicle',i,9);levels.push(p.level);}
- assert.deepEqual(levels,[2,3,4,5]);assert.equal(p.surging,true);
- const cop=new PoliceSimulation(graph(),world);cop.report('police','unit',8);assert.equal(cop.level,2);assert.match(cop.message,/police car/);
+ for(let i=0;i<6;i++){p.time=i*1.5;p.report('vehicle',i,9);levels.push(p.level);}
+ assert.ok(levels.every(l=>l<=2),'crashes never leave Městská (≤2★)');
+ assert.equal(p.level,2);assert.equal(p.heat,TRAFFIC_HEAT_CAP);assert.equal(p.surging,false);
+ const cop=new PoliceSimulation(graph(),world);cop.report('police','unit',8);assert.equal(cop.level,1);assert.match(cop.message,/police car/);
+ const kills=new PoliceSimulation(graph(),world),stars=[];
+ for(let i=0;i<6;i++){kills.time=i*1.5;kills.report('pedestrian',i);stars.push(kills.level);}
+ assert.ok(stars.some(l=>l>=3),'lethal hits can reach state Policie');
+ assert.equal(kills.level,5);assert.equal(isLethalPedestrian('pedestrian',6),true);
+ assert.equal(isLethalPedestrian('pedestrian',2),false);assert.equal(isLethalPedestrian('vehicle',9),false);
 });
 test('closing speed counts head-on crashes more than rear-end nudges',()=>{
  const me={heading:0,speed:10};
@@ -30,12 +36,12 @@ test('closing speed counts head-on crashes more than rear-end nudges',()=>{
  assert.equal(closingSpeed(me,{heading:Math.PI,speed:8}).toFixed(3),'18.000');
  const p=new PoliceSimulation(graph(),world),from={x:0,z:6,heading:0,speed:6};
  p.observe(from,{...from,z:2,speed:6},[{id:1,edge:{},x:0,z:-2,heading:0,speed:5}],[]);assert.equal(p.heat,0,'gentle rear-end nudge in slow traffic is ignored');
- p.observe(from,{...from,z:2,speed:6},[{id:2,edge:{},x:0,z:-2,heading:Math.PI,speed:5}],[]);assert.equal(p.level,2);
+ p.observe(from,{...from,z:2,speed:6},[{id:2,edge:{},x:0,z:-2,heading:Math.PI,speed:5}],[]);assert.equal(p.level,1);
 });
 test('one-star patrol gives up sooner than a pedestrian pursuit; unseen wanted level decays to zero',()=>{
  assert.ok(escapeTime(1)<escapeTime(2)&&escapeTime(2)<escapeTime(5));
  const minor=new PoliceSimulation(graph(),world),serious=new PoliceSimulation(graph(),world),car=player();
- minor.report('reckless','driving');serious.report('pedestrian',1);minor.dispatch=serious.dispatch=1e9;
+ minor.report('reckless','driving');serious.report('pedestrian',1);serious.report('pedestrian',2);minor.dispatch=serious.dispatch=1e9;
  let minorCleared=0,seriousCleared=0;
  for(let i=1;i<40*30;i++){minor.step(1/30,car);serious.step(1/30,car);if(!minorCleared&&!minor.level)minorCleared=i/30;if(!seriousCleared&&!serious.level)seriousCleared=i/30;}
  assert.ok(minorCleared>0&&seriousCleared>minorCleared,`${minorCleared} < ${seriousCleared}`);
@@ -62,16 +68,18 @@ test('search remembers the last visible location and cannot see through building
  for(let i=0;i<90;i++)p.step(1/30,car);
  assert.deepEqual(p.lastSeen,seen);assert.equal(p.snapshot().status,'SEARCHING');
 });
-test('sustained contacts do not accumulate heat; distinct victims do',()=>{
+test('sustained contacts do not accumulate heat; distinct crashes stay municipal',()=>{
  const p=new PoliceSimulation(graph(),world);p.report('vehicle',1);
- for(let i=0;i<600;i++){p.time+=1/30;p.report('vehicle',1);}assert.equal(p.heat,6);
- p.report('vehicle',2);assert.equal(p.level,3);
+ for(let i=0;i<600;i++){p.time+=1/30;p.report('vehicle',1);}assert.equal(p.heat,3);
+ p.report('vehicle',2);assert.equal(p.level,2,'a second crash reaches two municipal stars');
+ for(let i=3;i<10;i++){p.time+=CONTACT_COOLDOWN;p.report('vehicle',i,9);}
+ assert.equal(p.level,2);assert.equal(p.heat,TRAFFIC_HEAT_CAP);
 });
 test('swept pedestrian detection catches fast pass-throughs without near-miss penalties',()=>{
  const a={x:0,z:10,heading:0},b={x:0,z:-10,heading:0};
  assert.equal(sweptContact(a,b,{x:0,z:0},true),true);assert.equal(sweptContact(a,b,{x:4,z:0},true),false);
  const p=new PoliceSimulation(graph(),world);p.observe(a,{...a,speed:0},[],[{id:1,edge:{},x:0,z:10}]);assert.equal(p.heat,0);
- p.observe(a,{...b,speed:30},[],[{id:1,edge:{},x:0,z:0}]);assert.equal(p.level,2);
+ p.observe(a,{...b,speed:30},[],[{id:1,edge:{},x:0,z:0}]);assert.equal(p.level,1);
 });
 test('police spawn at a distance and approach along directed roads',()=>{
  const p=new PoliceSimulation(graph(),world),car=player();p.report('vehicle',1);p.step(1/30,car);
@@ -92,7 +100,7 @@ test('stopping beside police ends pursuit; reset clears all state',()=>{
  assert.equal(p.recentIncidents.length,0);assert.equal(p.recklessSeconds,0);
 });
 test('escape clears heat only after being separated from pursuers',()=>{
- const p=new PoliceSimulation(graph(),world),car=player();p.report('pedestrian',1);p.dispatch=100;
+ const p=new PoliceSimulation(graph(),world),car=player();p.report('pedestrian',1);p.report('pedestrian',2);p.dispatch=100;
  for(let i=0;i<19*30;i++)p.step(1/30,car);assert.equal(p.level,2);
  for(let i=0;i<10*30;i++)p.step(1/30,car);assert.equal(p.level,0);assert.match(p.message,/Escaped/);
 });
@@ -151,9 +159,9 @@ test('the repeat bonus expires and a fresh pursuit starts without old incident h
  const quick=new PoliceSimulation(graph(),world),spaced=new PoliceSimulation(graph(),world);
  quick.report('vehicle','a',9);quick.time=2;quick.report('vehicle','b',9);
  spaced.report('vehicle','a',9);spaced.time=INCIDENT_WINDOW+1;spaced.report('vehicle','b',9);
- assert.ok(quick.heat>spaced.heat);assert.equal(spaced.heat,12);
+ assert.ok(quick.heat>spaced.heat);assert.equal(spaced.heat,6);
  const escaped=new PoliceSimulation(graph(),world);escaped.report('vehicle','a',9);escaped.dispatch=1e9;
  for(let i=0;i<21*30;i++)escaped.step(1/30,player());assert.equal(escaped.level,0);
- escaped.report('vehicle','a',9);assert.equal(escaped.heat,6,'escape clears the combo and contact history');
- escaped.reset();escaped.report('vehicle','a',9);assert.equal(escaped.heat,6,'restart also clears it');
+ escaped.report('vehicle','a',9);assert.equal(escaped.heat,3,'escape clears the combo and contact history');
+ escaped.reset();escaped.report('vehicle','a',9);assert.equal(escaped.heat,3,'restart also clears it');
 });

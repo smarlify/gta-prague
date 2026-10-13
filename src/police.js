@@ -2,22 +2,31 @@ import {routePoint} from './mobility.js';
 import {safeVehicleSegment,vehicleFitsRoad,trafficFootprintsOverlap} from './road-safety.js';
 import {cornerSpeedLimit} from './traffic-driving.js';
 
-export const wantedLevel=heat=>heat>=24?5:heat>=16?4:heat>=10?3:heat>=6?2:heat>=3?1:0;
+// Star thresholds: 1★≥3, 2★≥6, 3★≥10, 4★≥16, 5★≥24.
+// Traffic / speed / collision heat is capped below 3★ so only lethal pedestrian
+// hits can bring state Policie (agency switches at level ≥3).
+export const HEAT_LEVELS=[0,3,6,10,16,24];
+export const wantedLevel=heat=>heat>=HEAT_LEVELS[5]?5:heat>=HEAT_LEVELS[4]?4:heat>=HEAT_LEVELS[3]?3:heat>=HEAT_LEVELS[2]?2:heat>=HEAT_LEVELS[1]?1:0;
+export const TRAFFIC_HEAT_CAP=HEAT_LEVELS[3]-1; // max heat from non-lethal crime (2★)
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 
 // Relative closing speed in world m/s (HUD shows 70%). A parking-speed tap
-// is ignored; a real collision starts at two stars, anywhere in the world.
+// is ignored; a real crash is about one star, and traffic never past two.
 export const CRASH_MIN_SPEED=4;
 export const INCIDENT_WINDOW=12,CONTACT_COOLDOWN=3;
 export const RECKLESS={speed:75/3.6,turnSpeed:40/3.6,lateralAcceleration:5,pavementSpeed:30/3.6,duration:2,cooldown:8};
+// Lethal pedestrian outcomes (impacts.js SEVERITY_REPORT: stumble=2, down=6, thrown=12).
+export function isLethalPedestrian(kind,severity=8){
+ return kind==='pedestrian'&&!(severity<3);
+}
 export function incidentHeat(kind,speed=8){
- if(kind==='reckless')return 3;
+ if(kind==='reckless')return 3; // sustained risk → one star
  if(kind==='bump')return 1; // shoving past someone on foot
- // Hitting a person: a stumble, a knock-down or a throw (impacts.js SEVERITY_REPORT); 7 when unknown.
- if(kind==='pedestrian')return speed<3?6:speed<9?7:10;
+ // Hitting a person: stumble stays soft; knock-down / throw ≈ one star each.
+ if(kind==='pedestrian')return speed<3?2:speed<9?4:5;
  if(!(speed>=CRASH_MIN_SPEED))return 0;
- if(kind==='police')return 8;
- return speed>=16?7:6;
+ if(kind==='police')return 4; // hitting a patrol: about one star, still municipal-capped
+ return speed>=16?4:3; // vehicle / property crash ≈ one star
 }
 // Use actual motion for dangerous cornering; holding the steering key against
 // a wall does not count. Missing pavement data never invents an offence.
@@ -31,7 +40,7 @@ export function recklessDriving(from,player,dt,world){
 }
 // Seconds out of every unit's sight before the search is called off.
 export const escapeTime=level=>level?10+level*5:0;
-export const heatForLevel=level=>[0,3,6,10,16,24][Math.max(0,Math.min(5,Math.round(level)))];
+export const heatForLevel=level=>HEAT_LEVELS[Math.max(0,Math.min(5,Math.round(level)))];
 // Four- and five-star incidents call a stronger response in every city.
 // Units arrive closer, prefer spots the player cannot see, and arrest sooner.
 // arrestRange: a car stopped on the tram tracks is 10–20 m from the lane
@@ -103,7 +112,13 @@ export class PoliceSimulation{
   if(this.time-last<CONTACT_COOLDOWN)return false;
   const before=this.level;
   this.recentIncidents=this.recentIncidents.filter(t=>this.time-t<=INCIDENT_WINDOW);
-  this.heat=Math.min(30,this.heat+add+Math.min(3,this.recentIncidents.length));
+  const bonus=Math.min(2,this.recentIncidents.length);
+  let next=this.heat+add+bonus;
+  // Only lethal pedestrian hits may cross into 3–5★ (state Policie). Traffic,
+  // speed, collisions, bumps, reckless driving and police-car hits stay ≤2★.
+  // Never lower heat that lethal crimes already pushed past the municipal cap.
+  if(!isLethalPedestrian(kind,speed))next=Math.min(next,Math.max(this.heat,TRAFFIC_HEAT_CAP));
+  this.heat=Math.min(30,next);
   this.recentIncidents.push(this.time);
   if(this.level>=4)this.surgeUntil=this.time+SURGE.duration;
   this.escape=0;this.lastSeen=null;this.repath=0;this.dispatch=Math.min(this.dispatch,this.time+.5);

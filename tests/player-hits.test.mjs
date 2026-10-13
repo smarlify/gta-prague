@@ -52,7 +52,7 @@ test('a hard bike hit throws the rider off: the bike tips over, the rider is dow
  const bike=travel.rides.find(r=>r.id==='bike');assert.ok(bike.fallen&&bike.parked,'the bike lies on its side');
  assert.ok(travel.actor.knockdown,'rider knocked down');const d=travel.actor.knockdown.duration;assert.ok(d>=2&&d<=4.5);
  for(let t=0;t<5;t+=1/30)travel.step(new Set(),1/30);assert.equal(travel.actor.knockdown,undefined,'back on their feet');
- assert.deepEqual(cops.reports.map(r=>r.kind),['pedestrian']);assert.ok(incidentHeat('pedestrian',cops.reports[0].speed)>=6);
+ assert.deepEqual(cops.reports.map(r=>r.kind),['pedestrian']);assert.ok(incidentHeat('pedestrian',cops.reports[0].speed)>=4);
  // A gentle ride into someone keeps the rider upright and only slows the bike.
  const soft=setup('bike',2),s=ride(soft,[person(2,0,0)],new ImpactSystem(),police());
  assert.equal(s.fell,undefined);assert.equal(soft.mode,'bike');assert.ok(soft.actor.speed<2.4);

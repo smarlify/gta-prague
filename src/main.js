@@ -22,7 +22,7 @@ import {nearestWaterDistance} from './water-proximity.js';
 import {createWaterfowl} from './waterfowl.js';
 import {stepPavlova} from './pavlova.js';
 import {createPavlovaAmbulance} from './pavlova-scene.js';
-import {passageDeck,liftedBridgeHeight} from './passage.js';
+import {passageDeck,liftedBridgeHeight,stripBoredTunnels} from './passage.js';
 import {createPassageDeck} from './passage-deck.js';
 import {buildTileInWorker,materialiseBuilding,createSourceShell} from './building-loader.js';
 import {attachFacades,applyFacadeHeights} from './facade-data.js';
@@ -854,6 +854,9 @@ async function boot(){
    const furnitureData=city.furniture?json(dataUrl(city.furniture)).catch(()=>null):null; // street furniture detected in street-level photos (optional, any city)
    const surfaceTexturesP=loadSurfaceTextures({anisotropy:Math.min(8,renderer.capabilities.getMaxAnisotropy())}).catch(e=>{console.warn('Surface textures unavailable:',e);return null;});
    let mobilityData,landcoverData,tramData,surfaceTextures;[data,roofIndex,surfaceIndex,mobilityData,landcoverData,tramData,extensions,surfaceTextures]=await Promise.all([d,json(dataUrl('buildings3d-index.json')),json(dataUrl('surface-index.json')),json(dataUrl('mobility.json')),json(dataUrl('landcover.json')),json(dataUrl('trams.json')),loadExtensionIndex(json),surfaceTexturesP]);
+   // Prague bored tunnels are unplayable (invisible collisions). Strip them at
+   // load; short building passages and covered ways stay. Bridges untouched.
+   if(city.id==='prague'){const stripped=stripBoredTunnels(data,mobilityData);data=stripped.city;mobilityData=stripped.mobility;}
    if(surfaceTextures?.ground)applyGroundTexture(ground.material,surfaceTextures.ground);
    for(const e of extensions)if(e.heights?.length)setCorridorHeights(e.heights);
    if(city.facades)attachFacades(roofIndex,await json(dataUrl(city.facades)).catch(()=>null)); // photo-described street fronts (optional, any city)
