@@ -24,9 +24,14 @@ export function slug(text){
 }
 
 export function selectCity(search=''){
- const id=slug(new URLSearchParams(search).get('city')||DEFAULT_CITY);
+ const requested=new URLSearchParams(search).get('city');
+ const id=slug(requested||DEFAULT_CITY);
  const city=CITIES[id];
- if(!city)throw Error(`City “${id}” is not in this build yet. Available: ${Object.values(CITIES).map(c=>c.name).join(', ')}.`);
+ if(!city){
+  const available=Object.values(CITIES).map(c=>c.name).join(', ')||'none';
+  if(!requested)throw Error(`Default city “${DEFAULT_CITY}” is not in this build. Available: ${available}.`);
+  throw Error(`City “${id}” is not in this build yet. Available: ${available}.`);
+ }
  return city;
 }
 
