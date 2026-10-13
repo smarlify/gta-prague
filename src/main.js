@@ -671,7 +671,15 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();setPaused(true);});document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();setPaused(true);}});
 $('world').addEventListener('wheel',e=>{e.preventDefault();zoom(Math.sign(e.deltaY)*22);},{passive:false});
-$('sound-btn').addEventListener('click',async()=>{sound=!sound;peopleInteraction?.setVoiceEnabled(sound);if(sound&&!audioContext)audioContext=new AudioContext();if(sound){await audioContext.resume();cityAudio.attach(audioContext);}$('sound-btn').setAttribute('aria-label',sound?'Mute sound':'Enable sound');$('sound-btn').title=sound?'Mute sound':'Enable sound';$('sound-btn').querySelector('.mute-slash').hidden=sound;});
+async function setSound(on){
+ sound=!!on;peopleInteraction?.setVoiceEnabled(sound);
+ if(sound){audioContext??=new AudioContext();await audioContext.resume();cityAudio.attach(audioContext);}
+ $('sound-btn').setAttribute('aria-label',sound?'Mute sound':'Enable sound');$('sound-btn').title=sound?'Mute sound':'Enable sound';$('sound-btn').querySelector('.mute-slash').hidden=sound;
+}
+$('sound-btn').addEventListener('click',()=>setSound(!sound));
+// Start is a user gesture: turn sound on so the CC0 beds actually play on Heroku
+// without a second click on ♪ (autoplay still blocks keyboard-only starts).
+$('start-btn').addEventListener('click',()=>{if(!sound)setSound(true);},{capture:true});
 // After a HUD action, the next movement/interaction key belongs to the game.
 for(const id of ['view-btn','look-btn','sound-btn','zoom-in','zoom-out'])$(id).addEventListener('click',focusWorldControls);
 

@@ -7,8 +7,8 @@ browser. Explore Prague by car, on foot, by bicycle or on an e-scooter. Greet pe
 car, or help recreate a place you know. Helsinki and Tampere remain in the build. The streets and
 buildings come from open map and city data, with local details added by contributors.
 
-**Play:** [gtapraha.online](https://gtapraha.online) (primary; also [gtapraha.cz](https://gtapraha.cz)).
-Review app: `https://gta-prague-….herokuapp.com/` (private EU Heroku app `gta-prague`).
+**Play:** [gta-prague on Heroku](https://gta-prague-c9dc1d12a959.herokuapp.com/) (app `gta-prague`).
+Custom domains `gtapraha.online` / `gtapraha.cz` are reserved; point their DNS at Heroku before using them as the play URL.
 Upstream Worldhood: [worldhood.org](https://worldhood.org).
 
 The current game is single-player. A shared online world and player-owned territories are future
@@ -30,9 +30,9 @@ with the [plain-language guide](docs/START_HERE.md).
 people, missions, weather and sound. Play it, keep what's fun. Anything good works in every city.
 Start from the [wishlist](docs/IDEAS.md) and the [engine code map](docs/GAMEPLAY.md).
 
-How we work: [vision](docs/VISION.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [GOVERNANCE.md](GOVERNANCE.md) · [Discord](https://discord.gg/c6SaPvxhJG)
+How we work: [vision](docs/VISION.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [GOVERNANCE.md](GOVERNANCE.md)
 
-Originally built by [Lasse](https://www.linkedin.com/in/lassesaari/) as Worldhood. Have an idea? [Tell me](https://www.linkedin.com/in/lassesaari/).
+Originally built by [Lasse Saari](https://www.linkedin.com/in/lassesaari/) as Worldhood. GTA Prague co-authored by [Dave](https://github.com/davidnekovarcz).
 
 ## Run
 
@@ -203,8 +203,7 @@ This is a community project, and contributions of every size are welcome.
 - **Show it:** pull requests that change the game include a screenshot or a short gameplay
   video (before/after if you can); drag and drop it into the description. Docs-only changes
   don't need one. See [Show your change](CONTRIBUTING.md#show-your-change).
-- **Talk:** [Discord](https://discord.gg/c6SaPvxhJG) for live chat and sharing drives, and
-  [Discussions](https://github.com/worldhood/worldhood/discussions) for questions and ideas that should stay searchable.
+- **Talk:** [Discussions](https://github.com/worldhood/worldhood/discussions) for questions and ideas that should stay searchable.
 
 Guides:
 - [docs/RECOGNISABILITY.md](docs/RECOGNISABILITY.md): what makes a city recognisable, learned from Helsinki.
