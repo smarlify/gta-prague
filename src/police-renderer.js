@@ -3,11 +3,10 @@ import {animateVehicle} from './vehicles.js';
 import {createSiren,SURGE_SIREN} from './police-siren.js';
 import {groundPose} from './terrain.js';
 const slope={y:0,pitch:0,roll:0};
-import {createPoliceBody,unitNumber,unitNumberTexture,unitVariant,POLICE_BLUE,POLICE_YELLOW} from './police-model.js';
+import {createPoliceBody,unitNumber,unitNumberTexture,unitVariant,POLICE_BLUE,POLICE_YELLOW,policeAgencyFor} from './police-model.js';
 
-// Finnish Poliisi patrol units in the current national livery (white body,
-// blue POLIISI/POLIS door band, yellow-green chevrons, blue LED bar). The
-// bodies and the livery atlas live in police-model.js.
+// Patrol units: Finnish POLIISI by default; Prague switches Městská (≤2) /
+// Policie (≥3) from wanted level at spawn (units keep the agency they arrived with).
 export {POLICE_BLUE,POLICE_YELLOW};
 
 // Rapid alternating triple-flash strobe: side 0 flashes three times, then side 1.
@@ -31,7 +30,7 @@ function createKit(){
 }
 const unitIndex=id=>Number(String(id).replace(/\D/g,''))||0;
 
-export function createPoliceRenderer(scene,simulation,{livery='fi'}={}){
+export function createPoliceRenderer(scene,simulation,{livery='fi',cityId=null}={}){
  const models=new Map(),kit=createKit(),siren=createSiren();
  // No real lights: a PointLight costs every lit fragment in the city even when
  // no police exist (measured ~2–4 FPS). The nearest two cars instead get an
@@ -40,8 +39,8 @@ export function createPoliceRenderer(scene,simulation,{livery='fi'}={}){
  // The simulation clock stops at the arrest; strobes keep flashing through the
  // finale cinematic on this extra time, which only advances while busted.
  let arrestClock=0;
- function make(index){
-  const m=createPoliceBody(unitVariant(index),livery);m.name='Police pursuit car';
+ function make(index,unitLivery){
+  const m=createPoliceBody(unitVariant(index),unitLivery||livery);m.name='Police pursuit car';
   const {mounts}=m.userData,g=kit.geometry,owned=[];
   const add=(geometry,material,x,y,z,rx=0,ry=0)=>{const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);mesh.rotation.set(rx,ry,0,'YXZ');m.add(mesh);return mesh;};
   // Unit number decals (bonnet, rear glass, quarter windows): one tiny texture per car.
@@ -76,7 +75,10 @@ export function createPoliceRenderer(scene,simulation,{livery='fi'}={}){
    if(simulation.busted)arrestClock+=dt;else arrestClock=0;
    const player=simulation.player,t=simulation.time+arrestClock;nearest[0]=nearest[1]=null;nearestD[0]=nearestD[1]=Infinity;
    for(const u of simulation.units){
-    let model=models.get(u.id);if(!model){model=make(unitIndex(u.id));model.rotation.y=u.heading;models.set(u.id,model);}
+    let model=models.get(u.id);if(!model){
+     const agency=cityId?policeAgencyFor(cityId,simulation.level):{livery};
+     model=make(unitIndex(u.id),agency.livery);model.rotation.y=u.heading;models.set(u.id,model);
+    }
     const delta=Math.atan2(Math.sin(u.heading-model.rotation.y),Math.cos(u.heading-model.rotation.y));
     const steer=THREE.MathUtils.clamp(delta/Math.max(dt,.001)*.4,-1,1);
     groundPose(u.x,u.z,u.heading,2.2,.85,slope);model.position.set(u.x,.12+slope.y,u.z);model.rotation.set(slope.pitch,u.heading,slope.roll,'YXZ');animateVehicle(model,u.speed,steer,dt,u.braking);

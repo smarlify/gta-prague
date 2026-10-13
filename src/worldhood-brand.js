@@ -26,8 +26,9 @@ export function updateWorldhoodBrand(city,doc=document){
  const parsed=new DOMParser().parseFromString(svg,'image/svg+xml');
  for(const mark of doc.querySelectorAll('.brand-icon'))mark.replaceChildren(doc.importNode(parsed.documentElement,true));
  for(const link of doc.querySelectorAll('.wordmark')){link.setAttribute('aria-label',`GTA Praha · ${city.name}`);link.title=`You’re exploring ${city.name}`;}
- for(const name of doc.querySelectorAll('.brand-name'))name.textContent='🚔 GTA Praha 🇨🇿';
+ for(const name of doc.querySelectorAll('.brand-name'))name.textContent='GTA Praha 🇨🇿';
+ // Tab icon stays the police-car favicon in public/favicon.svg (not the in-page globe mark).
  let icon=doc.querySelector('link[rel="icon"]');if(!icon){icon=doc.createElement('link');icon.rel='icon';doc.head.append(icon);}
- icon.type='image/svg+xml';icon.href=`data:image/svg+xml,${encodeURIComponent(svg)}`;
- doc.title='🚔 GTA Praha 🇨🇿';
+ icon.type='image/svg+xml';icon.href='/favicon.svg';
+ // Title is set in index.html ("GTA Praha 🚔"); do not rewrite it here.
 }

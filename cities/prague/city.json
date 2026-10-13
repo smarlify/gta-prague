@@ -7,11 +7,11 @@
   14.42125,
   50.08747
  ],
- "radiusMetres": 2000,
+ "radiusMetres": 2400,
  "terrainZoom": 14,
  "maintainers": [],
  "status": "draft",
- "note": "2 km around Staroměstské náměstí. Starts are the river and New Town driving loop; the castle and Charles Bridge stay places you see, not spawn points. Bridges, tunnels, the Vltava channel and Czech fleet live on this circle; longer roads stay later corridors.",
+ "note": "2.4 km around Staroměstské náměstí — enough for Dejvice’s Vítězné náměstí (Kruháč). Starts span Praha 1–8 within the disk. Bridges, tunnels, the Vltava channel and Czech fleet live on this circle; longer roads stay later corridors.",
  "liveries": {
   "tram": {
    "green": "#c8102e",
@@ -27,59 +27,93 @@
  "starts": [
   {
    "name": "Národní divadlo",
-   "at": [
-    14.41355,
-    50.08105
-   ]
+   "district": "Praha 1 - Nové Město",
+   "at": [14.41355, 50.08105]
   },
   {
    "name": "Most Legií",
-   "at": [
-    14.4117,
-    50.0819
-   ]
+   "district": "Praha 1 - Nové Město",
+   "at": [14.4117, 50.0819]
   },
   {
    "name": "Smetanovo nábřeží",
-   "at": [
-    14.4132,
-    50.084
-   ]
+   "district": "Praha 1 - Staré Město",
+   "at": [14.4132, 50.084]
   },
   {
    "name": "Masarykovo nábřeží",
-   "at": [
-    14.4152,
-    50.0782
-   ]
+   "district": "Praha 1 - Nové Město",
+   "at": [14.4152, 50.0782]
   },
   {
    "name": "Malostranské nábřeží",
-   "at": [
-    14.4085,
-    50.0862
-   ]
+   "district": "Praha 1 - Malá Strana",
+   "at": [14.4085, 50.0862]
   },
   {
    "name": "Mánesův most",
-   "at": [
-    14.4126,
-    50.0906
-   ]
+   "district": "Praha 1 - Malá Strana",
+   "at": [14.4126, 50.0906]
   },
   {
    "name": "Národní muzeum",
-   "at": [
-    14.4309,
-    50.0796
-   ]
+   "district": "Praha 1 - Nové Město",
+   "at": [14.4309, 50.0796]
   },
   {
    "name": "Klárov",
-   "at": [
-    14.4115,
-    50.0915
-   ]
+   "district": "Praha 1 - Malá Strana",
+   "at": [14.4115, 50.0915]
+  },
+  {
+   "name": "Karlovo náměstí",
+   "district": "Praha 2 - Nové Město",
+   "at": [14.4195, 50.0755]
+  },
+  {
+   "name": "I. P. Pavlova",
+   "district": "Praha 2 - Vinohrady",
+   "at": [14.4305, 50.0752]
+  },
+  {
+   "name": "Náměstí Míru",
+   "district": "Praha 2 - Vinohrady",
+   "at": [14.4375, 50.0753]
+  },
+  {
+   "name": "Anděl",
+   "district": "Praha 5 - Smíchov",
+   "at": [14.4045, 50.0718]
+  },
+  {
+   "name": "Újezd",
+   "district": "Praha 1 - Malá Strana",
+   "at": [14.4035, 50.0828]
+  },
+  {
+   "name": "Vítězné náměstí",
+   "district": "Praha 6 - Dejvice",
+   "at": [14.3948, 50.1002]
+  },
+  {
+   "name": "Hradčanská",
+   "district": "Praha 6 - Dejvice",
+   "at": [14.4055, 50.0975]
+  },
+  {
+   "name": "Letenské náměstí",
+   "district": "Praha 7 - Letná",
+   "at": [14.418, 50.0985]
+  },
+  {
+   "name": "Vltavská",
+   "district": "Praha 7 - Holešovice",
+   "at": [14.4385, 50.099]
+  },
+  {
+   "name": "Florenc",
+   "district": "Praha 8 - Karlín",
+   "at": [14.4395, 50.0905]
   }
  ],
  "source": {

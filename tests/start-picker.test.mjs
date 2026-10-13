@@ -1,9 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cycleIndex,cycleStart,pickerStep,swipeStep,startPosition,createStartPicker} from '../src/start-picker.js';
+import {cycleIndex,cycleStart,pickerStep,swipeStep,startPosition,createStartPicker,districtGroup,districtGroups,startsInDistrict} from '../src/start-picker.js';
 import {startUrl,pickStart,CITIES} from '../src/cities.js';
 
 const starts=['Senate Square','Market Square','Kamppi','Olympia Terminal','Seurasaari bridge','Tapiola centre'].map(name=>({name,district:name,x:0,z:0}));
+const pragueStarts=[
+ {name:'Národní divadlo',district:'Praha 1 - Nové Město'},
+ {name:'Klárov',district:'Praha 1 - Malá Strana'},
+ {name:'Karlovo náměstí',district:'Praha 2 - Nové Město'},
+ {name:'Anděl',district:'Praha 5 - Smíchov'},
+ {name:'Vítězné náměstí',district:'Praha 6 - Dejvice'},
+];
 
 test('cycling wraps around in both directions',()=>{
  assert.equal(cycleIndex(6,0,-1),5);
@@ -55,7 +62,13 @@ class El{
  setAttribute(k,v){this.attrs[k]=v;}
  blur(){this.blurred=(this.blurred||0)+1;}
 }
-function fakeDoc(){const els=new Map(['intro','boot-title','start-count','start-status','start-prev','start-next'].map(id=>[id,new El(id)]));return {els,getElementById:id=>els.get(id)};}
+function fakeDoc(){const els=new Map(['intro','boot-title','start-count','start-status','start-prev','start-next','start-district-picker','start-district','district-prev','district-next'].map(id=>[id,new El(id)]));return {els,getElementById:id=>els.get(id)};}
+
+test('Praha N groups filter the start list',()=>{
+ assert.equal(districtGroup({district:'Praha 6 - Dejvice'}),'Praha 6');
+ assert.deepEqual(districtGroups(pragueStarts),['Praha 1','Praha 2','Praha 5','Praha 6']);
+ assert.deepEqual(startsInDistrict(pragueStarts,'Praha 1').map(s=>s.name),['Národní divadlo','Klárov']);
+});
 
 test('the card shows the name and position and announces each change',()=>{
  const doc=fakeDoc(),picked=[];

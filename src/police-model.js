@@ -1,6 +1,8 @@
 import * as THREE from 'three';
-import {policeLiveryFor} from './czech-fleet.js';
-export {policeLiveryFor};
+import {policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
+export {policeLiveryFor,policeAgencyFor};
+const pragueLivery=l=>l==='praha'||l==='praha-mestska';
+const doorWord=l=>l==='praha-mestska'?'MĚSTSKÁ POLICIE':l==='praha'?'POLICIE':'POLIISI';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Finnish Poliisi patrol vehicles, modelled from reference photography
@@ -45,7 +47,7 @@ const liveryCache=new Map();
 export function policeLiveryTexture(variant,livery='fi'){
  const key=`${livery}:${variant}`;
  if(liveryCache.has(key))return liveryCache.get(key);
- const spec={...POLICE_SPECS[variant],livery,word:livery==='praha'?'POLICIE':'POLIISI'};
+ const spec={...POLICE_SPECS[variant],livery,word:doorWord(livery)};
  const canvas=document.createElement('canvas');canvas.width=ATLAS_W;canvas.height=ATLAS_H;
  drawLivery(canvas.getContext('2d'),spec);
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;
@@ -93,15 +95,22 @@ function draw112(ctx,cx,baseline,cap,aspect){
 }
 function drawSide(ctx,spec,P,aspect){
  const {band,doors}=spec,low=spec.sill-.12,h=y=>Math.abs(P(0,y)[1]-P(0,0)[1]),w=z=>Math.abs(P(z,0)[0]-P(0,0)[0]),rect=(z0,z1,y0,y1,fill)=>poly(ctx,[P(z0,y0),P(z1,y0),P(z1,y1),P(z0,y1)],fill);
- if(spec.livery==='praha'&&!spec.van){
+ if(spec.livery==='praha-mestska'&&!spec.van){
+  // Municipal: yellow/blue Battenburg along the sill, blue door lettering on white.
+  for(let i=0;i<10;i++){const z=doors[0]+i*.28;rect(z,z+.14,low+.02,low+.32,i%2?POLICE_BLUE:POLICE_YELLOW);}
+  rect(-spec.l/2+.2,doors[0],low+.02,low+.28,POLICE_BLUE);
+ }else if(spec.livery==='praha'&&!spec.van){
+  // State Policie: blue stripe with lime/blue chevrons toward the rear.
   rect(-spec.l/2+.15,band.rear,band.top-.3,band.top-.1,POLICE_BLUE);
+  for(let i=0;i<6;i++){const z=1.1+i*.2;rect(z,z+.1,low+.04,low+.34,i%2?POLICE_BLUE:POLICE_YELLOW);}
  }else if(!spec.van){
   // Octavia livery: blue lower half of both doors and the rear quarter, thin blue stripe on the lower front wing.
   rect(doors[0],band.rear,low,band.top,POLICE_BLUE);
   rect(-spec.l/2+.45,doors[0]-.02,.36,.46,POLICE_BLUE);
   draw112(ctx,...P((doors[2]+band.rear)/2+.05,band.top-.16),h(.1),aspect);
- }else if(spec.livery==='praha'){
+ }else if(pragueLivery(spec.livery)){
   rect(doors[0],spec.l/2+.05,band.top-.28,band.top-.08,POLICE_BLUE);
+  if(spec.livery==='praha-mestska')for(let i=0;i<8;i++){const z=doors[0]+i*.3;rect(z,z+.15,low+.02,low+.3,i%2?POLICE_BLUE:POLICE_YELLOW);}
  }else{
   // Vito livery: blue band along the lower body from the front door to the rear.
   rect(doors[0],spec.l/2+.05,low,band.top,POLICE_BLUE);
@@ -115,8 +124,13 @@ function drawSide(ctx,spec,P,aspect){
   rect(1.55,2.3,spec.belt+.03,spec.h-.14,POLICE_BLUE);const [ex,ey]=P(1.92,(spec.belt+spec.h-.11)/2);ctx.save();ctx.translate(ex,ey);ctx.scale(aspect,1);drawEmblem(ctx,0,0,h(.46));ctx.restore();
  }
  // Lettering across the doors (POLIISI on both sides, as in the reference photos).
- const word=spec.word||'POLIISI';
- const [tx,ty]=P(spec.text.z,spec.text.y);fitText(ctx,word,tx,ty,h(spec.text.cap),w(spec.text.w),spec.livery==='praha'?POLICE_BLUE:POLICE_WHITE,aspect);
+ // Municipal Prague: two-line "MĚSTSKÁ POLICIE" / "hl. m. Prahy" so the door is not bare "MĚSTSKÁ".
+ const word=spec.word||'POLIISI',ink=pragueLivery(spec.livery)?POLICE_BLUE:POLICE_WHITE;
+ const [tx,ty]=P(spec.text.z,spec.text.y);
+ if(spec.livery==='praha-mestska'){
+  fitText(ctx,'MĚSTSKÁ POLICIE',tx,ty-h(.05),h(spec.text.cap*.7),w(spec.text.w),ink,aspect);
+  fitText(ctx,'hl. m. Prahy',tx,ty+h(.11),h(spec.text.cap*.36),w(spec.text.w*.95),ink,aspect);
+ }else fitText(ctx,word,tx,ty,h(spec.text.cap),w(spec.text.w),ink,aspect);
  // Door shut lines and wheel-well shadows.
  ctx.strokeStyle='rgba(20,24,30,.55)';ctx.lineWidth=2;
  for(const z of doors){ctx.beginPath();ctx.moveTo(...P(z,spec.sill+.02));ctx.lineTo(...P(z,spec.belt-.02));ctx.stroke();}
@@ -128,20 +142,22 @@ function drawLivery(ctx,spec){
  ctx.fillStyle=POLICE_WHITE;ctx.fillRect(0,0,ATLAS_W,ATLAS_H);
  const [ux,uy,uw,uh]=REGION.under;ctx.fillStyle='#2b2e33';ctx.fillRect(ux,uy,uw,uh);
  drawSide(ctx,spec,m.right,m.sideAspect);drawSide(ctx,spec,m.left,m.sideAspect);
- if(!spec.van&&spec.livery!=='praha'){
+ const rearWord=spec.word||'POLIISI';
+ if(!spec.van&&!pragueLivery(spec.livery)){
   // Whole bonnet navy blue (top of the nose and its front lip above the grille).
   poly(ctx,[m.top(-m.Wz,-m.Lz),m.top(m.Wz,-m.Lz),m.top(m.Wz,-.6),m.top(-m.Wz,-.6)],POLICE_BLUE);
   poly(ctx,[m.front(-m.Wz,.7),m.front(m.Wz,.7),m.front(m.Wz,m.Hb),m.front(-m.Wz,m.Hb)],POLICE_BLUE);
-  // Tailgate: blue POLIISI under the rear glass, lime chevrons wrapping the bumper corners.
-  fitText(ctx,'POLIISI',...m.rear(0,.745),Math.abs(m.rear(0,.085)[1]-m.rear(0,0)[1]),Math.abs(m.rear(.42,0)[0]-m.rear(-.42,0)[0]),POLICE_BLUE,m.rearAspect);
+  // Tailgate: blue word under the rear glass, lime chevrons wrapping the bumper corners.
+  fitText(ctx,rearWord,...m.rear(0,.745),Math.abs(m.rear(0,.085)[1]-m.rear(0,0)[1]),Math.abs(m.rear(.42,0)[0]-m.rear(-.42,0)[0]),POLICE_BLUE,m.rearAspect);
   for(const side of [-1,1])for(const x0 of [.94,.78])poly(ctx,[m.rear(side*x0,.3),m.rear(side*(x0-.08),.3),m.rear(side*(x0-.16),.54),m.rear(side*(x0-.08),.54)],POLICE_LIME);
  }else if(!spec.van){
-  fitText(ctx,spec.word||'POLICIE',...m.rear(0,.745),Math.abs(m.rear(0,.085)[1]-m.rear(0,0)[1]),Math.abs(m.rear(.42,0)[0]-m.rear(-.42,0)[0]),POLICE_BLUE,m.rearAspect);
- }else if(spec.livery==='praha'){
-  fitText(ctx,spec.word||'POLICIE',...m.rear(0,.74),Math.abs(m.rear(0,.2)[1]-m.rear(0,0)[1]),Math.abs(m.rear(.65,0)[0]-m.rear(-.65,0)[0]),POLICE_BLUE,m.rearAspect);
+  fitText(ctx,rearWord,...m.rear(0,.745),Math.abs(m.rear(0,.085)[1]-m.rear(0,0)[1]),Math.abs(m.rear(.42,0)[0]-m.rear(-.42,0)[0]),POLICE_BLUE,m.rearAspect);
+  if(spec.livery==='praha-mestska')for(const side of [-1,1])for(let i=0;i<3;i++){const x0=.94-i*.16;poly(ctx,[m.rear(side*x0,.28),m.rear(side*(x0-.08),.28),m.rear(side*(x0-.16),.52),m.rear(side*(x0-.08),.52)],i%2?POLICE_BLUE:POLICE_YELLOW);}
+ }else if(pragueLivery(spec.livery)){
+  fitText(ctx,rearWord,...m.rear(0,.74),Math.abs(m.rear(0,.2)[1]-m.rear(0,0)[1]),Math.abs(m.rear(.65,0)[0]-m.rear(-.65,0)[0]),POLICE_BLUE,m.rearAspect);
  }else{
   // Rear barn doors (white): dark tinted window in the upper half of each door carrying the
-  // badge, blue POLIISI split across the seam at bumper-top height with small www.poliisi.fi
+  // badge, blue word split across the seam at bumper-top height with small www.poliisi.fi
   // under it, lime/white chevrons across the bumper and lower doors, lime strip at each corner.
   const rr=(x0,x1,y0,y1,fill)=>poly(ctx,[m.rear(x0,y0),m.rear(x1,y0),m.rear(x1,y1),m.rear(x0,y1)],fill),rh=y=>Math.abs(m.rear(0,y)[1]-m.rear(0,0)[1]),rw=x=>Math.abs(m.rear(x,0)[0]-m.rear(0,0)[0]);
   const B=spec.belt,H=spec.h;
@@ -149,11 +165,11 @@ function drawLivery(ctx,spec){
   for(let x=-m.Wz;x<m.Wz;x+=.2)poly(ctx,[m.rear(x,.3),m.rear(x+.1,.3),m.rear(x+.18,.56),m.rear(x+.08,.56)],Math.round((x+m.Wz)/.2)%2?POLICE_WHITE:POLICE_LIME);
   for(const side of [-1,1])rr(side*(m.Wz-.09),side*m.Wz,.56,B+.03,POLICE_LIME);
   ctx.strokeStyle='rgba(20,24,30,.5)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(...m.rear(0,.58));ctx.lineTo(...m.rear(0,H-.05));ctx.stroke();
-  fitText(ctx,'POLIISI',...m.rear(0,.74),rh(.2),rw(.65)*2,POLICE_BLUE,m.rearAspect);
+  fitText(ctx,rearWord,...m.rear(0,.74),rh(.2),rw(.65)*2,POLICE_BLUE,m.rearAspect);
   fitText(ctx,'www.poliisi.fi',...m.rear(0,.65),rh(.055),rw(.4)*2,POLICE_BLUE,m.rearAspect);
  }
- // Light bar text tiles (front and rear) – white POLIISI on blue.
- for(const name of ['barFront','barRear']){const [x,y,w,h]=REGION[name];ctx.fillStyle=POLICE_BLUE;ctx.fillRect(x,y,w,h);fitText(ctx,spec.word||'POLIISI',x+w/2,y+h*.8,h*.56,w*.82,POLICE_WHITE);}
+ // Light bar text tiles (front and rear) – white word on blue.
+ for(const name of ['barFront','barRear']){const [x,y,w,h]=REGION[name];ctx.fillStyle=POLICE_BLUE;ctx.fillRect(x,y,w,h);fitText(ctx,rearWord,x+w/2,y+h*.8,h*.56,w*.82,POLICE_WHITE);}
 }
 // Per-car decal sheet: the unit number (bonnet, rear glass, wings, roof).
 export function unitNumberTexture(number,colour=POLICE_BLUE){

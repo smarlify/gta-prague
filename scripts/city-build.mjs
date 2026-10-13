@@ -321,13 +321,14 @@ const buildingIndex=new SpatialIndex(city.buildings);
 const fame=t=>(t.wikidata?3:0)+(t.wikipedia?2:0)+(t.tourism?2:0)+(t.place==='square'?3:0)+(t.amenity==='townhall'||t.railway==='station'?3:0)+(t.historic?1:0);
 const seen=new Set(),candidates=points.elements.filter(e=>e.tags?.name&&(e.lat||e.center)).map(e=>{const c=e.center||e;return {name:e.tags.name,p:local(c.lon,c.lat),score:fame(e.tags)};})
  .filter(c=>Math.hypot(...c.p)<R-60).sort((a,b)=>b.score-a.score||Math.hypot(...a.p)-Math.hypot(...b.p));
-const drivable=city.roads.filter(r=>!/muu/.test(r.kind)),manual=(def.starts||[]).map(s=>({name:s.name,p:local(...s.at),score:99}));
+const startCap=Math.max(8,(def.starts||[]).length);
+const drivable=city.roads.filter(r=>!/muu/.test(r.kind)),manual=(def.starts||[]).map(s=>({name:s.name,district:s.district,p:local(...s.at),score:99}));
 for(const c of [...manual,...candidates]){
- if(city.landmarks.length>=8)break;if(seen.has(c.name))continue;
+ if(city.landmarks.length>=startCap)break;if(seen.has(c.name))continue;
  try{const p=nearestRoadPoint(c.p[0],c.p[1],drivable,buildingIndex);
   // Face along the nearest car edge.
   let best=null;for(const e of mobility.roads.edges)for(let i=1;i<e.points.length;i++){const a=e.points[i-1],b=e.points[i],dx=b[0]-a[0],dz=b[1]-a[1],l=dx*dx+dz*dz;if(!l)continue;const t=Math.max(0,Math.min(1,((p.x-a[0])*dx+(p.z-a[1])*dz)/l)),d=Math.hypot(a[0]+dx*t-p.x,a[1]+dz*t-p.z);if(!best||d<best.d)best={d,dx,dz};}
-  city.landmarks.push({name:c.name,district:def.name,street:p.name||'',x:p.x,z:p.z,heading:best?+Math.atan2(-best.dx,-best.dz).toFixed(4):0});seen.add(c.name);
+  city.landmarks.push({name:c.name,district:c.district??def.name,street:p.name||'',x:p.x,z:p.z,heading:best?+Math.atan2(-best.dx,-best.dz).toFixed(4):0});seen.add(c.name);
  }catch{}
 }
 if(!city.landmarks.length)throw Error('No drivable start point found; add one under "starts" in city.json');

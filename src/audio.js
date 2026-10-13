@@ -35,8 +35,16 @@ export function seamlessLoop(ctx,buffer,fade=.05){
 
 async function loadBuffer(ctx,url,loop){
  const res=await fetch(url);if(!res.ok)throw new Error(`${url} ${res.status}`);
+ // SPA hosts (`serve -s`) can return index.html with 200 for a missing file.
+ const type=res.headers.get('content-type')||'';
+ if(/html/i.test(type))throw new Error(`${url} returned HTML (${type})`);
  const decoded=await ctx.decodeAudioData(await res.arrayBuffer());
  return loop?seamlessLoop(ctx,decoded):decoded;
+}
+
+async function loadOptional(ctx,url,loop){
+ try{return await loadBuffer(ctx,url,loop);}
+ catch(err){console.warn('City sound missing',url,err);return null;}
 }
 
 function makeLoop(ctx,buffer,destination){
@@ -59,13 +67,24 @@ export function createCityAudio(){
   analyser=ctx.createAnalyser();analyser.fftSize=256;master.connect(analyser);
   const branch=()=>{const g=ctx.createGain();g.connect(master);return g;};
   buses={engine:branch(),vehicles:branch(),ambience:branch()};
+  // Load each clip on its own so one missing file (common when a custom
+  // domain still points at a parking page, or SPA fallback returns HTML)
+  // does not silence the rest of the bed.
   loading=Promise.all([
-   loadBuffer(ctx,FILES.city,true),loadBuffer(ctx,FILES.crowd,true),loadBuffer(ctx,FILES.car,true),
-   loadBuffer(ctx,FILES.tram,true),loadBuffer(ctx,FILES.depart,false),loadBuffer(ctx,FILES.water,true),
+   loadOptional(ctx,FILES.city,true),loadOptional(ctx,FILES.crowd,true),loadOptional(ctx,FILES.car,true),
+   loadOptional(ctx,FILES.tram,true),loadOptional(ctx,FILES.depart,false),loadOptional(ctx,FILES.water,true),
   ]).then(([city,crowd,car,tram,depart,water])=>{
    if(ctx!==context)return;
-   loops={city:makeLoop(ctx,city,buses.ambience),crowd:makeLoop(ctx,crowd,buses.ambience),car:makeLoop(ctx,car,buses.engine),water:makeLoop(ctx,water,buses.ambience)};
-   tramVoices=Array.from({length:TRAM_SLOTS},()=>makeLoop(ctx,tram,buses.vehicles));
+   if(!city&&!crowd&&!car&&!tram&&!depart&&!water){loading=null;context=null;return;}
+   const param=()=>({value:0,setTargetAtTime(){}});
+   const silent=(bus)=>{const g=ctx.createGain();g.gain.value=0;g.connect(bus);return {gain:g,pan:{pan:param()},rate:param()};};
+   loops={
+    city:city?makeLoop(ctx,city,buses.ambience):silent(buses.ambience),
+    crowd:crowd?makeLoop(ctx,crowd,buses.ambience):silent(buses.ambience),
+    car:car?makeLoop(ctx,car,buses.engine):silent(buses.engine),
+    water:water?makeLoop(ctx,water,buses.ambience):silent(buses.ambience),
+   };
+   tramVoices=Array.from({length:TRAM_SLOTS},()=>tram?makeLoop(ctx,tram,buses.vehicles):silent(buses.vehicles));
    departBuffer=depart;ready=true;levels.ready=true;
   }).catch(err=>{console.warn('City sounds failed to load',err);loading=null;context=null;});
   return loading;

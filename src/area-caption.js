@@ -6,6 +6,20 @@ export const HELSINKI_AREAS=[
  {district:'Hakaniemi',x:0,z:-1013},{district:'Ruoholahti',x:-2184,z:627},
  {district:'Seurasaari',x:-3811,z:-1386},{district:'Hanasaari',x:-6340,z:168},
 ];
+// Prague neighbourhood anchors relative to cities/prague/city.json origin (14.42125, 50.08747).
+export const PRAGUE_AREAS=[
+ {district:'Praha 1 - Staré Město',x:-54,z:52},
+ {district:'Praha 1 - Josefov',x:-197,z:-337},
+ {district:'Praha 1 - Malá Strana',x:-1163,z:-115},
+ {district:'Praha 1 - Hradčany',x:-1485,z:-671},
+ {district:'Praha 2 - Nové Město',x:483,z:998},
+ {district:'Praha 2 - Vinohrady',x:1127,z:1331},
+ {district:'Praha 5 - Smíchov',x:-1163,z:1554},
+ {district:'Praha 6 - Dejvice',x:-1807,z:-1227},
+ {district:'Praha 7 - Letná',x:-447,z:-1060},
+ {district:'Praha 7 - Holešovice',x:1842,z:-1839},
+ {district:'Praha 8 - Karlín',x:2057,z:-616},
+];
 export function areaName(places,x,z,city,{reach=1500}={}){
  let best=null,d=reach;for(const p of places){const q=Math.hypot(p.x-x,p.z-z);if(q<d&&p.district){d=q;best=p;}}
  const name=best?.district||city;

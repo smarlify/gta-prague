@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {createPersonBatch,advanceGait,personLook} from './person-model.js';
+import {createPersonBatch,advanceGait,personLook,POLICE_UNIFORM} from './person-model.js';
 import {createDoor} from './angry-drivers.js';
 import {groundAt} from './terrain.js';
 import {ROADBLOCK,planRoadblock,roadblockVisible,roadblockClear,roadblockDistanceAhead,crossesStrip} from './roadblock-planning.js';
@@ -12,8 +12,7 @@ const ease=v=>{v=Math.min(1,Math.max(0,v));return v*v*(3-2*v);};
 const lerp=(a,b,t)=>a+(b-a)*t;
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 
-// Finnish police patrol uniform: dark navy jacket with POLIISI across the back
-// (or a hi-vis vest over it), navy trousers, duty belt, black boots, peaked cap.
+// Patrol jacket/vest lettering comes from the city agency (POLIISI / Policie / Městská POLICIE hl. m. Prahy).
 const OFFICER_LOOK={shirt:'#1b2436',trousers:'#1a2232',hat:'#1b2436',hairStyle:'police',shoes:'#121214',coat:0,skirt:false,bagType:null,
  uniform:'jacket',outer:'uniform',scarf:null,accessory:null,phoneWalk:false,stoop:0,age:'adult',stride:1};
 const VEST_LOOK={...OFFICER_LOOK,uniform:'vest'};
@@ -27,11 +26,12 @@ export const officerLook=(seed,vest=false)=>personLook(9000+seed*13,vest?VEST_LO
 // BUSTED card comes up – while the cuffs are going on; the scene keeps playing behind it.
 export const ARREST={reach:3,run:7,door:.35,pull:[.15,.8],drag:[.8,1.35],down:[1.35,1.65],cuff:[1.65,3.4],up:[3.4,4.2],walk:[4.2,7],card:2.2};
 
-export function createRoadblock(scene,{world,police,carModel,playerLook=null,graph=police.graph,isVisible=null,obstacles=()=>[],onWarning=null,random=Math.random,config={}}){
+export function createRoadblock(scene,{world,police,carModel,playerLook=null,graph=police.graph,isVisible=null,obstacles=()=>[],onWarning=null,random=Math.random,config={},uniformWord=POLICE_UNIFORM.text}={}){
  const settings={...ROADBLOCK,...config,arrestCrawl:{...ROADBLOCK.arrestCrawl,...config.arrestCrawl}};
  const group=new THREE.Group();group.name='Police roadblock';scene.add(group);
  const stripGroup=new THREE.Group();stripGroup.name='Spike strip';group.add(stripGroup);
- const batch=createPersonBatch(16,{name:'Police officers',police:true});group.add(batch.group);
+ const agencyWord=()=>typeof uniformWord==='function'?uniformWord():uniformWord;
+ const batch=createPersonBatch(16,{name:'Police officers',police:{word:agencyWord()}});group.add(batch.group);
  let plan=null,posts=[];
  const currentVehicle=()=>{
   let paint=null;carModel?.traverse(o=>{if(!paint&&o.isMesh&&o.material.name==='paint')paint=o.material;});
@@ -58,6 +58,7 @@ export function createRoadblock(scene,{world,police,carModel,playerLook=null,gra
  function deploy(next){
   plan=next;deployed=!!next;group.visible=deployed||!!scene_;stripGroup.visible=deployed;
   if(next){
+   batch.setPoliceWord?.(agencyWord());
    buildStrip();posts=next.officers.map((p,i)=>({...p,post:{...p},look:officerLook(i,i%2===0),gait:{},speed:0,pose:i===Math.floor(next.officers.length/2)?'stop':'belt',groundY:.13,id:`officer-${i}`}));
   }else{clearStrip();posts=[];}
   police.setParked(next?.cars||[]);
@@ -117,6 +118,7 @@ export function createRoadblock(scene,{world,police,carModel,playerLook=null,gra
  function local(car,x,z){const s=Math.sin(car.heading),c=Math.cos(car.heading);return {x:car.x+c*x+s*z,z:car.z-s*x+c*z};}
  function startArrest(car){
   if(scene_||!car)return;
+  batch.setPoliceWord?.(agencyWord());
   const onFoot=!!car.travelMode&&car.travelMode!=='car',squad=[];
   // Roadblock officers close by join in; otherwise two officers jump out of each of the nearest patrol cars.
   if(deployed)for(const o of [...posts].sort((a,b)=>dist(a,car)-dist(b,car)))if(dist(o,car)<55&&squad.length<6){o.busy=true;squad.push(o);}

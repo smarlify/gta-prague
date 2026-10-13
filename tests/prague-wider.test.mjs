@@ -4,7 +4,8 @@ import {waterGain} from '../src/audio-math.js';
 import {nearestWaterDistance} from '../src/water-proximity.js';
 import {onPavlovaRun,stepPavlova} from '../src/pavlova.js';
 import {planWaterfowl} from '../src/waterfowl.js';
-import {policeLiveryFor,SKODA_PAINT} from '../src/czech-fleet.js';
+import {policeLiveryFor,policeAgencyFor,SKODA_PAINT} from '../src/czech-fleet.js';
+import {uniformLabelLines} from '../src/person-model.js';
 import {passageDeck,liftedBridgeHeight} from '../src/passage.js';
 import {groundAt,setCorridorHeights,setTerrain} from '../src/terrain.js';
 test('a bridge does not drop into the river beside its deck',()=>{
@@ -40,6 +41,23 @@ test('Prague police and traffic colours',()=>{
  assert.equal(policeLiveryFor('helsinki'),'fi');
  assert.ok(SKODA_PAINT.includes('#f4f5f2'));
  assert.ok(SKODA_PAINT.includes('#1c1e21'));
+ assert.equal(policeAgencyFor('prague',1).word,'MĚSTSKÁ POLICIE');
+ assert.equal(policeAgencyFor('prague',1).livery,'praha-mestska');
+ assert.equal(policeAgencyFor('prague',1).uniform,'Městská POLICIE hl. m. Prahy');
+ assert.equal(policeAgencyFor('prague',2).livery,'praha-mestska');
+ assert.equal(policeAgencyFor('prague',3).word,'POLICIE');
+ assert.equal(policeAgencyFor('prague',3).livery,'praha');
+ assert.equal(policeAgencyFor('prague',5).livery,'praha');
+ assert.equal(policeAgencyFor('helsinki',5).word,'POLIISI');
+});
+
+test('municipal uniform titles split into string lines, not nested arrays',()=>{
+ const lines=uniformLabelLines(policeAgencyFor('prague',1).uniform);
+ assert.deepEqual(lines,['Městská POLICIE','hl. m. Prahy']);
+ assert.equal(typeof lines[0],'string');
+ assert.equal(lines[0].split(/\s+/)[0],'Městská');
+ assert.deepEqual(uniformLabelLines('POLIISI'),['POLIISI']);
+ assert.deepEqual(uniformLabelLines('POLICIE'),['POLICIE']);
 });
 
 test('the museum-to-Pavlova run faces south and the ambulance cuts in',()=>{

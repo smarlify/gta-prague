@@ -21,7 +21,7 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
 #intro.boot-screen .boot-brand{display:flex;align-items:center;width:fit-content;gap:var(--s-12);padding:0;margin:0 0 var(--s-24);background:none;border-radius:0;box-shadow:none;backdrop-filter:none;font:600 var(--t-28)/1 var(--display);letter-spacing:-.025em;color:inherit}
 #intro.boot-screen .boot-brand .brand-icon{width:40px;height:40px}
 #intro.boot-screen .boot-brand .brand-name{display:block}
-#intro.boot-screen .boot-tagline{margin:0 0 var(--s-32);font:500 var(--t-28)/32px var(--display);letter-spacing:-.025em;color:inherit}
+#intro.boot-screen .boot-tagline{margin:0 0 var(--s-32);font:500 var(--t-26)/28px var(--display);letter-spacing:-.025em;color:inherit}
 #intro.boot-screen #boot-title{margin:0 0 var(--s-16);font:600 var(--t-20)/28px var(--display);letter-spacing:-.015em;color:inherit}
 
 /* UI: DM Sans */
@@ -29,6 +29,11 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
 #intro:not(.ready) .boot-place-label{display:none}
 #intro .start-count{font:500 var(--t-12)/16px var(--ui);letter-spacing:0;font-variant-numeric:tabular-nums;text-transform:none}
 
+/* ‹ Praha N › then ‹ Place name › — same control language as the start arrows. */
+#intro .district-picker{display:flex;align-items:center;min-height:44px;margin:0 0 var(--s-8);padding:2px var(--s-4);border:1px solid #30312e14;border-radius:8px;background:#fffdf866}
+#intro .district-picker[hidden]{display:none}
+#intro .start-district{flex:1;min-width:0;text-align:center;font:600 var(--t-14)/20px var(--ui);letter-spacing:.04em;color:var(--ink)}
+#intro.has-districts .district-picker .start-arrow{width:40px;height:40px}
 /* ‹ Place name ›: a control the same width and radius as the button below it. */
 #intro .start-picker{display:flex;align-items:center}
 #intro.has-picker .start-picker{min-height:56px;margin:0 0 var(--s-12);padding:3px var(--s-4);border:1px solid #30312e1f;border-radius:8px;background:#fffdf8b3}
