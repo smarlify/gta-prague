@@ -1,13 +1,47 @@
-import {pointInPolygon} from './geo.js';
+import {pointInPolygon,SpatialIndex} from './geo.js';
 
-// Ways the Prague bake must keep drivable: bored tunnels, the tram passage
-// under a house, and covered streets. Other tunnel values (culverts) stay out.
+// Ways kept as short covered / under-building passages. Bored tunnels
+// (`tunnel=yes`) are skipped: their decks fight terrain and building collision.
 export function keptPassage(tags={}){
  if(tags.covered&&tags.covered!=='no')return tags.tunnel==='building_passage'?'building_passage':'covered';
  const tunnel=tags.tunnel;
  if(!tunnel||tunnel==='no')return null;
- if(tunnel==='yes'||tunnel==='building_passage'||tunnel==='covered')return tunnel;
+ if(tunnel==='building_passage'||tunnel==='covered')return tunnel;
  return null;
+}
+
+// Bored tunnel polygons already baked into a city pack (`passage: 'yes'`).
+export function isBoredTunnelRoad(road){
+ return road?.passage==='yes';
+}
+
+// Drop bored-tunnel road polygons and any mobility edges that run through them
+// so Prague driving stays on surface streets. Building passages and covered
+// ways are left alone. Bridges are untouched.
+export function stripBoredTunnels(city,mobility){
+ const roads=city?.roads;if(!Array.isArray(roads))return {city,mobility,removed:0};
+ const bored=roads.filter(isBoredTunnelRoad);if(!bored.length)return {city,mobility,removed:0};
+ const kept=roads.filter(r=>!isBoredTunnelRoad(r));
+ const index=new SpatialIndex(bored);
+ const onBored=pts=>{
+  if(!pts?.length)return false;
+  let hits=0;
+  for(const p of pts)if(index.at(p[0],p[1]))hits++;
+  if(pts.length>1)for(let i=1;i<pts.length;i++){
+   const a=pts[i-1],b=pts[i];
+   if(index.at((a[0]+b[0])/2,(a[1]+b[1])/2))hits++;
+  }
+  return hits>=Math.max(1,Math.ceil((pts.length+(pts.length>1?pts.length-1:0))*.45));
+ };
+ const filterGraph=g=>{
+  if(!g?.edges)return g;
+  return {...g,edges:g.edges.filter(e=>!onBored(e.points))};
+ };
+ return {
+  city:{...city,roads:kept},
+  mobility:mobility?{...mobility,roads:filterGraph(mobility.roads),walks:filterGraph(mobility.walks)}:mobility,
+  removed:bored.length,
+ };
 }
 
 // Polygon loop also drops proposed and construction. The routable graph does not.

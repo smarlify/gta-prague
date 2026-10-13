@@ -8,6 +8,8 @@ import {policeLiveryFor,policeAgencyFor,SKODA_PAINT} from '../src/czech-fleet.js
 import {uniformLabelLines} from '../src/person-model.js';
 import {passageDeck,liftedBridgeHeight} from '../src/passage.js';
 import {groundAt,setCorridorHeights,setTerrain} from '../src/terrain.js';
+import {PoliceSimulation,TRAFFIC_HEAT_CAP,wantedLevel,incidentHeat,HEAT_LEVELS} from '../src/police.js';
+import {prepareGraph} from '../src/mobility.js';
 test('a bridge does not drop into the river beside its deck',()=>{
  const ground=(x,z)=>Math.hypot(x,z)<6?-6:-1;
  assert.equal(liftedBridgeHeight(ground,0,0),-1);
@@ -49,6 +51,24 @@ test('Prague police and traffic colours',()=>{
  assert.equal(policeAgencyFor('prague',3).livery,'praha');
  assert.equal(policeAgencyFor('prague',5).livery,'praha');
  assert.equal(policeAgencyFor('helsinki',5).word,'POLIISI');
+});
+
+test('traffic heat stays municipal; only pedestrian kills bring state Policie',()=>{
+ assert.equal(TRAFFIC_HEAT_CAP,HEAT_LEVELS[3]-1);
+ assert.equal(wantedLevel(TRAFFIC_HEAT_CAP),2);
+ assert.equal(wantedLevel(HEAT_LEVELS[3]),3);
+ assert.equal(incidentHeat('vehicle',9),3);
+ assert.equal(incidentHeat('pedestrian',6),4);
+ const graph=prepareGraph({nodes:[[0,0],[0,-50]],edges:[{from:0,to:1,lane:0,points:[[0,0],[0,-50]]}]});
+ const world={roads:{at:()=>true},buildings:{at:()=>false}};
+ const traffic=new PoliceSimulation(graph,world);
+ for(let i=0;i<8;i++){traffic.time=i*2;traffic.report('vehicle',i,12);}
+ assert.equal(traffic.level,2);
+ assert.equal(policeAgencyFor('prague',traffic.level).livery,'praha-mestska');
+ const kills=new PoliceSimulation(graph,world);
+ for(let i=0;i<3;i++){kills.time=i*2;kills.report('pedestrian',i);}
+ assert.ok(kills.level>=3);
+ assert.equal(policeAgencyFor('prague',kills.level).livery,'praha');
 });
 
 test('municipal uniform titles split into string lines, not nested arrays',()=>{

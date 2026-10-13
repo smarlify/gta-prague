@@ -59,7 +59,7 @@ test('the car stops for someone lying in the road; traffic gets them as an obsta
 test('police: every hit is still an offence, scaled by severity; the finale lists it',()=>{
  assert.ok(incidentHeat('pedestrian',SEVERITY_REPORT.stumble)<incidentHeat('pedestrian',SEVERITY_REPORT.down));
  assert.ok(incidentHeat('pedestrian',SEVERITY_REPORT.down)<incidentHeat('pedestrian',SEVERITY_REPORT.thrown));
- assert.equal(incidentHeat('pedestrian'),7,'unknown severity keeps the old heat');
+ assert.equal(incidentHeat('pedestrian'),4,'unknown severity counts as a knock-down (~1★)');
  const graph={nodes:[{x:0,z:0},{x:100,z:0}],edges:[],outgoing:[[],[]]};
  const heat=v=>{const police=new PoliceSimulation(graph,{buildings:{at:()=>null}}),finale=new Finale();police.onIncident=(...i)=>finale.incident(...i);
   new ImpactSystem().hit(person(),{x:0,z:3,heading:0,speed:v},{kind:'car',police});return {heat:police.heat,offences:[...finale.offences.values()].map(o=>o.text)};};

@@ -62,18 +62,18 @@ test('buildingAhead probes the nose, or the tail when reversing',()=>{
  assert.equal(buildingAhead(car,{buildings:{at:()=>({name:'kerb'})}}).name,'kerb','solid street obstacles without a municipal building ID count too');
  assert.equal(buildingAhead(car,{}),null);
 });
-test('a tram collision starts at two stars in every city; light taps only log a bump',()=>{
+test('a tram collision starts at one star in every city; light taps only log a bump',()=>{
  for(const zone of [FINALE_ZONE,null]){
   const f=new Finale({zone}),police=mockPolice(),car={x:0,z:5,heading:0,speed:0};
   f.step(1/60,car,{police});assert.equal(police.pressure,false);
   const tap=f.transitImpact(car,2.5,[tram()],police);assert.equal(tap.big,false);assert.equal(police.level,0);
-  const crash=f.transitImpact(car,9,[tram({id:8})],police);assert.equal(crash.big,true);assert.equal(police.level,2);
+  const crash=f.transitImpact(car,9,[tram({id:8})],police);assert.equal(crash.big,true);assert.equal(police.level,1);
   assert.equal(police.calls.length,1);assert.equal(police.calls[0].id,'tram:8');assert.equal(f.triggered,false);
  }
 });
 test('bus fallback reports the transit collision exactly once without a tram',()=>{
  const f=new Finale({zone:null}),police=mockPolice(),car={x:0,z:0,heading:0,speed:0};
- assert.equal(f.transitImpact(car,9,[],police).tram,null);assert.equal(police.level,2);
+ assert.equal(f.transitImpact(car,9,[],police).tram,null);assert.equal(police.level,1);
  assert.equal(f.transitImpact(car,9,[],police),null);assert.equal(police.calls.length,1);
  assert.deepEqual([...f.offences.values()],[{text:'Crashed into a bus',count:1}]);
 });
@@ -81,17 +81,18 @@ test('ordinary buildings and street obstacles earn the same collision response a
  for(const record of [sokos,lasipalatsi,other,{name:'Lamp post'}]){
   const f=new Finale({zone:null}),police=mockPolice(),car={x:0,z:0,heading:0,speed:8};
   const hit=f.buildingImpact(car,9,worldWith(record),police);assert.equal(hit.big,true);
-  assert.equal(police.level,2);assert.equal(police.calls.length,1);assert.equal(police.calls[0].kind,'building');
+  assert.equal(police.level,1);assert.equal(police.calls.length,1);assert.equal(police.calls[0].kind,'building');
  }
 });
 test('mixed incidents escalate identically inside and outside the old station area',()=>{
  for(const zone of [FINALE_ZONE,null]){
   const f=new Finale({zone}),police=mockPolice(),car={x:0,z:0,heading:0,speed:9};police.onIncident=(...i)=>f.incident(...i);
-  f.transitImpact({...car,z:5},9,[tram()],police);assert.equal(police.level,2);
-  police.time=1;f.buildingImpact(car,9,worldWith(sokos),police);assert.equal(police.level,3);
-  police.time=2;police.report('property','bin',9);assert.equal(police.level,4);
-  police.time=3;police.report('vehicle','car',9);assert.equal(police.level,5);
-  assert.equal(f.triggered,true);assert.equal(f.stats.maxLevel,5);
+  f.transitImpact({...car,z:5},9,[tram()],police);assert.equal(police.level,1);
+  police.time=1;f.buildingImpact(car,9,worldWith(sokos),police);assert.equal(police.level,2);
+  police.time=2;police.report('property','bin',9);assert.equal(police.level,2,'traffic stays municipal');
+  police.time=3;police.report('pedestrian','a');police.time=4;police.report('pedestrian','b');police.time=5;police.report('pedestrian','c');
+  assert.ok(police.level>=4,'lethal hits unlock the finale band');
+  assert.equal(f.triggered,true);assert.equal(f.stats.maxLevel,police.level);
  }
 });
 test('a wall held at walking pace or a tram pushing back is one offence, not hundreds',()=>{
@@ -99,7 +100,7 @@ test('a wall held at walking pace or a tram pushing back is one offence, not hun
  for(let i=0;i<120;i++){f.buildingImpact(car,.4,worldWith(sokos),police);f.step(1/60,car,{police});}
  assert.equal(f.offences.size,0);
  for(let i=0;i<600;i++){f.buildingImpact(car,9,worldWith(sokos),police);f.transitImpact({...car,z:5},9,[tram()],police);police.time+=1/60;f.step(1/60,car,{police});}
- assert.equal(police.calls.length,2);assert.equal(police.level,3);
+ assert.equal(police.calls.length,2);assert.equal(police.level,2);
  assert.deepEqual([...f.offences.values()].map(o=>o.count),[1,1]);
  police.time+=CONTACT_WINDOW+.1;f.step(CONTACT_WINDOW+.1,car,{police});
  f.transitImpact({...car,z:5},9,[tram()],police);assert.equal(police.calls.length,3);
@@ -110,7 +111,7 @@ test('newly knocked furniture on the player path reports one collision; old and 
  const bodies=[old,hit,other],knockables={bodies,snapshot:()=>({knocked:bodies.filter(b=>b.knocked).length})};
  f.step(.01,{x:0,z:5,heading:0,speed:9},{police,knockables});
  hit.knocked=other.knocked=true;
- f.step(.2,{x:0,z:2,heading:0,speed:9},{police,knockables});assert.equal(police.level,2);assert.equal(police.calls.length,1);
+ f.step(.2,{x:0,z:2,heading:0,speed:9},{police,knockables});assert.equal(police.level,1);assert.equal(police.calls.length,1);
  f.step(.2,{x:0,z:-1,heading:0,speed:9},{police,knockables});assert.equal(police.calls.length,1);
  assert.deepEqual([...f.offences.values()],[{text:'Damaged street furniture',count:1}]);
  const hidden={x:0,z:-4,knocked:false};bodies.push(hidden);hidden.knocked=true;
@@ -118,7 +119,7 @@ test('newly knocked furniture on the player path reports one collision; old and 
 });
 test('a high wanted incident is recorded before an immediate arrest clears police heat',()=>{
  const f=new Finale({zone:null}),p=mockPolice();p.onIncident=(...i)=>f.incident(...i);
- for(let i=0;i<4;i++){p.time=i;p.report('vehicle',i,9);}assert.equal(p.level,5);
+ for(let i=0;i<6;i++){p.time=i;p.report('pedestrian',i);}assert.equal(p.level,5);
  p.arrestNow();assert.equal(p.level,0);assert.equal(f.arrest({car:centre(),police:p}).raw.maxLevel,5);
  assert.equal(f.summary.kicker,'POLICE');assert.equal(f.snapshot().zone,null);
 });
@@ -226,7 +227,7 @@ test('cinematic: camera stays behind the stopped car, the end screen fires exact
  // Continue (respawn on the spot): same run, offences, contacts and trigger armed again; the zone flag survives.
  f.resume();assert.equal(f.arrested,false);assert.equal(f.cinematic,null);assert.equal(f.cameraPose(car),null);assert.equal(f.triggered,false);assert.equal(f.bigCrashes,0);assert.equal(f.offences.size,0);assert.equal(f.inZone,true);assert.equal(f.contacts.size,0);
  const police2=mockPolice();f.step(1/60,car,{police:police2,started:true});
- f.transitImpact({...car,x:0,z:5},kmh(40),[tram()],police2);assert.equal(police2.level,2,'a new pursuit after Continue starts with the normal collision tier');
+ f.transitImpact({...car,x:0,z:5},kmh(40),[tram()],police2);assert.equal(police2.level,1,'a new pursuit after Continue starts with the normal collision tier');
  // Restart: a full reset.
  f.arrest({car,police:police2});f.reset();
  assert.deepEqual(f.snapshot(),{zone:'Rautatientori',inZone:false,triggered:false,bigCrashes:0,tramHits:0,arrested:false,ended:false,offences:[],stats:{elapsed:0,distance:0,topSpeed:0,damage:0,maxLevel:0,knocked:0}});
