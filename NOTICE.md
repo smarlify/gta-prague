@@ -24,6 +24,7 @@ that the notices match the locked runtime packages and bundled fonts.
 | Cities built from OpenStreetMap (`npm run city:build`) | ODbL 1.0, © OpenStreetMap contributors | `public/cities/**`, `cities/*/city.json` |
 | Prague building shells (`npm run prague:buildings`) from IPR Praha's photogrammetric 3D model, read from the public I3S scene layer of the same model published as CityGML | CC BY 4.0, datový podklad © IPR Praha | `public/cities/prague/buildings3d/**`, `public/cities/prague/buildings3d-index.json` |
 | City, crowd, car, tram and police recordings (short excerpts) | CC0 1.0 | `public/sounds/` |
+| Road, ground and car-paint flake textures from Poly Haven | CC0 1.0 | `public/textures/` |
 | Street furniture positions extracted by Mapillary (`npm run city:furniture`) | Mapillary Terms of Use; downstream dataset redistribution rights need confirmation | Mapillary-derived entries in `public/cities/*/furniture.json` |
 | Façade descriptions written from Mapillary street-level photos (`npm run facades:photos`) | CC BY-SA 4.0, © Mapillary contributors | `cities/*/facades.json`, `public/cities/*/facades.json` |
 | Place descriptions written from current photos on Wikimedia Commons and Mapillary (`npm run photos:fetch`) | CC BY-SA 4.0 (the photos' licences: CC BY-SA 3.0/4.0) | `cities/*/*-reference.json`, `cities/*/*-sources.json` |
@@ -133,6 +134,11 @@ city's data under its licence, and update this file and the in-game Sources pane
 ## Assets
 
 - **Granite material:** [Poly Haven Granite Tile 03](https://polyhaven.com/a/granite_tile_03), CC0.
+- **Road, ground and paint textures:** Poly Haven maps under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/):
+  [Asphalt 02](https://polyhaven.com/a/asphalt_02) (Rob Tuytel) for carriageways,
+  [Grass Ground](https://polyhaven.com/a/grass_ground) (Charlotte Baglioni) for the terrain plane,
+  and a resized roughness crop of [Metal Plate](https://polyhaven.com/a/metal_plate) (Rob Tuytel) as
+  a subtle car-paint flake. Page URLs are in `public/textures/sources.json`.
 - **Route trees:** [EZ-Tree](https://github.com/dgreenheck/ez-tree) by Daniel Greenheck, MIT. See
   `public/models/tree-credits.txt`.
 - **Landmark references:** the per-landmark source files in `public/models/*-sources.json` list

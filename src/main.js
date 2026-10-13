@@ -117,6 +117,7 @@ import {installMapillaryAttribution} from './mapillary-attribution.js';
 import './worldhood-brand.css';
 import {decodeTerrain,setTerrain,hasTerrain,groundAt,groundPose,liftBuildings,footprintBase,setCorridorHeights,setDriveHeight} from './terrain.js';
 import {drapeGeometry,settleObject,createTerrainGround,drawLakeMap,setRiverChannel,setDryPassages} from './terrain-mesh.js';
+import {loadSurfaceTextures,applyGroundTexture,setWorldMetreUVs,ASPHALT_UNIFORM,ASPHALT_SCALE_UNIFORM} from './surface-textures.js';
 const impacts=new ImpactSystem();impacts.onVehicleHit=(from,car,a)=>mobility?.knock(a,from,car)??null;
 const finale=new Finale({doc:document}); // shared offence log, pursuit pressure, arrest cinematic and BUSTED screen
 const locationReadout=createLocationReadout();
@@ -190,12 +191,15 @@ const skyEnvironment=createSkyEnvironment(renderer,sky.mesh);
 let post=null;try{post=createPostPipeline(renderer);}catch(e){console.warn('Post pipeline unavailable, rendering directly:',e);}
 let look=null;
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(11000,11000),new THREE.MeshStandardMaterial({color:'#94988b',roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.y=-.5;ground.receiveShadow=true;cityModel.add(ground);
+setWorldMetreUVs(ground.geometry,{plane:true});
 const surfaceMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide});
 surfaceMaterial.onBeforeCompile=shader=>{
  shader.vertexShader='varying vec3 vGround;\n#ifdef TERRAIN\nattribute float terrainY;\n#endif\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvGround=position;\n#ifdef TERRAIN\nvGround.y-=terrainY;\n#endif');
  // uWetness comes from weather.js (WEATHER_UNIFORMS.wetness): rain darkens and smooths the asphalt bays.
  shader.uniforms.uWetness=WEATHER_UNIFORMS.wetness;
- shader.fragmentShader='varying vec3 vGround;uniform float uWetness;\nfloat groundHash(vec2 p){return fract(sin(dot(p,vec2(41.7,113.1)))*4371.3);}\nfloat groundNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(groundHash(i),groundHash(i+vec2(1,0)),f.x),mix(groundHash(i+vec2(0,1)),groundHash(i+vec2(1,1)),f.x),f.y);}\n'+GRANITE_SETTS_GLSL+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+ shader.uniforms.uAsphalt=ASPHALT_UNIFORM;
+ shader.uniforms.uAsphaltScale=ASPHALT_SCALE_UNIFORM;
+ shader.fragmentShader='varying vec3 vGround;uniform float uWetness;uniform sampler2D uAsphalt;uniform float uAsphaltScale;\nfloat groundHash(vec2 p){return fract(sin(dot(p,vec2(41.7,113.1)))*4371.3);}\nfloat groundNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(groundHash(i),groundHash(i+vec2(1,0)),f.x),mix(groundHash(i+vec2(0,1)),groundHash(i+vec2(1,1)),f.x),f.y);}\n'+GRANITE_SETTS_GLSL+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
  // Filter sub-pixel masonry and grain; unfiltered fract() patterns sparkle in motion.
  float footprint=max(length(dFdx(vGround.xz)),length(dFdy(vGround.xz)));
  vec2 settFp=vec2(length(vec2(dFdx(vGround.x),dFdy(vGround.x))),length(vec2(dFdx(vGround.z),dFdy(vGround.z))));
@@ -205,6 +209,9 @@ surfaceMaterial.onBeforeCompile=shader=>{
  if(vGround.y>0.065&&vGround.y<0.075){
   if(diffuseColor.r<0.35){
    diffuseColor.rgb=mix(vec3(0.075,0.084,0.087),diffuseColor.rgb,0.10);
+   // Photo asphalt albedo in world XZ, mixed over the procedural bay tone.
+   vec3 asphaltMap=texture2D(uAsphalt,vGround.xz*uAsphaltScale).rgb;
+   diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*asphaltMap*1.35,0.72);
    // Asphalt: slow tone drift (resurfaced bays), sparse darker patches with a seam, both fading to their mean with distance.
    float tone=groundNoise(vGround.xz/9.0)-0.5;
    vec2 bay=vGround.xz/vec2(6.5,4.2);vec2 cell=floor(bay);float bayHash=groundHash(cell+0.37);
@@ -225,6 +232,7 @@ surfaceMaterial.onBeforeCompile=shader=>{
  }else diffuseColor.rgb*=1.0+grain*0.04;
  `).replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\n roughnessFactor*=1.0-wetRough*0.6;');
 };
+surfaceMaterial.customProgramCacheKey=()=>'surface-asphalt-map';
 const buildingMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.88});
 buildingMaterial.onBeforeCompile=shader=>{
  shader.uniforms.uPlaster={value:buildingMaterial.userData.plaster||0};
@@ -431,7 +439,7 @@ async function ensureCityModel(){
 }
 function rebuildSea(groundExtent){
  const next=createSea(data.water,data,{helsinkiHarbour:city.scenery==='helsinki',groundExtent,riverDrop:city.id==='prague'?.85:0,quayStone:city.id==='prague'}),old=sea;
- sea=next;cityModel.add(next.group);ground.geometry.dispose();ground.geometry=next.groundGeometry;
+ sea=next;cityModel.add(next.group);ground.geometry.dispose();ground.geometry=next.groundGeometry;setWorldMetreUVs(ground.geometry,{plane:true});
  if(!old)return;
  cityModel.remove(old.group);
  const materials=new Set(),textures=new Set();
@@ -837,7 +845,9 @@ async function boot(){
    const d=unpack(dataUrl('city.pack')).then(bytes=>JSON.parse(new TextDecoder().decode(bytes)));
    const terrainData=city.terrain?.file?unpack(dataUrl(city.terrain.file)).then(decodeTerrain).catch(e=>{console.warn('Terrain unavailable; the city stays flat:',e);return null;}):null; // ground elevation (src/terrain.js)
    const furnitureData=city.furniture?json(dataUrl(city.furniture)).catch(()=>null):null; // street furniture detected in street-level photos (optional, any city)
-   let mobilityData,landcoverData,tramData;[data,roofIndex,surfaceIndex,mobilityData,landcoverData,tramData,extensions]=await Promise.all([d,json(dataUrl('buildings3d-index.json')),json(dataUrl('surface-index.json')),json(dataUrl('mobility.json')),json(dataUrl('landcover.json')),json(dataUrl('trams.json')),loadExtensionIndex(json)]);
+   const surfaceTexturesP=loadSurfaceTextures({anisotropy:Math.min(8,renderer.capabilities.getMaxAnisotropy())}).catch(e=>{console.warn('Surface textures unavailable:',e);return null;});
+   let mobilityData,landcoverData,tramData,surfaceTextures;[data,roofIndex,surfaceIndex,mobilityData,landcoverData,tramData,extensions,surfaceTextures]=await Promise.all([d,json(dataUrl('buildings3d-index.json')),json(dataUrl('surface-index.json')),json(dataUrl('mobility.json')),json(dataUrl('landcover.json')),json(dataUrl('trams.json')),loadExtensionIndex(json),surfaceTexturesP]);
+   if(surfaceTextures?.ground)applyGroundTexture(ground.material,surfaceTextures.ground);
    for(const e of extensions)if(e.heights?.length)setCorridorHeights(e.heights);
    if(city.facades)attachFacades(roofIndex,await json(dataUrl(city.facades)).catch(()=>null)); // photo-described street fronts (optional, any city)
    // Photo-matched places (squares with their tram stop, trees and landmarks; scripts/place-build.mjs): measured heights,
@@ -880,7 +890,7 @@ async function boot(){
    if(city.id==='prague'){setRiverChannel(data.water);setDryPassages(data.roads);}
    if(setTerrain(await terrainData)){surfaceMaterial.defines={...surfaceMaterial.defines,TERRAIN:''};surfaceMaterial.needsUpdate=true;ground.visible=false;cityModel.add(createTerrainGround(ground.material));}
    if((landcoverData.polygons||landcoverData.runs||[]).length)cityModel.add(settleObject(createLandcover(landcoverData)));
-   sea=createSea(data.water,data,{helsinkiHarbour:helsinki,riverDrop:city.id==='prague'?.85:0,quayStone:city.id==='prague'});cityModel.add(sea.group);ground.geometry.dispose();ground.geometry=sea.groundGeometry;
+   sea=createSea(data.water,data,{helsinkiHarbour:helsinki,riverDrop:city.id==='prague'?.85:0,quayStone:city.id==='prague'});cityModel.add(sea.group);ground.geometry.dispose();ground.geometry=sea.groundGeometry;setWorldMetreUVs(ground.geometry,{plane:true});
    // Helsinki's hand-built scenery (landmarks, harbour, street life, signs). Other cities get the generic engine only.
    async function buildHelsinkiScenery(){
    progress(30,'Loading roads and waterfront');

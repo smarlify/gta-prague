@@ -1,0 +1,38 @@
+{
+  "licence": "CC0 1.0",
+  "source": "Poly Haven",
+  "page": "https://polyhaven.com",
+  "note": "Tileable albedo and roughness maps. Resized or cropped only where noted. CC0 does not require attribution; page URLs are kept so the sources stay findable.",
+  "maps": [
+    {
+      "file": "asphalt_02_diff_1k.jpg",
+      "role": "Road asphalt albedo",
+      "asset": "asphalt_02",
+      "title": "Asphalt 02",
+      "page": "https://polyhaven.com/a/asphalt_02",
+      "author": "Rob Tuytel",
+      "licence": "CC0 1.0",
+      "note": "1K diffuse JPEG from Poly Haven."
+    },
+    {
+      "file": "grass_ground_diff_1k.jpg",
+      "role": "Terrain ground albedo",
+      "asset": "grass_ground",
+      "title": "Grass Ground",
+      "page": "https://polyhaven.com/a/grass_ground",
+      "author": "Charlotte Baglioni",
+      "licence": "CC0 1.0",
+      "note": "1K diffuse JPEG from Poly Haven."
+    },
+    {
+      "file": "paint_flake_256.jpg",
+      "role": "Vehicle paint flake noise",
+      "asset": "metal_plate",
+      "title": "Metal Plate (roughness)",
+      "page": "https://polyhaven.com/a/metal_plate",
+      "author": "Rob Tuytel",
+      "licence": "CC0 1.0",
+      "note": "1K roughness JPEG from Poly Haven, resized to 256×256 grayscale for a subtle clearcoat flake."
+    }
+  ]
+}

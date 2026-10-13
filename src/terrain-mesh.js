@@ -100,10 +100,10 @@ export function createTerrainGround(material,{cell=10,chunk=32,size=11000,depth=
  const f=terrain(),group=new THREE.Group();group.name='Terrain ground';if(!f)return group;
  const E=Math.floor(f.extent/cell)*cell,n=Math.round(2*E/cell);
  const channel=(x,z)=>{if(pointInPassage(dryPassages,x,z))return false;if(inRiver(x,z))return true;const w=waterAt(x,z);return w!==null&&groundAt(x,z)<=w+.2;};
- const grid=(xs,zs)=>{const pos=[],nor=[],idx=[],w=xs.length;
-  for(const z of zs)for(const x of xs){pos.push(x,groundAt(x,z)+depth,z);const dx=groundAt(x+1,z)-groundAt(x-1,z),dz=groundAt(x,z+1)-groundAt(x,z-1),l=Math.hypot(dx,2,dz);nor.push(-dx/l,2/l,-dz/l);}
+ const grid=(xs,zs)=>{const pos=[],nor=[],uv=[],idx=[],w=xs.length;
+  for(const z of zs)for(const x of xs){pos.push(x,groundAt(x,z)+depth,z);uv.push(x,z);const dx=groundAt(x+1,z)-groundAt(x-1,z),dz=groundAt(x,z+1)-groundAt(x,z-1),l=Math.hypot(dx,2,dz);nor.push(-dx/l,2/l,-dz/l);}
   for(let j=0;j+1<zs.length;j++)for(let i=0;i+1<w;i++){if([[xs[i],zs[j]],[xs[i+1],zs[j]],[xs[i],zs[j+1]],[xs[i+1],zs[j+1]]].every(([x,z])=>channel(x,z)))continue;const a=j*w+i,b=a+1,c=a+w,d=c+1;idx.push(a,c,b,b,c,d);}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setIndex(idx);g.computeBoundingSphere();g.computeBoundingBox();return g;};
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeBoundingSphere();g.computeBoundingBox();return g;};
  const range=(a,b,step)=>{const out=[];for(let x=a;x<b-1e-6;x+=step)out.push(x);out.push(b);return out;};
  for(let cz=0;cz<n;cz+=chunk)for(let cx=0;cx<n;cx+=chunk){
   const xs=range(-E+cx*cell,-E+Math.min(n,cx+chunk)*cell,cell),zs=range(-E+cz*cell,-E+Math.min(n,cz+chunk)*cell,cell);
