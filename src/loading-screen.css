@@ -2,7 +2,7 @@
 body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#wanted,#location-readout,#touch-controls,#touch-aux,.vignette){visibility:hidden;pointer-events:none}
 
 /* Type system for the card. Two faces, one scale, one spacing rhythm:
-   display  Spectral  — tagline and place name. The words “GTA Praha” use Bungee.
+   display  Spectral  — place name. The words “GTA Praha” use Bungee.
    ui       DM Sans   — eyebrow, button, hints, disclosure, footer (12 / 14 / 16)
    Only the eyebrow uses capitals and tracking. Spacing steps: 8 / 12 / 16 / 24 / 32. */
 #intro.boot-screen{
@@ -21,7 +21,6 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
 #intro.boot-screen .boot-brand{display:flex;align-items:center;width:fit-content;gap:var(--s-12);padding:0;margin:0 0 var(--s-24);background:none;border-radius:0;box-shadow:none;backdrop-filter:none;font:600 var(--t-28)/1 var(--display);letter-spacing:-.025em;color:inherit}
 #intro.boot-screen .boot-brand .brand-icon{width:40px;height:40px}
 #intro.boot-screen .boot-brand .brand-name{display:block}
-#intro.boot-screen .boot-tagline{margin:0 0 var(--s-32);font:500 var(--t-26)/28px var(--display);letter-spacing:-.025em;color:inherit}
 #intro.boot-screen #boot-title{margin:0 0 var(--s-16);font:600 var(--t-20)/28px var(--display);letter-spacing:-.015em;color:inherit}
 
 /* UI: DM Sans */
@@ -93,7 +92,7 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
 
 #intro [hidden]{display:none!important}
 #intro.failed #boot-launch{margin-top:var(--s-16)}
-#intro.failed :is(.boot-tagline,.boot-place-label,.boot-help,.start-arrow){display:none}
+#intro.failed :is(.boot-place-label,.boot-help,.start-arrow){display:none}
 #intro.failed .start-picker{min-height:0;padding:0;border:0;background:none}
 #intro.failed.boot-screen #boot-title{text-align:left;white-space:normal}
 #intro.failed .boot-progress-heading{font-size:var(--t-14)}
@@ -108,17 +107,16 @@ body.game-failed #intro{z-index:1000;pointer-events:auto}
  .boot-footer a{display:inline-flex;align-items:center;min-height:44px}
  .boot-credit a{min-height:0}
 }
-@media(max-width:360px){#intro.boot-screen{--t-28:24px}#intro.boot-screen .boot-tagline{line-height:28px}}
+@media(max-width:360px){#intro.boot-screen{--t-28:24px}}
 
 /* Short screens (phones held sideways): two columns in a smaller card pinned bottom-left,
    so the city stays in view above it and to its right while you pick a start.
-   Left: wordmark, tagline, footer. Right: starting point, button, how to play.
+   Left: wordmark, footer. Right: starting point, button, how to play.
    Both columns start on the card's top line and end on its bottom line. */
 @media(max-height:540px) and (min-width:560px){
- #intro.boot-screen{--pad:24px;left:max(16px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));width:min(600px,calc(100% - 32px));max-height:calc(100dvh - 32px);padding:var(--s-24);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr;column-gap:var(--s-32);align-items:start}
+ #intro.boot-screen{--pad:24px;left:max(16px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));width:min(600px,calc(100% - 32px));max-height:calc(100dvh - 32px);padding:var(--s-24);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;column-gap:var(--s-32);align-items:start}
  #intro.boot-screen>.boot-brand{grid-column:1;grid-row:1;margin-bottom:var(--s-16)}
- #intro.boot-screen>.boot-tagline{grid-column:1;grid-row:2;margin:0;font-size:24px;line-height:28px}
- #intro.boot-screen>.boot-footer{grid-column:1;grid-row:3;align-self:end;margin-top:var(--s-16);border-top:0;padding-top:0}
+ #intro.boot-screen>.boot-footer{grid-column:1;grid-row:2;align-self:end;margin-top:var(--s-16);border-top:0;padding-top:0}
  /* The four links fit one row in the narrow column (44 px tall on touch) when spaced instead of dotted. */
  #intro .boot-links{gap:0 var(--s-12)}
  #intro .boot-links>span{display:none}
@@ -131,6 +129,6 @@ body.game-failed #intro{z-index:1000;pointer-events:auto}
 }
 @media(max-height:540px) and (max-width:559px){
  #intro.boot-screen{--pad:24px;bottom:16px;max-height:calc(100dvh - 32px)}
- #intro.boot-screen .boot-brand{margin-bottom:var(--s-16)}#intro.boot-screen .boot-tagline{margin-bottom:var(--s-16)}
+ #intro.boot-screen .boot-brand{margin-bottom:var(--s-16)}
 }
 @media(prefers-reduced-motion:reduce){#intro.boot-screen,#intro #load-fill,.boot-help summary>span,#intro #boot-title{transition:none}#boot-title.slide-next,#boot-title.slide-prev{animation:none}}
