@@ -226,5 +226,10 @@ export function createRoadblock(scene,{world,police,carModel,playerLook=null,gra
   standDown(){this.clearArrest();clearPursuit();standDown=true;},
   reset(){this.clearArrest();clearPursuit();standDown=false;time=0;},
   snapshot(){return {deployed,standDown,phase,pursuit,attempts,lastReason,warningAt,nextAttempt,pending:pending?{centre:pending.centre,roadName:pending.roadName,distanceAhead:pending.distanceAhead}:null,burst:!!burst,strip:plan?.strip||null,roadName:plan?.roadName||null,cars:plan?.cars.length||0,officers:posts.length,arrest:scene_?{mode:scene_.mode,hasDoor:!!scene_.door,t:+scene_.t.toFixed(2),doorAt:scene_.doorAt,squad:scene_.squad.length,driver:{x:scene_.driver.x,z:scene_.driver.z,hidden:scene_.driver.hidden,pose:scene_.driver.pose,prone:!!scene_.driver.knockdown,lean:+(scene_.driver.lean||0).toFixed(2),groundY:scene_.driver.groundY},patrol:scene_.patrol,officers:scene_.squad.slice(0,2).map(o=>({x:o.x,z:o.z,pose:o.pose}))}:null};},
+  // Foot officers for presence: the arrest squad while it plays, otherwise the roadblock posts.
+  footCops(){
+   const src=scene_?scene_.squad:posts.filter(o=>!o.busy);
+   return src.map(o=>({id:String(o.id),x:o.x,z:o.z,heading:o.heading||0,pose:o.pose||(o.speed>.4?'walk':'belt')}));
+  },
  };
 }

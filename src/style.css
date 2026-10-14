@@ -118,7 +118,7 @@ body.framed{position:absolute;overflow:hidden;transform:translateZ(0);background
 body.framed canvas{position:absolute;left:0;top:0}
 
 /* Capture status badge (V): tells the recorder what is being rendered. In ?frame mode it is pushed
-   into the black margin outside the frame so it never ends up in the clip. H hides it with the HUD. */
+   into the black margin outside the frame so it never ends up in the clip. Tab hides it with the HUD. */
 .capture-badge{position:fixed;left:16px;bottom:16px;z-index:30;padding:6px 10px;border-radius:5px;background:rgba(180,30,30,.92);color:#fff;font:600 11px/1.4 ui-monospace,monospace;letter-spacing:.04em;pointer-events:none;white-space:nowrap}
 .capture-badge::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;margin-right:8px;animation:capture-blink 1.2s steps(1) infinite}
 @keyframes capture-blink{50%{opacity:.25}}

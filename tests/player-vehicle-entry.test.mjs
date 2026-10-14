@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PlayerTravel} from '../src/player-travel.js';
+import {createPoliceCarSource} from '../src/police-entry.js';
 import {createParkedCarSource} from '../src/parked-car-sources.js';
 import {SpatialIndex} from '../src/geo.js';
 import {makeCar} from '../src/physics.js';
@@ -10,6 +11,21 @@ const rect=(x,z,w,d)=>({rings:[[[x,z],[x+w,z],[x+w,z+d],[x,z+d]]]});
 const world=(walls=[])=>({buildings:new SpatialIndex(walls),roads:new SpatialIndex([rect(-800,-800,1600,1600)]),pavement:new SpatialIndex([]),water:[]});
 const source=(x=0,z=0,id='parked',obstacle=rect(x-1,z-2,2,4))=>createParkedCarSource({id,actor:{x,z,heading:0,speed:0,edge:{}},obstacle,visual:{type:'estate',paint:'#3a6386'}});
 function beside(travel,s,x=2.2){assert.equal(travel.interact().ok,true);Object.assign(travel.actor,{x:s.actor.x+x,z:s.actor.z});}
+
+test('F/Enter claims a stopped police unit and leaves it out of the chase',()=>{
+ const unit={id:'police-4',x:0,z:0,heading:0,speed:0,edge:{id:'lane'}};
+ const units=[unit];
+ const source=createPoliceCarSource(unit,{
+  visual:{type:'police',police:true,livery:'praha',variant:'estate'},
+  claimUnit(taken){const i=units.indexOf(taken);if(i>=0)units.splice(i,1);},
+ });
+ const travel=new PlayerTravel(makeCar(-20,0),world(),{cars:()=>[source]});
+ beside(travel,source);
+ unit.speed=8;assert.equal(travel.interact(source.id).ok,false,'a moving patrol cannot be taken');assert.equal(units.length,1);
+ unit.speed=0;assert.equal(travel.interact(source.id).ok,true);
+ assert.equal(travel.mode,'car');assert.equal(travel.car.visual.police,true);assert.equal(travel.car.visual.variant,'estate');
+ assert.equal(unit.playerTaken,true);assert.equal(unit.edge,null);assert.equal(unit.speed,0);assert.equal(units.length,0);
+});
 
 test('a stopped nearby car can be taken, parked and reused without cloning it again or moving the starter car',()=>{
  const s=source(),w=world([s.obstacle]),home=makeCar(-20,0),travel=new PlayerTravel(home,w,{cars:()=>[s]});home.battery=.41;
