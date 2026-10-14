@@ -21,6 +21,13 @@ export function worldhoodMark({longitude=24.9522,latitude=60.1701,name='Helsinki
  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="${escape(title)}"><title>${escape(title)}</title><circle cx="32" cy="32" r="29" fill="#30312e"/><g transform="rotate(-12 32 32)"><g fill="none" stroke="#eee8dc" stroke-width="1.1" opacity=".52">${lines.map(d=>`<path d="${d}"/>`).join('')}</g><path d="${line(patch)}Z" fill="${accent}" stroke="#30312e" stroke-width="1.4" stroke-linejoin="round"/><circle cx="${dot.x.toFixed(2)}" cy="${dot.y.toFixed(2)}" r="2.1" fill="#fff8e9"/></g><circle cx="32" cy="32" r="27.5" fill="none" stroke="#eee8dc" stroke-width="1.25" opacity=".75"/></svg>`;
 }
 
+/** Browser tab: current street or place, never the police-car emoji. */
+export function locationPageTitle({street='',place=''}={}){
+ const clean=s=>String(s||'').replace(/🚔/g,'').replace(/\s+/g,' ').trim();
+ const where=clean(street)||clean(place);
+ return where?`${where} — GTA Praha`:'GTA Praha';
+}
+
 export function updateWorldhoodBrand(city,doc=document){
  const [longitude,latitude]=city.origin||[],svg=worldhoodMark({longitude,latitude,name:city.name});
  const parsed=new DOMParser().parseFromString(svg,'image/svg+xml');
@@ -30,5 +37,5 @@ export function updateWorldhoodBrand(city,doc=document){
  // Tab icon stays the police-car favicon in public/favicon.svg (not the in-page globe mark).
  let icon=doc.querySelector('link[rel="icon"]');if(!icon){icon=doc.createElement('link');icon.rel='icon';doc.head.append(icon);}
  icon.type='image/svg+xml';icon.href='/favicon.svg';
- // Title is set in index.html ("GTA Praha 🚔"); do not rewrite it here.
+ // document.title is the street or place (locationPageTitle). Do not stamp a police emoji here.
 }

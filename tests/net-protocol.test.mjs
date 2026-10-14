@@ -35,10 +35,10 @@ test('unsigned users cannot join or publish', () => {
   assert.equal(isAnonymousProvider({ isAnonymous: true }), true);
 });
 
-test('anonymous users can join multiplayer (temp default)', () => {
+test('anonymous users stay offline', () => {
   const anon = { uid: 'a', isAnonymous: true };
-  assert.equal(canJoinMultiplayer(anon), true);
-  assert.equal(shouldSkipPublish(anon), false);
+  assert.equal(canJoinMultiplayer(anon), false);
+  assert.equal(shouldSkipPublish(anon), true);
 });
 
 test('Google-signed users can join multiplayer', () => {
@@ -280,8 +280,8 @@ test('stolen police siren is only published on a police car', () => {
   assert.equal(off.vehicle.police, undefined);
 });
 
-test('shouldSkipPublish is the gate used before set() — uid required, anonymous allowed', () => {
-  assert.equal(shouldSkipPublish({ uid: 'anon', isAnonymous: true }), false);
-  assert.equal(shouldSkipPublish({ uid: 'g', isAnonymous: false }), false);
+test('shouldSkipPublish is the gate used before set() — Google uid required', () => {
+  assert.equal(shouldSkipPublish({ uid: 'anon', isAnonymous: true }), true);
+  assert.equal(shouldSkipPublish({ uid: 'g', isAnonymous: false, providerData: [{ providerId: 'google.com' }] }), false);
   assert.equal(shouldSkipPublish(null), true);
 });

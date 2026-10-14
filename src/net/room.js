@@ -1,6 +1,6 @@
 /**
- * Demo-room presence: any authenticated uid (incl. anonymous) may publish pose + police.
- * Temp default for two-tab testing — revert to Google-only after. No slots / host election.
+ * Demo-room presence: Google sign-in only. Anonymous stays offline.
+ * No slots / host election.
  */
 import {
   onDisconnect,
@@ -11,6 +11,7 @@ import {
 } from 'firebase/database';
 import { ensureAuthUser, getFirebaseAuth } from '../firebase.js';
 import { displayNameFor } from '../high-score.js';
+import { currentPresenceName } from './player-name.js';
 import { getFirebaseRtdb, rtdbConfigured } from './firebase-rtdb.js';
 import {
   DEMO_ROOM,
@@ -95,7 +96,7 @@ export async function joinDemoRoom(user = getFirebaseAuth().currentUser) {
     // Seed a minimal row so peers see the join immediately.
     await set(rowRef, toRtdb({
       uid,
-      name: displayNameFor(user) || 'Driver',
+      name: currentPresenceName(displayNameFor(user) || '') || 'Driver',
       x: 0,
       z: 0,
       heading: 0,
@@ -116,8 +117,8 @@ export async function joinDemoRoom(user = getFirebaseAuth().currentUser) {
 }
 
 /**
- * Join the demo room with the current user (anonymous is fine).
- * Signs in anonymously when no uid yet — does not force Google for the temp default.
+ * Join the demo room for a Google-signed user.
+ * Anonymous auth is not enough to publish.
  */
 export async function goOnline({
   ensureUser = ensureAuthUser,

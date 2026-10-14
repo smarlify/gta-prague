@@ -36,12 +36,9 @@ export function isAnonymousProvider(user) {
   return provider === 'anonymous' || !provider && !!user.isAnonymous;
 }
 
-/**
- * Temp default: any authenticated uid (incl. anonymous) may join the demo room.
- * Revert to Google-only (`!isAnonymousProvider(user)`) after two-tab testing.
- */
+/** Google sign-in only. Anonymous sessions stay offline. */
 export function canJoinMultiplayer(user) {
-  return !!(user && user.uid);
+  return !!(user && user.uid && !isAnonymousProvider(user));
 }
 
 export function normalizeMode(mode) {
