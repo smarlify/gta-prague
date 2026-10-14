@@ -22,3 +22,6 @@ docs/RELEASE_REVIEW.md
 # Local link to the shared DEV/AI manifest and git-hooks.
 __manifest
 __git-hooks
+
+firebase-debug.log
+firebase-debug.*.log

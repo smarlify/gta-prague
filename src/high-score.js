@@ -90,6 +90,7 @@ export function bindHighScoreUI(root = document, {
   signIn = signInWithGoogle,
   save = saveHighScore,
   authApi = auth,
+  onGoogleSignedIn = null,
 } = {}) {
   const panel = root.getElementById?.('high-score-panel') || root.querySelector?.('#high-score-panel');
   const scoreEl = root.getElementById?.('high-score-value');
@@ -201,6 +202,7 @@ export function bindHighScoreUI(root = document, {
     showGuestFallback(false);
     try {
       const user = await signIn();
+      try { await onGoogleSignedIn?.(user); } catch (err) { console.warn('onGoogleSignedIn failed', err); }
       await persist(user);
     } catch (err) {
       console.error('High score Google sign-in failed:', err);

@@ -3,7 +3,7 @@
  * Client config comes from VITE_SCOREBOARD_* at build time (Heroku config / local .env).
  */
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 function readConfig() {
@@ -24,12 +24,16 @@ let authInstance;
 let firestoreInstance;
 let googleProviderInstance;
 
-function ensureApp() {
+export function ensureApp() {
   if (app) return app;
   const config = readConfig();
   if (!config.apiKey || !config.projectId) {
     throw new Error('Scoreboard backend is not configured. Set VITE_SCOREBOARD_* (see .env.example).');
   }
+  // Include databaseURL when present so Auth/Firestore and RTDB share one app.
+  const databaseURL = (import.meta.env || {}).VITE_SCOREBOARD_DATABASE_URL
+    || (import.meta.env || {}).VITE_MULTIPLAYER_DATABASE_URL;
+  if (databaseURL) config.databaseURL = databaseURL;
   app = getApps().length ? getApp() : initializeApp(config);
   authInstance = getAuth(app);
   firestoreInstance = getFirestore(app);
@@ -52,6 +56,17 @@ export function getGoogleProvider() {
   return googleProviderInstance;
 }
 
+/**
+ * Return the current Firebase user, signing in anonymously when none is present.
+ * Used so demo-room multiplayer can auto-join without a Google popup.
+ */
+export async function ensureAuthUser() {
+  const authApi = getFirebaseAuth();
+  if (authApi.currentUser) return authApi.currentUser;
+  const cred = await signInAnonymously(authApi);
+  return cred.user;
+}
+
 /** Lazy currentUser accessor so unit tests can import high-score without scoreboard env. */
 export const auth = {
   get currentUser() {
@@ -63,4 +78,4 @@ export const auth = {
   },
 };
 
-export default { ensureApp, getFirebaseAuth, getFirebaseFirestore, getGoogleProvider };
+export default { ensureApp, getFirebaseAuth, getFirebaseFirestore, getGoogleProvider, ensureAuthUser, auth };
