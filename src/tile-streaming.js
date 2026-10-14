@@ -29,12 +29,22 @@ export function aheadPoint(car,seconds=4,max=160){
 export function tilePriority(t,focus,ahead){const d=tileDistanceTo(t,focus);return ahead?Math.min(d,tileDistanceTo(t,ahead)):d;}
 
 // Jobs that create GPU resources (texture init, a building's meshes) run a couple per frame.
-export function createFrameQueue({maxJobs=2,budgetMs=2.5}={}){
+// A single bad upload must not abort the rAF loop — that used to trip game-resilience
+// while the start picker still said "Loading Most Legií".
+export function createFrameQueue({maxJobs=2,budgetMs=2.5,onError=null}={}){
  const jobs=[];
  return {
   push(job){jobs.push(job);},
   get size(){return jobs.length;},
-  step(){const t=performance.now();let n=0;while(jobs.length&&n<maxJobs&&(n===0||performance.now()-t<budgetMs)){jobs.shift()();n++;}return n;}
+  step(){
+   const t=performance.now();let n=0;
+   while(jobs.length&&n<maxJobs&&(n===0||performance.now()-t<budgetMs)){
+    const job=jobs.shift();
+    try{job();}catch(error){onError?.(error);}
+    n++;
+   }
+   return n;
+  }
  };
 }
 
