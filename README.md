@@ -11,8 +11,10 @@ buildings come from open map and city data, with local details added by contribu
 Custom domains `gtapraha.online` / `gtapraha.cz` are reserved; point their DNS at Heroku before using them as the play URL.
 Upstream Worldhood: [worldhood.org](https://worldhood.org).
 
-The current game is single-player. A shared online world and player-owned territories are future
-plans. Adding and improving cities currently happens through this repository, rather than an in-game editor.
+Signed-in players can share presence in the `demo` multiplayer room (pose, vehicle, wanted police);
+the city and traffic still run locally on each client. Anonymous play stays alone. A shared
+authoritative world and player-owned territories remain future plans. Adding and improving cities
+currently happens through this repository, rather than an in-game editor.
 
 The game runs entirely in the browser (three.js + Vite), with no account, backend or API key needed
 to play. Optional contributor tools that fetch data or process reference photos may require their
