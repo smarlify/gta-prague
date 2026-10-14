@@ -2,6 +2,16 @@
 // road polygons and the driving graph out to the download edge; a corridor
 // only opens that ground and, past the terrain grid, supplies heights.
 
+// The sources dialog reads provenance.note. These corridors are OpenStreetMap
+// outlines, not a municipal extract, so they carry a note instead of fetchedAt
+// and forest-tree counts.
+export const CORRIDOR_PROVENANCE = Object.freeze({
+ provider: 'OpenStreetMap contributors',
+ license: 'ODbL',
+ licenseUrl: 'https://www.openstreetmap.org/copyright',
+ note: '© OpenStreetMap contributors (ODbL): playable outline of mapped roads beyond the city disk, including extra carriageways from OpenStreetMap; buildings stay on the main city build',
+});
+
 export const CORRIDOR_SPECS = Object.freeze([
  {id: 'zlute-lazne', title: 'Podolí to Žluté lázně',
   test: text => /žluté lázně|zlute lazne|modřansk|modransk|podolsk|u přehrady|u prehrady/i.test(text)},

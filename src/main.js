@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {SpatialIndex,RADIUS,pointInPolygon,insidePlayable,setPlayableRadius} from './geo.js';
-import {loadExtensionIndex,loadExtension,applyExtensions,mapViewFor,activateExtension,createExtensionStreamer} from './extensions.js';
+import {loadExtensionIndex,loadExtension,applyExtensions,mapViewFor,activateExtension,createExtensionStreamer,extensionSourcesText} from './extensions.js';
 import {setTramLivery} from './tram-model.js';
 import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities} from './cities.js';
@@ -1101,10 +1101,15 @@ async function boot(){
    }
    if(extensions.length){
     const names=extensions.map(e=>e.title).join(' and ');
-    document.querySelector('#map-dialog .dialog-copy').textContent=`Two kilometres around the cathedral, plus the ${names} corridor (dashed outline). Pick a starting point, then find your own way.`;
-    document.querySelector('#map-dialog .map-caption span').textContent='2 KM RADIUS + EXTENSIONS';
+    if(helsinki){
+     document.querySelector('#map-dialog .dialog-copy').textContent=`Two kilometres around the cathedral, plus the ${names} corridor (dashed outline). Pick a starting point, then find your own way.`;
+     document.querySelector('#map-dialog .map-caption span').textContent='2 KM RADIUS + EXTENSIONS';
+    }else{
+     document.querySelector('#map-dialog .dialog-copy').textContent=`${(city.radius/1000).toFixed(1)} km around the centre of ${city.name}, plus ${names}. Pick a starting point, then find your own way.`;
+     document.querySelector('#map-dialog .map-caption span').textContent=`${(city.radius/1000).toFixed(1)} KM RADIUS + EXTENSIONS`;
+    }
     const note=document.createElement('p');note.className='help-note';
-    note.textContent=`Map extensions: ${extensions.map(e=>`${e.title} — ${e.provenance.note||`City of Helsinki data fetched ${e.provenance.fetchedAt} (CC BY 4.0); ${e.counts.inferredForestTrees.toLocaleString('en')} forest trees are inferred inside mapped forest areas`}`).join('; ')}. Route crop outlines © OpenStreetMap contributors (ODbL). Seurasaari is car-free in reality.`;
+    note.textContent=extensionSourcesText(extensions,{helsinki});
     $('data-counts').after(note);
    }
    if(requestedStart&&!pickStart(data.landmarks,requestedStart))toast(`No start called “${requestedStart}”. Starting at ${firstStart.name}.`);
