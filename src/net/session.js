@@ -4,6 +4,7 @@
 import { onAuthStateChanged } from 'firebase/auth';
 import { ensureAuthUser, getFirebaseAuth } from '../firebase.js';
 import { displayNameFor } from '../high-score.js';
+import { bindPlayerNameField, currentPresenceName, rememberGoogleName } from './player-name.js';
 import { applyCrashImpulse } from '../crash-physics.js';
 import {
   buildPresence,
@@ -67,6 +68,11 @@ export function createMultiplayerSession(scene, {
   doc = document,
 } = {}) {
   const remotes = createRemotePresence(scene);
+  const names = bindPlayerNameField(doc, {
+    googleName: () => {
+      try { return displayNameFor() || ''; } catch { return ''; }
+    },
+  });
   let room = null;
   let authUnsub = null;
   let lastHudKey = '';
@@ -113,7 +119,9 @@ export function createMultiplayerSession(scene, {
         await leave();
         return;
       }
-      // Temp default: auto-join demo for every authenticated uid (incl. anonymous).
+      rememberGoogleName(displayNameFor(user) || '');
+      names.prefill();
+      // Google accounts auto-join the demo room. Anonymous sessions stay offline.
       if (!room) {
         const result = await joinDemoRoom(user);
         if (result.kind === 'joined') room = result.room;
@@ -187,7 +195,7 @@ export function createMultiplayerSession(scene, {
           const vehicle = vehicleFromTravel(travel, getPlayerCars());
           const presence = buildPresence({
             uid: room.uid,
-            name: displayNameFor() || 'Driver',
+            name: currentPresenceName(displayNameFor() || '') || 'Driver',
             x: actor?.x,
             z: actor?.z,
             heading: actor?.heading,

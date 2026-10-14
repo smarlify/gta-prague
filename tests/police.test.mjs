@@ -104,6 +104,16 @@ test('escape clears heat only after being separated from pursuers',()=>{
  for(let i=0;i<19*30;i++)p.step(1/30,car);assert.equal(p.level,2);
  for(let i=0;i<10*30;i++)p.step(1/30,car);assert.equal(p.level,0);assert.match(p.message,/Escaped/);
 });
+test('a patrol the player took does not glue the stolen car',()=>{
+ const p=new PoliceSimulation(graph(),world);
+ p.units=[{id:'police',x:0,z:0,heading:0,playerTaken:true,edge:null,speed:0}];
+ const from={x:0,z:-1,heading:0,speed:4},car={x:0,z:0,heading:0,speed:4};
+ p.observe(from,car,[],[]);
+ assert.equal(car.z,0);assert.equal(car.speed,4);
+ p.heat=4;p.dispatch=100;
+ assert.doesNotThrow(()=>p.step(1/30,{x:30,z:30,heading:0,speed:1}));
+ assert.equal(p.units[0].x,0);
+});
 test('player cannot pass through a police car',()=>{
  const p=new PoliceSimulation(graph(),world);p.units=[{id:'police',x:0,z:0,heading:0}];
  const car={x:0,z:-6,heading:0,speed:30};p.observe({x:0,z:6,heading:0},car,[],[]);assert.equal(car.z,6);assert.equal(car.speed,0);

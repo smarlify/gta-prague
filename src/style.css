@@ -201,3 +201,9 @@ body.tilt-steer #touch-controls>div:first-child{visibility:hidden}
 
 /* No location tag or coordinate readout on screen: the minimap and street name already say where you are. */
 .location-tag,#location-readout{display:none!important}
+
+/* Name other players read above the car. Saved in localStorage and on the presence row. */
+.player-name{display:flex;align-items:center}
+.player-name input{height:38px;width:7.6rem;border-radius:7px;border:1px solid rgba(41,59,54,.12);background:rgba(249,247,240,.84);padding:0 10px;font:13px/1 'DM Sans',sans-serif;color:#30312e}
+.player-name input:focus{outline:3px solid #d95e3b;outline-offset:2px}
+@media(max-width:700px){.player-name input{height:34px;width:5.6rem;font-size:12px;padding:0 8px}}

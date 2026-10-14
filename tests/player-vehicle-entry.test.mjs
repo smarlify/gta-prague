@@ -4,7 +4,7 @@ import {PlayerTravel} from '../src/player-travel.js';
 import {createPoliceCarSource} from '../src/police-entry.js';
 import {createParkedCarSource} from '../src/parked-car-sources.js';
 import {SpatialIndex} from '../src/geo.js';
-import {makeCar} from '../src/physics.js';
+import {driveStep,makeCar} from '../src/physics.js';
 import {Mobility} from '../src/mobility.js';
 
 const rect=(x,z,w,d)=>({rings:[[[x,z],[x+w,z],[x+w,z+d],[x,z+d]]]});
@@ -25,6 +25,41 @@ test('F/Enter claims a stopped police unit and leaves it out of the chase',()=>{
  unit.speed=0;assert.equal(travel.interact(source.id).ok,true);
  assert.equal(travel.mode,'car');assert.equal(travel.car.visual.police,true);assert.equal(travel.car.visual.variant,'estate');
  assert.equal(unit.playerTaken,true);assert.equal(unit.edge,null);assert.equal(unit.speed,0);assert.equal(units.length,0);
+});
+
+test('a stolen police car is a new body that takes throttle clear of the arrest cluster',()=>{
+ const unit={id:'police-4',x:0,z:0,heading:0,speed:0,edge:{remote:true}};
+ const bustedPlayer={x:1.2,z:0.4,heading:0,speed:0,halfWidth:.98,halfLength:2.36};
+ const units=[unit];
+ const source=createPoliceCarSource(unit,{
+  visual:{type:'police',police:true,livery:'praha',variant:'estate'},
+  blockers:()=>[bustedPlayer],
+  claimUnit(taken){const i=units.indexOf(taken);if(i>=0)units.splice(i,1);},
+ });
+ const travel=new PlayerTravel(makeCar(-20,0),world(),{cars:()=>[source]});
+ beside(travel,source);
+ assert.equal(travel.interact(source.id).ok,true);
+ assert.notEqual(travel.car,unit);
+ assert.equal(travel.car.visual.police,true);
+ assert.equal(unit.speed,0);
+ const before={x:travel.car.x,z:travel.car.z};
+ driveStep(travel.car,new Set(['KeyW']),1/30,travel.world);
+ assert.ok(travel.car.speed>0.2,'throttle reaches the stolen car');
+ assert.ok(Math.hypot(travel.car.x-before.x,travel.car.z-before.z)>0.01,'the stolen car moves');
+ const speed=travel.car.speed;
+ driveStep(travel.car,new Set(['KeyA']),1/30,travel.world);
+ assert.ok(travel.car.steer>0.05,'steer reaches the stolen car');
+ driveStep(travel.car,new Set(['Space']),1/30,travel.world);
+ assert.ok(travel.car.speed<speed,'brake reaches the stolen car');
+});
+
+test('a moving remote patrol cannot be taken',()=>{
+ const unit={id:'chase',x:0,z:0,heading:0,speed:8,edge:{remote:true}};
+ const source=createPoliceCarSource(unit,{visual:{type:'police',police:true}});
+ const travel=new PlayerTravel(makeCar(-20,0),world(),{cars:()=>[source]});
+ beside(travel,source);
+ assert.equal(travel.interact(source.id).ok,false);
+ assert.equal(unit.playerTaken,undefined);
 });
 
 test('a stopped nearby car can be taken, parked and reused without cloning it again or moving the starter car',()=>{

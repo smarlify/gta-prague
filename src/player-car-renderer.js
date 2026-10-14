@@ -26,13 +26,16 @@ export function createPlayerCarRenderer(scene){
   const next=build(model,true);
   if(current===first){active.add(next.model);current=next;}
   first.model.removeFromParent();first.dispose();first=next;
-  if(home)entries.set(home,first);active.userData=first.model.userData;
+  if(home)entries.set(home,first);if(!current||current===first)active.userData=first.model.userData;
  },sync(travel,dt=0){
   if(home!==travel.homeCar){for(const entry of entries.values())if(entry!==first)entry.dispose();entries.clear();home=travel.homeCar;entries.set(home,first);current=null;first.damage.update({damageVersion:-1});}
   for(const car of travel.cars)if(!entries.has(car)){const visual=car.visual||{};let model;if(visual.police||visual.type==='police'){model=createPoliceBody(visual.variant||'estate',visual.livery||'praha');attachPursuitLights(model,.2);}else{model=createVehicle(0,false,visual.type||'sedan');if(visual.paint)model.traverse(m=>{if(m.isMesh&&m.material.name==='paint')m.material.color.set(visual.paint);});}entries.set(car,build(model,true));}
   const selected=entries.get(travel.car);
-  if(current!==selected){if(current)parked.add(current.model);active.add(selected.model);selected.model.position.set(0,0,0);selected.model.rotation.set(0,0,0);active.userData=selected.model.userData;current=selected;}
+  if(selected&&current!==selected){if(current)parked.add(current.model);active.add(selected.model);selected.model.position.set(0,0,0);selected.model.rotation.set(0,0,0);current=selected;}
+  // The group drives whichever car is occupied, including a stolen patrol. A later
+  // home-car repaint must not leave the wheel rig pointing at the parked car.
+  if(selected)active.userData=selected.model.userData;
   for(const [car,entry]of entries){entry.damage.update(car);if(entry===selected)continue;parked.add(entry.model);groundPose(car.x,car.z,car.heading,1.4,.8,slope);entry.model.position.set(car.x,.12+slope.y,car.z);entry.model.rotation.set(slope.pitch,car.heading,slope.roll,'YXZ');entry.model.visible=Math.hypot(car.x-travel.actor.x,car.z-travel.actor.z)<650;animateVehicle(entry.model,0,0,dt,false);}
-  selected.model.visible=true;
+  if(selected)selected.model.visible=true;
  },setSiren(on,time=0){for(const [car,entry]of entries)flashPursuitLights(entry.model,time,!!on&&entry===current&&!!car.visual?.police);},setVisible(visible){active.visible=parked.visible=visible;}};
 }

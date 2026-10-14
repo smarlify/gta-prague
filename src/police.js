@@ -85,7 +85,7 @@ export class PoliceSimulation{
  }
  reset(){this.time=0;this.heat=0;this.units=[];this.contacts=new Map();this.recentIncidents=[];this.recklessSeconds=0;this.recklessAt=-Infinity;this.blocked=new Map();this.escape=0;this.bust=0;this.contact=0;this.stopped=0;this.backupAt=-Infinity;this.grace=0;this.repath=0;this.dispatch=0;this.costs=[];this.target=null;this.message=null;this.serial=0;this.busted=false;this.lastSeen=null;this.seen=false;this.intercept=null;this.predicted=null;this.pressure=false;this.surgeUntil=-Infinity;this.minUnits=0;this.units=[...(this.parked||[])];}
  get level(){return wantedLevel(this.heat);}
- get obstacles(){return this.units;}
+  get obstacles(){return this.units.filter(u=>!u.playerTaken);}
  // Location never starts or ends the stronger response.
  get surging(){return this.level>=4&&this.time<this.surgeUntil;}
  get bustTime(){return this.surging?SURGE.bustTime:BUST_TIME;}
@@ -143,7 +143,10 @@ export class PoliceSimulation{
   for(const a of people)if(moving&&a.edge&&distance(player,a)<distance(from,player)+6&&sweptContact(from,player,a,true)){
    this.report('pedestrian',a.id);a.panicUntil=this.time+3;player.speed*=.75;
   }
-  for(const unit of this.units)if(sweptContact(from,player,unit)){
+  // A patrol the player just took is no longer a wall. Leaving it in the list
+  // (or overlapping it at the moment of the steal) used to zero speed every step.
+  for(const unit of this.units){
+   if(unit.playerTaken||!sweptContact(from,player,unit))continue;
    if(moving)this.report('police',unit.id,closingSpeed(from,unit));player.x=from.x;player.z=from.z;player.heading=from.heading;player.speed=0;break;
   }
  }
@@ -244,7 +247,7 @@ export class PoliceSimulation{
   if(surge&&this.stopped>=SURGE.backupAfter&&this.time-this.backupAt>8&&!this.units.some(u=>distance(u,player)<SURGE.arrestRange&&this.clearSight(u,player)))this.backup(player,traffic);
   const cruise=24+this.level*2.6+(surge?SURGE.cruise:0),accel=8+this.level*.6;
   for(const unit of this.units){
-   if(unit.parked)continue;
+   if(unit.parked||unit.playerTaken||!unit.edge)continue;
    const field=this.fieldFor(unit);
    let desired=cornerSpeedLimit(unit.edge,unit.s,cruise,[this.next(unit.edge,field)]);
    const gap=distance(unit,player);if(gap<18)desired=Math.min(desired,Math.max(0,(gap-5)*1.6));

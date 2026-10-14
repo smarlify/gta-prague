@@ -10,6 +10,7 @@ import { createRideVehicle, PLAYER_BIKE, PLAYER_SCOOTER } from '../player-ride-m
 import { createPoliceBody, unitNumber, unitVariant, policeAgencyFor } from '../police-model.js';
 import { attachPursuitLights, flashPursuitLights } from '../police-renderer.js';
 import { createSiren } from '../police-siren.js';
+import { createPoliceCarSource } from '../police-entry.js';
 import { officerLook } from '../roadblock.js';
 import { groundAt, groundPose } from '../terrain.js';
 import { unregisterEnvMaterial } from '../environment.js';
@@ -152,12 +153,14 @@ function hashSeed(uid) {
 function createPoliceMesh(unit, cityId, level) {
   const index = Number(String(unit.id).replace(/\D/g, '')) || hashSeed(unit.id) % 90;
   const agency = cityId ? policeAgencyFor(cityId, level || 1) : { livery: 'praha' };
-  const model = createPoliceBody(unitVariant(index), agency.livery);
+  const variant = unitVariant(index);
+  const livery = agency.livery || 'praha';
+  const model = createPoliceBody(variant, livery);
   attachPursuitLights(model, (index % 7) * 0.09);
   model.name = 'Remote police';
   model.userData.remotePolice = true;
   model.userData.unitNumber = unitNumber(index);
-  return model;
+  return { model, variant, livery };
 }
 
 class RemoteActor {
@@ -308,15 +311,42 @@ class RemoteActor {
       live.add(unit.id);
       let entry = this.police.get(unit.id);
       if (!entry) {
-        const mesh = createPoliceMesh(unit, 'prague', net.wanted?.level || 1);
-        this.scene.add(mesh);
-        entry = { mesh, x: unit.x, z: unit.z, heading: unit.heading };
+        const built = createPoliceMesh(unit, 'prague', net.wanted?.level || 1);
+        this.scene.add(built.model);
+        entry = {
+          mesh: built.model,
+          variant: built.variant,
+          livery: built.livery,
+          claimed: false,
+          x: unit.x,
+          z: unit.z,
+          heading: unit.heading,
+          actor: {
+            id: unit.id,
+            x: unit.x,
+            z: unit.z,
+            heading: unit.heading || 0,
+            speed: unit.speed || 0,
+            edge: { remote: true },
+          },
+        };
         this.police.set(unit.id, entry);
+      }
+      // Stolen locally: keep the mesh hidden and stop following the publisher's pose.
+      // Their arrest scene is unchanged; only this browser is now driving the car.
+      if (entry.claimed) {
+        entry.mesh.visible = false;
+        continue;
       }
       const t = 0.35;
       entry.x += (unit.x - entry.x) * t;
       entry.z += (unit.z - entry.z) * t;
       entry.heading = lerpAngle(entry.heading, unit.heading, t);
+      entry.actor.x = entry.x;
+      entry.actor.z = entry.z;
+      entry.actor.heading = entry.heading;
+      entry.actor.speed = unit.speed || 0;
+      entry.mesh.visible = true;
       groundPose(entry.x, entry.z, entry.heading, 2.2, 0.85, slope);
       entry.mesh.position.set(entry.x, 0.12 + slope.y, entry.z);
       entry.mesh.rotation.set(slope.pitch, entry.heading, slope.roll, 'YXZ');
@@ -387,7 +417,10 @@ class RemoteActor {
   sirenUnits() {
     const units = [];
     if (this.sirenOn) units.push({ x: this.root.position.x, z: this.root.position.z });
-    for (const entry of this.police.values()) units.push({ x: entry.x, z: entry.z });
+    for (const entry of this.police.values()) {
+      if (entry.claimed) continue;
+      units.push({ x: entry.x, z: entry.z });
+    }
     return units;
   }
 
@@ -424,6 +457,49 @@ export function createRemotePresence(scene) {
       }
       sirenUnits = [];
       for (const remote of remotes.values()) sirenUnits.push(...remote.sirenUnits());
+    },
+    /** Stopped remote patrols (the other player's arrest) that F / Enter can take. */
+    policeCars() {
+      const sources = [];
+      for (const remote of remotes.values()) {
+        for (const entry of remote.police.values()) {
+          if (entry.claimed || !entry.actor || entry.actor.playerTaken) continue;
+          sources.push(createPoliceCarSource(entry.actor, {
+            visual: {
+              type: 'police',
+              police: true,
+              livery: entry.livery || 'praha',
+              variant: entry.variant || 'estate',
+            },
+            blockers: () => this.solidBodies(entry.actor),
+            claimUnit() {
+              entry.claimed = true;
+              entry.mesh.visible = false;
+            },
+          }));
+        }
+      }
+      return sources;
+    },
+    /** Remote player cars and unclaimed patrols, so a steal can spawn beside them. */
+    solidBodies(except) {
+      const bodies = [];
+      for (const remote of remotes.values()) {
+        if (remote.mode === 'car' && remote.hasPose) {
+          bodies.push({
+            x: remote.root.position.x,
+            z: remote.root.position.z,
+            heading: remote.root.rotation.y,
+            halfWidth: 0.98,
+            halfLength: 2.36,
+          });
+        }
+        for (const entry of remote.police.values()) {
+          if (entry.claimed || entry.actor === except) continue;
+          bodies.push(entry.actor);
+        }
+      }
+      return bodies;
     },
     /** Car-mode remotes as impact bodies. Visual pose, not a physics authority. */
     carBodies() {

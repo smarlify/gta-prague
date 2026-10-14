@@ -120,7 +120,7 @@ import {PlayerTravel,TRAVEL_MODES} from './player-travel.js';
 import {createPlayerTravelRenderer,travelCameraPose} from './player-travel-renderer.js';
 import {createTravelUI} from './player-travel-ui.js';
 import {createMobileControls} from './mobile-controls.js';
-import {updateWorldhoodBrand} from './worldhood-brand.js';
+import {locationPageTitle,updateWorldhoodBrand} from './worldhood-brand.js';
 import {installMapillaryAttribution} from './mapillary-attribution.js';
 import './worldhood-brand.css';
 import {decodeTerrain,setTerrain,hasTerrain,groundAt,groundPose,liftBuildings,footprintBase,setCorridorHeights,setDriveHeight} from './terrain.js';
@@ -621,14 +621,20 @@ async function previewStart(destination){
 }
 function policeCarSources(){
  if(!police?.units)return [];
- return police.units.filter(u=>!u.playerTaken&&(u.edge!=null||u.parked)).map(unit=>{
+ const local=police.units.filter(u=>!u.playerTaken&&(u.edge!=null||u.parked)).map(unit=>{
   const agency=policeAgencyFor(city?.id,police.level);
   const index=Number(String(unit.id).replace(/\D/g,''))||0;
   return createPoliceCarSource(unit,{
    visual:{type:'police',police:true,livery:agency.livery,variant:unitVariant(index)},
+   blockers:()=>[...police.units.filter(u=>u!==unit&&!u.playerTaken),...(multiplayer?.remotes?.solidBodies?.(unit)||[])],
    claimUnit(taken){police.units=police.units.filter(u=>u!==taken);if(police.parked)police.parked=police.parked.filter(u=>u!==taken);},
   });
  });
+ // Patrols published by the other player (stopped for their arrest) are enterable too.
+ return [...local,...(multiplayer?.remotes?.policeCars?.()||[]).map(source=>{
+  const own=source.blockers?.bind(source);
+  return {...source,blockers(){return [...(own?.()||[]),...police.units.filter(u=>u!==source.actor&&!u.playerTaken)];}};
+ })];
 }
 function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,l.heading??(l.name==='Senate Square'?0:-Math.PI/2+.17));car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
 function handleTileError(e){console.error(e);if(!document.body.classList.contains('booting'))toast('Some scenery could not load. Nearby streets will retry.');} // not over the welcome card
@@ -763,7 +769,8 @@ function updateHUD(now){
  if(!car)return;
  const driving=travel?.mode==='car';
  const speed=displayedSpeedKmh(car.speed);$('speed').title='Game-style indicated speed: 70% of world speed';$('gear').textContent=car.speed<-.2?'REVERSE':speed>1?'DRIVING':'PARKED & READY';$('distance').textContent=(car.distance/1000).toFixed(2);
- const road=world.roads.at(car.x,car.z),pave=world.pavement.at(car.x,car.z);$('street').textContent=road?.name||pave?.name||'Off the beaten path';
+ const road=world.roads.at(car.x,car.z),pave=world.pavement.at(car.x,car.z),streetName=road?.name||pave?.name||'';$('street').textContent=streetName||'Off the beaten path';
+ const placeName=areaLabel?areaLabel(car.x,car.z,now):'';const nextTitle=locationPageTitle({street:streetName,place:placeName});if(document.title!==nextTitle)document.title=nextTitle;
  if(car.damage>.02)$('gear').textContent=`DAMAGE ${Math.round(car.damage*100)}% · R TO RESET`;
  if(car.battery===0)$('gear').textContent='R TO RECHARGE';else if(car.battery<=.2)$('gear').textContent='LOW BATTERY · R TO RECHARGE';
  if(!driving){$('gear').textContent=TRAVEL_MODES[travel.mode].label.toUpperCase();$('speed').title='Speed in kilometres per hour';}
@@ -785,6 +792,7 @@ function frame(now){
   for(const step of steps){
    impacts.step(step,world);crowd?.step(step);let before=null;const driving=travel.mode==='car',parked=travel.parked();
    if(started){
+    if(driving&&travel.car&&car!==travel.car)car=travel.car;
     const previous=before={...car},r=driving?driveStep(car,keys,step,world):travel.step(keys,step,travelObstacles());
     if(r.crashed){car=travel.actor;playerCars.sync(travel);if(now-lastToast>1500){toast(r.crashed>5?'Ouch. That was a hard fall.':'You came off. Press Enter to get back on.');lastToast=now;}}
     police.observeDriving(previous,car,step,{driving});
