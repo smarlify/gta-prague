@@ -280,8 +280,8 @@ test('stolen police siren is only published on a police car', () => {
   assert.equal(off.vehicle.police, undefined);
 });
 
-test('shouldSkipPublish is the gate used before set() — Google uid required', () => {
-  assert.equal(shouldSkipPublish({ uid: 'anon', isAnonymous: true }), true);
+test('shouldSkipPublish is the gate used before set() — any authenticated uid', () => {
+  assert.equal(shouldSkipPublish({ uid: 'anon', isAnonymous: true }), false);
   assert.equal(shouldSkipPublish({ uid: 'g', isAnonymous: false, providerData: [{ providerId: 'google.com' }] }), false);
   assert.equal(shouldSkipPublish(null), true);
 });

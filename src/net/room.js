@@ -1,5 +1,5 @@
 /**
- * Demo-room presence: Google sign-in only. Anonymous stays offline.
+ * Demo-room presence: any authenticated uid (incl. anonymous) may join.
  * No slots / host election.
  */
 import {
