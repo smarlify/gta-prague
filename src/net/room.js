@@ -117,8 +117,7 @@ export async function joinDemoRoom(user = getFirebaseAuth().currentUser) {
 }
 
 /**
- * Join the demo room for a Google-signed user.
- * Anonymous auth is not enough to publish.
+ * Join the demo room for the current authenticated user (incl. anonymous).
  */
 export async function goOnline({
   ensureUser = ensureAuthUser,

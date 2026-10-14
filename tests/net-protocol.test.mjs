@@ -35,10 +35,10 @@ test('unsigned users cannot join or publish', () => {
   assert.equal(isAnonymousProvider({ isAnonymous: true }), true);
 });
 
-test('anonymous users stay offline', () => {
+test('anonymous users can join the demo room (temp default)', () => {
   const anon = { uid: 'a', isAnonymous: true };
-  assert.equal(canJoinMultiplayer(anon), false);
-  assert.equal(shouldSkipPublish(anon), true);
+  assert.equal(canJoinMultiplayer(anon), true);
+  assert.equal(shouldSkipPublish(anon), false);
 });
 
 test('Google-signed users can join multiplayer', () => {

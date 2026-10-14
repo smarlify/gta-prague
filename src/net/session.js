@@ -121,7 +121,7 @@ export function createMultiplayerSession(scene, {
       }
       rememberGoogleName(displayNameFor(user) || '');
       names.prefill();
-      // Google accounts auto-join the demo room. Anonymous sessions stay offline.
+      // Auto-join demo for any authenticated uid (incl. anonymous).
       if (!room) {
         const result = await joinDemoRoom(user);
         if (result.kind === 'joined') room = result.room;
