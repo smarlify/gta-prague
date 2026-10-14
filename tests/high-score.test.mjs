@@ -63,7 +63,7 @@ test('Google display name preferred over email local-part', () => {
   assert.equal(displayNameFor({ isAnonymous: false, displayName: null, email: 'ada@gmail.com' }), 'ada');
 });
 
-test('standalone UI offers Google first; iframe path hides Google and posts to parent', async () => {
+test('standalone UI offers Google first; iframe path posts to parent and keeps Google as fallback', async () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /id="high-score-panel"/);
   assert.match(html, /id="high-score-google"/);
@@ -103,8 +103,9 @@ test('standalone UI offers Google first; iframe path hides Google and posts to p
   assert.equal(messages[0].type, 'GAME_OVER');
   assert.equal(messages[0].score, 3200);
   assert.equal(doc.elements['high-score-panel'].hidden, false);
-  assert.equal(doc.elements['high-score-google'].hidden, true);
+  assert.equal(doc.elements['high-score-google'].hidden, false);
   assert.match(doc.elements['high-score-status'].textContent, /Playful/);
+  assert.match(doc.elements['high-score-status'].textContent, /Google/);
 
   if (prev === undefined) delete globalThis.window;
   else globalThis.window = prev;

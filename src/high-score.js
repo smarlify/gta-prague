@@ -199,14 +199,16 @@ export function bindHighScoreUI(root = document, {
     saved = false;
     if (scoreEl) scoreEl.textContent = formatHighScore(score);
 
-    // Hub path: parent owns the save UI (Gmail via LeaderboardPopup).
+    // Hub path: post GAME_OVER so Playful can open LeaderboardPopup. Keep Google
+    // visible as a fallback — if the hub does not show its claim UI, the player
+    // can still save from the busted screen to the same Firestore board.
     if (isEmbedded()) {
       panel.hidden = false;
-      if (googleBtn) googleBtn.hidden = true;
+      if (googleBtn) googleBtn.hidden = score <= 0;
       showGuestFallback(false);
       if (score > 0) {
         onEmbedded(score);
-        setStatus('Score sent to Playful — sign in there to claim the leaderboard.', 'info');
+        setStatus('Score sent to Playful — sign in there, or use Google here.', 'info');
       } else {
         setStatus('Drive farther next time to post a high score.', 'info');
       }
