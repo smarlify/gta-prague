@@ -18,7 +18,6 @@ import {
   canJoinMultiplayer,
   parsePresence,
   remotePlayersFromMap,
-  shouldSkipPublish,
   toRtdb,
 } from './protocol.js';
 
@@ -52,7 +51,7 @@ export class PresenceRoom {
   }
 
   async publishPlayer(presence) {
-    if (!this._joined || shouldSkipPublish({ uid: this.uid, isAnonymous: false })) return;
+    if (!this._joined) return;
     const row = parsePresence(presence, this.uid);
     if (!row || row.uid !== this.uid) return;
     try {
