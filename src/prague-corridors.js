@@ -12,7 +12,7 @@ export const CORRIDOR_SPECS = Object.freeze([
  {id: 'palmovka', title: 'Karlín to Palmovka',
   test: text => /palmov|zenklov|libeňsk|libensk/i.test(text)},
  {id: 'bohnice', title: 'Troja to Bohnice',
-  test: text => /bohnic|lodžsk|lodzsk|čimick|cimick/i.test(text)},
+  test: text => /bohnic|lodžsk|lodzsk|čimick|cimick|ústeck|usteck|pazder|havránk|havrank/i.test(text)},
  {id: 'kobylisy', title: 'Kobylisy',
   test: text => /kobylis|střelnič|strelnic|klapkov/i.test(text)},
  {id: 'magistrala', title: 'Magistrála to Chodov and the D1',

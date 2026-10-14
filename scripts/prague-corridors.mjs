@@ -151,7 +151,7 @@ for (const spec of CORRIDOR_SPECS) {
   barrandov: 'Barrandovský most|K Barrandovu|Strakonická',
   troja: 'Trojská|Povltavská|U trojského zámku',
   palmovka: 'Zenklova|Libeňský most',
-  bohnice: 'Čimická|Lodžská|Bohnická',
+  bohnice: 'Čimická|Lodžská|Bohnická|K Bohnicím|Ústecká|Pazder',
   kobylisy: 'Kobyliská|Střelničná|Klapkova',
  }[spec.id] || spec.title;
  const extra = overpass(`corridor-${spec.id}`, `(way["highway"]["name"~"${pattern}",i](${south},${west},${north},${east}););out geom;`);
@@ -214,6 +214,33 @@ for (const spec of CORRIDOR_SPECS) {
  let playable = unite(piecesFor(roads));
  if (!playable.length) playable = unite(piecesFor(roads.filter(road => !road.extra)));
  playable = playable.map(poly => poly.map(ring => simplifyRing(ring, 8)).filter(ring => ring.length > 3)).filter(poly => poly[0]?.length > 3);
+ // Bohnice sits past Trojská. A union of the buffers drops segments and leaves
+ // gaps, so the driveable strip is the overlapping quads themselves.
+ if (spec.id === 'bohnice') {
+  const quads = [];
+  const addLine = line => {
+   if (!line || line.length < 2) return;
+   const w = 14;
+   for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1], b = line[i], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
+    if (len < 0.5) continue;
+    if (Math.hypot(a[0], a[1]) < 3000 && Math.hypot(b[0], b[1]) < 3000) continue;
+    const ux = dx / len, uz = dz / len, ext = 12;
+    const a2 = [a[0] - ux * ext, a[1] - uz * ext], b2 = [b[0] + ux * ext, b[1] + uz * ext];
+    const nx = -uz * w, nz = ux * w;
+    const ring = [[a2[0] + nx, a2[1] + nz], [b2[0] + nx, b2[1] + nz], [b2[0] - nx, b2[1] - nz], [a2[0] - nx, a2[1] - nz], [a2[0] + nx, a2[1] + nz]];
+    quads.push([ring.map(p => [Math.round(p[0]), Math.round(p[1])])]);
+   }
+  };
+  for (const road of roads) if (!road.extra) addLine(road.rings?.[0]);
+  for (const road of city.roads) {
+   if (!/trojsk|havránk|havrank/i.test(road.name || '') || !road.rings?.[0]) continue;
+   if (!road.rings[0].some(p => p[1] < -2800 && Math.hypot(p[0], p[1]) > 3000)) continue;
+   addLine(road.rings[0]);
+  }
+  for (const edge of extraEdges) if (corridorIdFor(edge.name) === spec.id) addLine(edge.points);
+  if (quads.length) playable = quads;
+ }
  if (!playable.length) { console.log(`  ${spec.id}: no ground outside the circle`); continue; }
  const bounds = multiBBox(playable);
  const samples = heightSamples(playable, {minRadius: terrainExtent - 40, step: 40});
@@ -222,6 +249,23 @@ for (const spec of CORRIDOR_SPECS) {
  for (const sample of samples) {
   try { heights.push({...sample, h: +((elevationAt(sample.x, sample.z) - base).toFixed(2))}); }
   catch { failed++; }
+ }
+ if (spec.id === 'bohnice') {
+  const seen = new Set(heights.map(s => `${Math.round(s.x / 40)},${Math.round(s.z / 40)}`));
+  const extraPts = [];
+  for (const edge of extraEdges) if (corridorIdFor(edge.name) === spec.id) extraPts.push(...edge.points);
+  for (const road of city.roads) {
+   if (!/trojsk|bohnic/i.test(road.name || '') || !road.rings?.[0]) continue;
+   extraPts.push(...road.rings[0]);
+  }
+  for (const p of extraPts) {
+   if (Math.hypot(p[0], p[1]) < terrainExtent - 40) continue;
+   const key = `${Math.round(p[0] / 40)},${Math.round(p[1] / 40)}`;
+   if (seen.has(key)) continue;
+   seen.add(key);
+   try { heights.push({x: Math.round(p[0]), z: Math.round(p[1]), h: +((elevationAt(p[0], p[1]) - base).toFixed(2))}); }
+   catch { failed++; }
+  }
  }
  console.log(`  ${spec.id}: ${roads.length} roads, ${playable.length} polygons, ${heights.length} heights${failed ? `, ${failed} height samples skipped` : ''}`);
  const dir = path.join(extensionRoot, spec.id);

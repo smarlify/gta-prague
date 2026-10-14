@@ -65,7 +65,7 @@ export function createKarluvMostDeck(pavement,opts={}){
 
 // Build decorative decks for bridge-tagged road polygons. Caps draw cost by
 // merging into three meshes (deck, pier, rail) and skipping short spans.
-export function createBridgeDeck(roads,{groundAt=()=>0,inWater=()=>false,limit=48}={}){
+export function createBridgeDeck(roads,{groundAt=()=>0,inWater=()=>false,limit=400}={}){
  const group=new THREE.Group();group.name='Bridge decks';
  const deck=[],pier=[],rail=[],seen=new Set();
  let count=0;
