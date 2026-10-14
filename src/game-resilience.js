@@ -29,8 +29,17 @@ export function createGameResilience({win=window,doc=document,screen=createLoadi
  listen(canvas,'webglcontextrestored',()=>{
   if(kind==='graphics-lost')screen.error('Graphics is available again. Reload to restart the game.',{title:'Ready to restart'});
  });
- listen(win,'error',event=>{if(event.error)fail(event.error);}); // Ignore optional image/font resource events.
- listen(win,'unhandledrejection',event=>fail(event.reason));
+ // Ignore resource load noise and Permissions-Policy sensor denials (Playful's
+ // iframe sandbox omits accelerometer; those console errors must not stop play).
+ const ignorable=error=>{
+  const detail=String(error?.message||error||'');
+  return /permissions?\s*policy|accelerometer|gyroscope|devicemotion|Failed to load resource|ResizeObserver loop/i.test(detail);
+ };
+ listen(win,'error',event=>{
+  if(!event.error||ignorable(event.error)||ignorable(event.message))return;
+  fail(event.error);
+ });
+ listen(win,'unhandledrejection',event=>{if(!ignorable(event.reason))fail(event.reason);});
  // These capture listeners precede gameplay handlers, including the existing
  // start button handler. A failure cannot accidentally start the world again.
  listen(win,'click',event=>{

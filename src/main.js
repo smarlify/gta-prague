@@ -253,7 +253,7 @@ $('look-label').textContent=look.label;look.onChange((name,label)=>{$('look-labe
 window.helsinkiLook={set:(name,opts)=>look.set(name,opts),cycle:()=>look.cycle(),get name(){return look.name;},post};
 cutLowerYard(ground.material);cutLowerYard(surfaceMaterial);
 const loadedTiles=new Map(),loadingTiles=new Map();
-const uploads=createFrameQueue(),detailScheduler=createDetailScheduler(2),treeChunks=[],leafGeometries=[],shadowCuller=createStaticShadowCuller(cityModel);
+const uploads=createFrameQueue({onError:e=>console.error('GPU upload failed:',e)}),detailScheduler=createDetailScheduler(2),treeChunks=[],leafGeometries=[],shadowCuller=createStaticShadowCuller(cityModel);
 const photoTiles=new Map(),photoPromises=new Map();
 const tmp=new THREE.Object3D();
 const treeFocus={value:new THREE.Vector2(1e5,1e5)};
@@ -577,8 +577,12 @@ async function previewStart(destination){
   await extensionStreamer.ensureStart(destination);
   const near=roofIndex.tiles.filter(t=>tileDistance(t,destination)<430).sort((a,b)=>tileDistance(a,destination)-tileDistance(b,destination));
   await Promise.all([surfaceStreamer.ensure(destination,{radius:900}),pool(near,4,t=>loadRoof(t,destination))]);
-  if(version!==previewVersion||started)return;
-  setStart(destination);history.replaceState(null,'',startUrl(location,city,destination));
+  // Match visitStart: wait for rationed GPU uploads so a bad texture init cannot
+  // throw from the rAF loop while the picker still shows "Loading …".
+  while(uploads.size){if(gameIsStopped()||version!==previewVersion)return;await new Promise(requestAnimationFrame);}
+  if(version!==previewVersion||started||gameIsStopped())return;
+  setStart(destination);
+  try{history.replaceState(null,'',startUrl(location,city,destination));}catch(e){console.warn('Could not update the start URL:',e);}
  }catch(error){
   console.error(error);if(version!==previewVersion)return;
   startPicker.set(startPoint);toast(`Could not load ${destination.name}. Try it again.`,{important:true});
@@ -586,7 +590,7 @@ async function previewStart(destination){
   if(version===previewVersion){previewing=false;startPicker.busy(false);if(startAfterPreview){startAfterPreview=false;start();}}
  }
 }
-function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();startPoint=l;car=makeCar(l.x,l.z,l.heading??(l.name==='Senate Square'?0:-Math.PI/2+.17));car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=l.district.toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
+function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();startPoint=l;car=makeCar(l.x,l.z,l.heading??(l.name==='Senate Square'?0:-Math.PI/2+.17));car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
 function handleTileError(e){console.error(e);if(!document.body.classList.contains('booting'))toast('Some scenery could not load. Nearby streets will retry.');} // not over the welcome card
 const touchScreen=matchMedia('(pointer:coarse)').matches; // phones and tablets: no keyboard, so the HUD and touch buttons stay on
 if(touchScreen){document.body.classList.remove('clean-capture');document.body.classList.add('touch');}

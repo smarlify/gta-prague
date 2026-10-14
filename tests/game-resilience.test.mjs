@@ -49,3 +49,12 @@ test('uncaught errors stop gameplay, optional resource errors do not, and failur
  s.emit(s.win,'keydown',{code:'KeyW'});assert.equal(moves,1);assert.equal(s.reloads(),0);
  let lateStop=0;s.guard.onStop(()=>lateStop++);assert.equal(lateStop,1);s.guard.dispose();
 });
+
+test('Permissions-Policy sensor denials from a sandboxed iframe do not stop the game',()=>{
+ const s=setup();
+ s.emit(s.win,'error',{error:new Error('Permissions policy violation: accelerometer is not allowed in this document.'),message:'Permissions policy violation: accelerometer is not allowed in this document.'});
+ assert.equal(s.guard.stopped,false);
+ s.emit(s.win,'unhandledrejection',{reason:new Error('Permissions policy violation: gyroscope is not allowed in this document.')});
+ assert.equal(s.guard.stopped,false);
+ s.guard.dispose();
+});

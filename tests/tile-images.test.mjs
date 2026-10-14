@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {loadTileImages} from '../src/tile-streaming.js';
+import {loadTileImages,createFrameQueue} from '../src/tile-streaming.js';
 
 function imageMocks(t,fetchImage){
  const bitmaps=[];
@@ -33,4 +33,16 @@ test('successful images stay open for the renderer and retain the worker bytes',
  const bitmaps=imageMocks(t,async()=>image());const loaded=await loadTileImages(['a','b']);
  assert.deepEqual([...loaded.keys()],['a','b']);assert.equal(bitmaps.length,2);assert.ok(bitmaps.every(b=>!b.closed));
  assert.equal(loaded.get('a').bytes.byteLength,4);
+});
+
+test('a throwing GPU upload is reported and does not stop later jobs',()=>{
+ const errors=[];
+ const queue=createFrameQueue({maxJobs:4,budgetMs:100,onError:e=>errors.push(e)});
+ let ran=false;
+ queue.push(()=>{throw new Error('initTexture failed');});
+ queue.push(()=>{ran=true;});
+ assert.equal(queue.step(),2);
+ assert.equal(ran,true);
+ assert.equal(errors.length,1);
+ assert.match(String(errors[0].message||errors[0]),/initTexture failed/);
 });
