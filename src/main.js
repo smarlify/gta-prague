@@ -85,6 +85,11 @@ import {createAngryDrivers} from './angry-drivers.js';
 import {createStationKiosk,STATION_KIOSK_RATU} from './station-kiosk.js';
 import {createTerminalLife} from './terminal-life.js';
 import {ImpactSystem} from './impacts.js';
+import {crashImpulse} from './crash-physics.js';
+import {crashImpulsePayload} from './net/protocol.js';
+import {createSiren} from './police-siren.js';
+import {createPoliceCarSource} from './police-entry.js';
+import {unitVariant} from './police-model.js';
 import {createCrowdReaction} from './crowd-reaction.js';
 import {createPlayerCarRenderer} from './player-car-renderer.js';
 import {sweptContact} from './contact-geometry.js';
@@ -121,7 +126,20 @@ import './worldhood-brand.css';
 import {decodeTerrain,setTerrain,hasTerrain,groundAt,groundPose,liftBuildings,footprintBase,setCorridorHeights,setDriveHeight} from './terrain.js';
 import {drapeGeometry,settleObject,createTerrainGround,drawLakeMap,setRiverChannel,setDryPassages} from './terrain-mesh.js';
 import {loadSurfaceTextures,applyGroundTexture,setWorldMetreUVs,ASPHALT_UNIFORM,ASPHALT_SCALE_UNIFORM} from './surface-textures.js';
-const impacts=new ImpactSystem();impacts.onVehicleHit=(from,car,a)=>mobility?.knock(a,from,car)??null;
+const remoteHitAt=new Map();
+const impacts=new ImpactSystem();impacts.onVehicleHit=(from,hitCar,a)=>{
+ if(a?.remote){
+  const impulse=crashImpulse(from,hitCar,a);
+  if(!impulse)return null;
+  if(impacts.time-(remoteHitAt.get(a.uid)||-Infinity)>.45){
+   remoteHitAt.set(a.uid,impacts.time);
+   const payload=crashImpulsePayload(a,impulse);
+   if(payload)multiplayer?.publishCrash?.(payload);
+  }
+  return impulse;
+ }
+ return mobility?.knock(a,from,hitCar)??null;
+};
 const finale=new Finale({doc:document}); // shared offence log, pursuit pressure, arrest cinematic and BUSTED screen
 const locationReadout=createLocationReadout();
 const loadingScreen=createLoadingScreen();
@@ -144,6 +162,7 @@ let birds=null,birdColonies=[],crowd=null,waterfowl=null; // gulls, pigeons, cro
 let pavlova={phase:'idle'},ambulance=null;
 let cyclists,cyclistRenderer,npcScooters,npcScooterRenderer,buses,police,policeRenderer,roadblock; // shared riders and police in every city
 let multiplayer=null; // Temp default: auto-join demo (anonymous ok); HUD toggles leave/rejoin
+let stolenSirenOn=false;const stolenSiren=createSiren();
 let distance=0,viewSpan=150,desiredSpan=150,lastTime=0,lastUI=0,lastTile=0,lastToast=0,toastTimer,areaLabel;
 let sound=false,audioContext,mobileControls=null;
 const cityAudio=createCityAudio();
@@ -265,6 +284,9 @@ multiplayer=createMultiplayerSession(scene,{
  getTravel:()=>travel,
  getPolice:()=>police,
  getPlayerCars:()=>playerCars,
+ getRoadblock:()=>roadblock,
+ getCar:()=>car,
+ getSiren:()=>stolenSirenOn,
 });
 const travelRenderer=createPlayerTravelRenderer(scene);
 const travelUI=createTravelUI({interact:interactTravel,toggleRun:()=>{if(travel?.mode==='walk')travel.sprint=!travel.sprint;},focusWorld:()=>$('world').focus()});
@@ -286,7 +308,7 @@ function updateCaptureBadge(){
  const inMargin=captureFrame.fixed&&(captureFrame.x>=160||captureFrame.y>=40);
  if(!inMargin)captureBadgeTimer=setTimeout(()=>{b.hidden=true;},4000);
  const pr=renderer.getPixelRatio(),w=Math.round(captureFrame.w*pr),h=Math.round(captureFrame.h*pr);
- b.textContent=`CAPTURE · ${w}×${h} px · full resolution · shake off · H hides HUD · V exits`;
+ b.textContent=`CAPTURE · ${w}×${h} px · full resolution · shake off · Tab hides HUD · V exits`;
  b.style.left='16px';b.style.bottom='16px';b.style.maxWidth='';b.style.whiteSpace='nowrap';
  if(captureFrame.fixed){if(captureFrame.x>=160){b.style.left='-'+(captureFrame.x-16)+'px';b.style.maxWidth=(captureFrame.x-32)+'px';b.style.whiteSpace='normal';}else if(captureFrame.y>=40)b.style.bottom='-'+(captureFrame.y-8)+'px';}
 }
@@ -597,7 +619,18 @@ async function previewStart(destination){
   if(version===previewVersion){previewing=false;startPicker.busy(false);if(startAfterPreview){startAfterPreview=false;start();}}
  }
 }
-function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();startPoint=l;car=makeCar(l.x,l.z,l.heading??(l.name==='Senate Square'?0:-Math.PI/2+.17));car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
+function policeCarSources(){
+ if(!police?.units)return [];
+ return police.units.filter(u=>!u.playerTaken&&(u.edge!=null||u.parked)).map(unit=>{
+  const agency=policeAgencyFor(city?.id,police.level);
+  const index=Number(String(unit.id).replace(/\D/g,''))||0;
+  return createPoliceCarSource(unit,{
+   visual:{type:'police',police:true,livery:agency.livery,variant:unitVariant(index)},
+   claimUnit(taken){police.units=police.units.filter(u=>u!==taken);if(police.parked)police.parked=police.parked.filter(u=>u!==taken);},
+  });
+ });
+}
+function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,l.heading??(l.name==='Senate Square'?0:-Math.PI/2+.17));car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
 function handleTileError(e){console.error(e);if(!document.body.classList.contains('booting'))toast('Some scenery could not load. Nearby streets will retry.');} // not over the welcome card
 const touchScreen=matchMedia('(pointer:coarse)').matches; // phones and tablets: no keyboard, so the HUD and touch buttons stay on
 if(touchScreen){document.body.classList.remove('clean-capture');document.body.classList.add('touch');}
@@ -672,6 +705,11 @@ window.addEventListener('keydown',e=>{
  if(e.code==='KeyC'){cycleCamera();return;}
  if(e.code==='KeyT'){look.cycle();toast(look.label);return;}
  if(e.code==='KeyH'){
+  if(travel?.mode==='car'&&travel.car?.visual?.police)stolenSirenOn=!stolenSirenOn;
+  return;
+ }
+ if(e.code==='Tab'){
+  e.preventDefault();
   document.body.classList.toggle('clean-capture');
   return;
  }
@@ -755,7 +793,7 @@ function frame(now){
     knockables?.step(step,driving?car:{...car,speed:0},world);
     if(driving){
      police.observe(previous,car,mobility.cars,[]);
-     impacts.collide(previous,car,[...mobility.people,...detailPeople],[...cyclists.riders.filter(r=>!r.playerTaken),...npcScooters.riders],[...mobility.cars,...police.obstacles],police);
+     impacts.collide(previous,car,[...mobility.people,...detailPeople],[...cyclists.riders.filter(r=>!r.playerTaken),...npcScooters.riders],[...mobility.cars,...police.obstacles,...(multiplayer?.remotes?.carBodies?.()||[])],police);
      if(r.collision==='building'){impacts.damage(car,Math.abs(previous.speed),'building');finale.buildingImpact({...car,speed:previous.speed},Math.abs(previous.speed),world,police);}
     }else if(!r.crashed){const h=travel.hitPeople(previous,[...mobility.people,...detailPeople],impacts,{police,obstacles:travelObstacles()});
      if(h?.fell){car=travel.actor;playerCars.sync(travel);toast(h.fell>5?'Ouch. You hit someone and went flying.':'You hit someone and came off. Press Enter to get back on.');lastToast=now;}else if(h?.bumped&&now-lastToast>1500){toast('Sorry!');lastToast=now;}}
@@ -835,12 +873,16 @@ function frame(now){
   if(Math.abs(sun.shadow.camera.top-sf.halfHeight)>.5||Math.abs(sun.shadow.camera.right-sf.halfWidth)>.5){Object.assign(sun.shadow.camera,{left:-sf.halfWidth,right:sf.halfWidth,top:sf.halfHeight,bottom:-sf.halfHeight});sun.shadow.camera.updateProjectionMatrix();sun.shadow.normalBias=sf.normalBias;}
   stableShadowTarget({x:focus.x-Math.sin(cameraHeading)*50,y:groundAt(focus.x,focus.z),z:focus.z-Math.cos(cameraHeading)*50},{width:sf.halfWidth*2,height:sf.halfHeight*2},2048,sun.target.position,sunOffset);sun.position.copy(sun.target.position).add(sunOffset);}
  const cp=new THREE.Vector3(0,photoMode?0:65,-31).project(camera);$('cathedral-label').style.left=`${(cp.x*.5+.5)*captureFrame.w}px`;$('cathedral-label').style.top=`${(-cp.y*.5+.5)*captureFrame.h-15}px`;$('cathedral-label').style.opacity=car&&Math.hypot(car.x,car.z+31)<280&&cp.x>-1&&cp.x<1&&cp.y>-.65&&cp.y<.8&&cp.z<1?1:0;
- if(ready)multiplayer?.step(paused||mapOpen?0:dt,{paused:paused||mapOpen||!!police?.busted});
+ if(ready){const busted=!!police?.busted,afk=(!!paused||document.hidden)&&!busted;multiplayer?.step(dt,{paused:afk,afk,busted});}
  if(now-lastUI>140&&ready){updateHUD(now);travelUI.update(travel,{started,paused,mapOpen,busted:police?.busted,hidden:captureMode});peopleUI.update(peopleInteraction?.snapshot(),{hidden:!canTalk()||captureMode||gullEncounter.snapshot().phase==='chase'});refreshMarketUI();noticeGulls();lastUI=now;}
  uploads.step(); // rationed GPU uploads for streamed tiles
  if(now-lastTile>1200&&ready&&!switchingStart){surfaceStreamer?.update(car,{radius:1000,aheadSeconds:12});extensionStreamer?.update(car);updateTiles().catch(handleTileError);lastTile=now;}
  cityAudio.update(audioContext,{enabled:sound,active:started&&!paused&&!mapOpen,driving:travel?.mode==='car',car,surface:surfaceNow,people:[...(mobility?.people||[]).filter(p=>p.edge),...detailPeople.filter(p=>Number.isFinite(p.x))],trams:tramSim?.trams||[],heading:car?.heading??cameraHeading,throttle:keys.has('KeyW')||keys.has('ArrowUp'),reverse:keys.has('KeyS')||keys.has('ArrowDown'),brake:keys.has('Space'),waterDistance:car&&world?.water?nearestWaterDistance(car.x,car.z,world.water):Infinity});
  policeRenderer?.audio(audioContext,sound&&started&&!paused&&!mapOpen&&(!police?.busted||!finale.ended));
+ {const drivingStolen=travel?.mode==='car'&&!!travel.car?.visual?.police;if(!drivingStolen)stolenSirenOn=false;
+  stolenSiren.update(audioContext,sound&&started&&!paused&&!mapOpen&&stolenSirenOn&&drivingStolen,drivingStolen?[{x:car.x,z:car.z}]:[],car,now/1000,1);
+  playerCars.setSiren(stolenSirenOn&&drivingStolen,now/1000);
+  multiplayer?.remotes?.audio(audioContext,sound&&started&&!paused&&!mapOpen&&!document.hidden,car,now/1000);}
  birds?.audio(audioContext,sound&&started&&!paused&&!mapOpen,car,frameMs/1000);
  waterfrontLandmarks?.update(now/1000);
  sea?.update(now/1000);

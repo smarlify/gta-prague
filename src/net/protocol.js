@@ -4,10 +4,16 @@
  */
 
 export const PLAYER_HZ = 10;
+/** AFK tabs heartbeat about once a second instead of the live 10 Hz pose stream. */
+export const AFK_HEARTBEAT_HZ = 1;
 export const DEMO_ROOM = 'demo';
 export const PLAYERS_PATH = 'gta-praha/rooms/demo/players';
 export const MAX_POLICE_UNITS = 12;
+export const MAX_OFFICERS = 8;
 export const STALE_MS = 8000;
+/** While `afk` is set, peers keep the row for at least a minute after the last heartbeat. */
+export const AFK_STALE_MS = 60_000;
+const IMPULSE_TTL_MS = 2500;
 
 export const TRAVEL_MODES_NET = Object.freeze(['car', 'walk', 'bike', 'scooter']);
 
@@ -48,7 +54,15 @@ export function parseVehicle(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const type = cleanString(raw.type || raw.kind, 32) || 'sedan';
   const colour = cleanString(raw.colour || raw.color || raw.paint, 32) || null;
-  return colour ? { type, colour } : { type };
+  const police = type === 'police' || !!raw.police;
+  const vehicle = colour ? { type: police ? 'police' : type, colour } : { type: police ? 'police' : type };
+  if (!police) return vehicle;
+  vehicle.police = true;
+  const livery = cleanString(raw.livery, 24);
+  const variant = cleanString(raw.variant, 16);
+  if (livery) vehicle.livery = livery;
+  if (variant === 'estate' || variant === 'van') vehicle.variant = variant;
+  return vehicle;
 }
 
 export function parseWanted(raw) {
@@ -90,6 +104,86 @@ export function parsePoliceList(raw, max = MAX_POLICE_UNITS) {
   return out;
 }
 
+export function parseOfficer(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = cleanString(raw.id, 48);
+  if (!id) return null;
+  return {
+    id,
+    x: finiteNumber(raw.x),
+    z: finiteNumber(raw.z),
+    heading: finiteNumber(raw.heading),
+    pose: cleanString(raw.pose, 24) || 'belt',
+  };
+}
+
+export function parseOfficerList(raw, max = MAX_OFFICERS) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const row of raw) {
+    const officer = parseOfficer(row);
+    if (!officer) continue;
+    out.push(officer);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+export function parseArrest(raw) {
+  if (!raw || typeof raw !== 'object' || !raw.active) {
+    return { active: false, phase: 'idle', t: 0 };
+  }
+  return {
+    active: true,
+    phase: cleanString(raw.phase, 24) || 'reach',
+    t: Math.max(0, finiteNumber(raw.t, 0)),
+  };
+}
+
+/** Published shove from one client onto another player's car. `speed` is the impulse magnitude. */
+export function parseCrashImpulse(raw, now = Date.now()) {
+  if (!raw || typeof raw !== 'object') return null;
+  const uid = cleanString(raw.uid, 128);
+  if (!uid) return null;
+  const nx = finiteNumber(raw.nx);
+  const nz = finiteNumber(raw.nz);
+  const len = Math.hypot(nx, nz);
+  const speed = Math.max(0, Math.min(40, finiteNumber(raw.speed ?? raw.dv, 0)));
+  const spin = Math.max(-3, Math.min(3, finiteNumber(raw.spin, 0)));
+  const at = finiteNumber(raw.at, 0);
+  if (!(len > 0) || !(at > 0)) return null;
+  if (now - at > IMPULSE_TTL_MS || at - now > 2000) return null;
+  if (speed < 0.05 && Math.abs(spin) < 0.02) return null;
+  return { uid, nx: nx / len, nz: nz / len, speed, spin, at };
+}
+
+export function crashImpulsePayload(body, impulse, at = Date.now()) {
+  if (!body?.remote || !impulse) return null;
+  return parseCrashImpulse({
+    uid: body.uid,
+    nx: impulse.nx,
+    nz: impulse.nz,
+    speed: impulse.dv ?? impulse.speed,
+    spin: impulse.spin,
+    at,
+  }, at);
+}
+
+/** Live pose stream, or the slow AFK heartbeat. Busts stay on the live rate. */
+export function presencePublishHz({ afk = false, busted = false } = {}) {
+  return afk && !busted ? AFK_HEARTBEAT_HZ : PLAYER_HZ;
+}
+
+/** AFK and busts keep writing. A plain pause (map, no heartbeat) does not. */
+export function presencePublishes({ paused = false, afk = false, busted = false } = {}) {
+  if (busted || afk) return true;
+  return !paused;
+}
+
+export function presenceStaleMs(row) {
+  return row?.afk ? AFK_STALE_MS : STALE_MS;
+}
+
 /**
  * Build a presence row from local game state.
  * `police` is omitted (or empty) when wanted level is clear.
@@ -105,11 +199,22 @@ export function buildPresence({
   vehicle = null,
   wanted = null,
   police = null,
+  officers = null,
+  arrest = null,
+  afk = false,
+  afkSince = 0,
+  siren = false,
+  impulse = null,
   updatedAt = Date.now(),
 } = {}) {
   const cleanUid = cleanString(uid, 128);
   if (!cleanUid) return null;
   const wantedRow = parseWanted(wanted);
+  let arrestRow = parseArrest(arrest);
+  if (wantedRow.busted && !arrestRow.active) {
+    arrestRow = { active: true, phase: arrestRow.phase === 'idle' ? 'bust' : arrestRow.phase, t: arrestRow.t };
+  }
+  const showForce = wantedRow.level > 0 || wantedRow.busted || arrestRow.active;
   const row = {
     uid: cleanUid,
     name: cleanString(name, 48) || 'Driver',
@@ -120,17 +225,26 @@ export function buildPresence({
     mode: normalizeMode(mode),
     updatedAt: finiteNumber(updatedAt, Date.now()),
     wanted: wantedRow,
+    afk: !!afk,
+    afkSince: 0,
+    siren: false,
+    officers: showForce ? parseOfficerList(officers, MAX_OFFICERS) : [],
+    arrest: arrestRow,
   };
+  if (row.afk) row.afkSince = finiteNumber(afkSince, row.updatedAt) || row.updatedAt;
   if (row.mode === 'car') {
     row.vehicle = parseVehicle(vehicle) || { type: 'crossover' };
   } else {
     row.vehicle = null;
   }
-  if (wantedRow.level > 0) {
+  row.siren = !!siren && row.mode === 'car' && !!row.vehicle?.police;
+  if (showForce) {
     row.police = parsePoliceList(police, MAX_POLICE_UNITS);
   } else {
     row.police = [];
   }
+  const hit = parseCrashImpulse(impulse, row.updatedAt);
+  if (hit) row.impulse = hit;
   return row;
 }
 
@@ -150,6 +264,12 @@ export function parsePresence(raw, uidHint = '') {
     vehicle: raw.vehicle,
     wanted: raw.wanted,
     police: raw.police,
+    officers: raw.officers,
+    arrest: raw.arrest,
+    afk: raw.afk,
+    afkSince: raw.afkSince,
+    siren: raw.siren,
+    impulse: raw.impulse,
     updatedAt: raw.updatedAt,
   });
 }
@@ -161,7 +281,7 @@ export function remotePlayersFromMap(map, selfUid, now = Date.now()) {
   for (const [key, value] of Object.entries(map)) {
     const row = parsePresence(value, key);
     if (!row || row.uid === selfUid) continue;
-    if (now - row.updatedAt > STALE_MS) continue;
+    if (now - row.updatedAt > presenceStaleMs(row)) continue;
     remotes.push(row);
   }
   return remotes;

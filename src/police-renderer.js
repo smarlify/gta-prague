@@ -17,6 +17,43 @@ export function strobe(time,side,offset=0){
 // Slower headlamp wig-wag, opposite phase per side.
 export const wigwag=(time,side,offset=0)=>((((time+offset)/.5)%1+1)%1<.5?0:1)===side?1:0;
 
+const pursuitKit={tex:null,grille:null,head:null};
+function pursuitGeometry(){
+ if(pursuitKit.tex)return pursuitKit;
+ pursuitKit.tex=glowTexture();pursuitKit.tex.userData.shared=true;
+ pursuitKit.grille=new THREE.BoxGeometry(.13,.065,.025);pursuitKit.head=new THREE.BoxGeometry(.3,.03,.02);
+ for(const g of [pursuitKit.grille,pursuitKit.head])g.userData.shared=true;
+ return pursuitKit;
+}
+// Light-bar lenses, grille strobes and headlamp wig-wag. Shared by remote chase
+// cars and a stolen patrol the player is driving. The road light pool stays on
+// the local pursuit renderer (nearest two units only).
+export function attachPursuitLights(model,phase=0){
+ if(!model?.userData?.mounts||model.userData.policeLights)return model;
+ const mounts=model.userData.mounts,kit=pursuitGeometry(),lights=[],halos=[],heads=[],owned=[];
+ const lens=new THREE.BoxGeometry(mounts.bar.w||.4,.07,.3);
+ const add=(geometry,material,x,y,z)=>{const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);model.add(mesh);return mesh;};
+ for(const [i,side]of [[0,-1],[1,1]]){
+  const material=new THREE.MeshStandardMaterial({color:'#2a52b8',emissive:'#1f5cff',emissiveIntensity:.15,roughness:.2});
+  lights.push(add(lens,material,side*mounts.bar.x,mounts.bar.y,mounts.bar.z));
+  lights.push(add(kit.grille,material,side*mounts.grille.x,mounts.grille.y,mounts.grille.z));
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:kit.tex,color:'#3f86ff',blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:0}));
+  halo.position.set(side*mounts.bar.x,mounts.bar.y+.03,mounts.bar.z);halo.scale.setScalar(1.8);model.add(halo);halos[i]=halo;owned.push(material,halo.material);
+  const headMat=new THREE.MeshBasicMaterial({color:'#ffffff'});
+  const head=add(kit.head,headMat,side*mounts.head.x,mounts.head.y,mounts.head.z);head.visible=false;heads[i]=head;owned.push(headMat);
+ }
+ Object.assign(model.userData,{policeLights:lights,policeHalos:halos,policeHeads:heads,phase});
+ model.userData.ownedMaterials=[...(model.userData.ownedMaterials||[]),...owned];
+ return model;
+}
+export function flashPursuitLights(model,time,active=true){
+ const {policeLights:lights,policeHalos:halos,policeHeads:heads,phase=0}=model?.userData||{};
+ if(!lights)return;
+ for(let i=0;i<lights.length;i++)lights[i].material.emissiveIntensity=active&&strobe(time,i>>1,phase)?3.2:.15;
+ if(halos)for(let i=0;i<halos.length;i++)halos[i].material.opacity=active?strobe(time,i,phase)*.95:0;
+ if(heads)for(let i=0;i<heads.length;i++)heads[i].visible=!!active&&wigwag(time,i,phase)===1;
+}
+
 function glowTexture(){
  const canvas=document.createElement('canvas');canvas.width=canvas.height=64;const ctx=canvas.getContext('2d');
  const g=ctx.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.22,'rgba(110,160,255,.75)');g.addColorStop(1,'rgba(0,40,255,0)');ctx.fillStyle=g;ctx.fillRect(0,0,64,64);

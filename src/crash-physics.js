@@ -38,6 +38,20 @@ export function knockCar(npc,impulse,time){
  const k=npc.knocked={vx:vx+impulse.nx*impulse.dv,vz:vz+impulse.nz*impulse.dv,spin:impulse.spin,at:time,rest:null,pushedAt:impulse.push?time:-Infinity};
  npc.speed=Math.hypot(k.vx,k.vz);npc.braking=!impulse.push;if(!impulse.push)npc.damage=Math.min(1,(npc.damage||0)+impulse.closing/40);
 }
+// A published player-to-player hit: shove and spin the local car (same impulse
+// the hitter computed). No NPC rail, no Mobility.knock — the next pose publish
+// is what the other client lerps toward.
+export function applyCrashImpulse(car,impulse){
+ if(!car||!impulse)return null;
+ const dv=Math.max(0,Number(impulse.dv??impulse.speed)||0),nx=Number(impulse.nx)||0,nz=Number(impulse.nz)||0;
+ const spin=Math.max(-3,Math.min(3,Number(impulse.spin)||0));
+ if(dv<.05&&Math.abs(spin)<.02)return null;
+ const hold=.28;
+ car.x+=nx*dv*hold;car.z+=nz*dv*hold;car.heading=(car.heading||0)+spin*hold;
+ const fx=-Math.sin(car.heading),fz=-Math.cos(car.heading);
+ car.speed=(car.speed||0)+(nx*fx+nz*fz)*dv*.5;
+ return {nx,nz,dv,spin};
+}
 export function playerSpeedAfter(from,impulse){
  const [tx,tz]=unit(...velocity(from)),share=Math.max(0,tx*impulse.nx+tz*impulse.nz);
  // Shoving: walking pace at most, and the load costs a little speed.

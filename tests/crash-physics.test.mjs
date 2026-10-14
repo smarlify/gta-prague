@@ -1,7 +1,13 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {crashImpulse,knockCar,playerSpeedAfter,stepKnocked,FRICTION} from '../src/crash-physics.js';
+import {crashImpulse,applyCrashImpulse,knockCar,playerSpeedAfter,stepKnocked,FRICTION} from '../src/crash-physics.js';
 import {ImpactSystem} from '../src/impacts.js';
 const world={roads:{at:()=>true},pavement:{at:()=>true},buildings:{at:()=>false},water:[]};
+test('a published impulse shoves and spins the local car without an NPC knock',()=>{
+ const car={x:0,z:0,heading:0,speed:2};
+ const applied=applyCrashImpulse(car,{nx:0,nz:-1,speed:8,spin:1});
+ assert.ok(applied);assert.ok(car.z<0,'shoved along the impulse');assert.ok(car.heading>0,'spin turns the car');
+ assert.equal(applyCrashImpulse(car,{nx:0,nz:0,speed:0,spin:0}),null);
+});
 test('a rear-end shove sends the other car forward and leaves the player some speed',()=>{
  const from={x:0,z:5,heading:0,speed:12},car={...from,z:4.3},npc={id:1,x:0,z:0,heading:0,speed:0,edge:{}};
  const impulse=crashImpulse(from,car,npc);assert.ok(impulse);assert.ok(impulse.nz<-.9,'pushed along -z');assert.ok(impulse.dv>6&&impulse.dv<9);

@@ -105,7 +105,7 @@ export class PlayerTravel{
  parked(){return [...this.cars.filter(c=>c!==this.actor),...this.rides.filter(r=>r!==this.riding)];}
  parkedBodies(){return this.parked().map(p=>({...p,hw:p.halfWidth??.98,hl:p.halfLength??2.36,ref:{...p,parked:true}}));}
  choices(obstacles=this.obstacles()){
-  const sources=[...this.carSources().map(s=>({source:s,mode:'car'})),...this.rideSources().filter(s=>s.mode==='bike'||s.mode==='scooter').map(source=>({source,mode:source.mode}))].filter(({source:s})=>s.actor&&!s.actor.playerTaken&&s.actor.edge!==null&&gap(this.actor,s.actor)<14),parked=this.parked();
+  const sources=[...this.carSources().map(s=>({source:s,mode:'car'})),...this.rideSources().filter(s=>s.mode==='bike'||s.mode==='scooter').map(source=>({source,mode:source.mode}))].filter(({source:s})=>s.actor&&!s.actor.playerTaken&&(s.actor.edge!==null||s.allowStopped)&&gap(this.actor,s.actor)<14),parked=this.parked();
   const entries=[...this.cars.map(actor=>({id:actor.id,mode:'car',actor,label:actor.label||'Car'})),...this.rides.map(actor=>({id:actor.id,mode:actor.mode,actor,label:actor.label||TRAVEL_MODES[actor.mode].label})),...sources.map(({source,mode})=>({id:source.id,mode,actor:source.actor,label:source.label||(mode==='car'?'Car':TRAVEL_MODES[mode].label),source}))];
   return entries.map(r=>{
    const distance=gap(this.actor,r.actor),near=r.mode==='car'?bodyContains(r.actor,this.actor.x,this.actor.z,1.4):distance<3;

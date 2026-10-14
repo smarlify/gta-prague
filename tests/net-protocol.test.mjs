@@ -2,12 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PLAYER_HZ,
+  AFK_HEARTBEAT_HZ,
+  AFK_STALE_MS,
   DEMO_ROOM,
   PLAYERS_PATH,
   MAX_POLICE_UNITS,
+  MAX_OFFICERS,
   buildPresence,
   parsePresence,
+  parseCrashImpulse,
+  crashImpulsePayload,
   remotePlayersFromMap,
+  presencePublishHz,
+  presencePublishes,
   canJoinMultiplayer,
   shouldSkipPublish,
   isAnonymousProvider,
@@ -121,6 +128,156 @@ test('parsePresence and remotePlayersFromMap drop self and stale rows', () => {
 test('toRtdb strips undefined for Firebase', () => {
   const payload = toRtdb({ a: 1, b: undefined, c: { d: 2 } });
   assert.deepEqual(payload, { a: 1, c: { d: 2 } });
+});
+
+test('afk presence is parsed and held for at least a minute', () => {
+  const now = 1_700_000_100_000;
+  const sleepy = buildPresence({
+    uid: 'sleepy',
+    name: 'Ada',
+    x: 4,
+    z: -2,
+    heading: 0.4,
+    speed: 0,
+    mode: 'car',
+    afk: true,
+    afkSince: now - 30_000,
+    updatedAt: now - 30_000,
+  });
+  assert.equal(sleepy.afk, true);
+  assert.equal(sleepy.afkSince, now - 30_000);
+  const kept = remotePlayersFromMap({ sleepy }, 'me', now);
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].afk, true);
+  assert.equal(parsePresence(sleepy).afkSince, now - 30_000);
+  const expired = buildPresence({
+    uid: 'sleepy',
+    name: 'Ada',
+    x: 4,
+    z: -2,
+    mode: 'car',
+    afk: true,
+    afkSince: now - 90_000,
+    updatedAt: now - AFK_STALE_MS - 1000,
+  });
+  assert.equal(remotePlayersFromMap({ sleepy: expired }, 'me', now).length, 0);
+  const awake = buildPresence({
+    uid: 'awake',
+    name: 'Bea',
+    x: 0,
+    z: 0,
+    mode: 'car',
+    afk: false,
+    updatedAt: now - 30_000,
+  });
+  assert.equal(awake.afk, false);
+  assert.equal(awake.afkSince, 0);
+  assert.equal(remotePlayersFromMap({ awake }, 'me', now).length, 0);
+});
+
+test('heartbeat fields: AFK publishes slowly, a bust still publishes while paused', () => {
+  assert.equal(AFK_HEARTBEAT_HZ, 1);
+  assert.equal(presencePublishHz({ afk: true }), AFK_HEARTBEAT_HZ);
+  assert.equal(presencePublishHz({ afk: false }), PLAYER_HZ);
+  assert.equal(presencePublishHz({ afk: true, busted: true }), PLAYER_HZ);
+  assert.equal(presencePublishes({ paused: true, afk: true }), true);
+  assert.equal(presencePublishes({ paused: true, busted: true }), true);
+  assert.equal(presencePublishes({ paused: true }), false);
+  assert.equal(presencePublishes({ paused: false }), true);
+});
+
+test('officers and arrest stay on the row through a bust', () => {
+  const officers = Array.from({ length: 20 }, (_, i) => ({
+    id: `o${i}`, x: i, z: i, heading: 0.2, pose: i ? 'belt' : 'stop',
+  }));
+  officers.push({ id: '', x: 0, z: 0, pose: 'nope' });
+  const row = buildPresence({
+    uid: 'pursuit',
+    name: 'Cop',
+    x: 1,
+    z: 2,
+    mode: 'car',
+    wanted: { level: 0, heat: 0, status: 'BUSTED', busted: true },
+    police: [{ id: 'u1', x: 3, z: 4, heading: 1, speed: 0, role: 'chase' }],
+    officers,
+    arrest: { active: true, phase: 'cuff', t: 2.4 },
+  });
+  assert.equal(row.wanted.busted, true);
+  assert.equal(row.police.length, 1);
+  assert.equal(row.police[0].id, 'u1');
+  assert.equal(row.officers.length, MAX_OFFICERS);
+  assert.equal(row.officers[0].pose, 'stop');
+  assert.deepEqual(row.arrest, { active: true, phase: 'cuff', t: 2.4 });
+  const parsed = parsePresence(row);
+  assert.equal(parsed.officers.length, MAX_OFFICERS);
+  assert.equal(parsed.arrest.phase, 'cuff');
+  const clear = buildPresence({
+    uid: 'clear',
+    name: 'Clear',
+    x: 0,
+    z: 0,
+    mode: 'walk',
+    officers: [{ id: 'ghost', x: 1, z: 1, heading: 0, pose: 'stop' }],
+    arrest: { active: false, phase: 'idle', t: 0 },
+  });
+  assert.deepEqual(clear.officers, []);
+  assert.equal(clear.arrest.active, false);
+});
+
+test('crash impulse parses direction, speed and a short lifetime', () => {
+  const now = 1_800_000_000_000;
+  const hit = parseCrashImpulse({ uid: 'victim', nx: 0, nz: -4, speed: 6, spin: 1.2, at: now - 400 }, now);
+  assert.equal(hit.uid, 'victim');
+  assert.equal(hit.nz, -1);
+  assert.equal(hit.speed, 6);
+  assert.equal(hit.spin, 1.2);
+  assert.equal(parseCrashImpulse({ uid: 'victim', nx: 1, nz: 0, speed: 3, at: now - 4000 }, now), null);
+  assert.equal(parseCrashImpulse({ nx: 1, nz: 0, speed: 3, at: now }, now), null);
+  const payload = crashImpulsePayload(
+    { remote: true, uid: 'other' },
+    { nx: 1, nz: 0, dv: 4, spin: 0.5 },
+    now,
+  );
+  assert.equal(payload.uid, 'other');
+  assert.equal(payload.speed, 4);
+  const row = buildPresence({
+    uid: 'hitter',
+    name: 'Hit',
+    x: 0,
+    z: 5,
+    mode: 'car',
+    impulse: payload,
+    updatedAt: now,
+  });
+  assert.equal(parsePresence(row).impulse.uid, 'other');
+  assert.equal(crashImpulsePayload({ remote: false, uid: 'nope' }, payload, now), null);
+});
+
+test('stolen police siren is only published on a police car', () => {
+  const on = buildPresence({
+    uid: 'thief',
+    name: 'Thief',
+    x: 0,
+    z: 0,
+    mode: 'car',
+    vehicle: { type: 'police', police: true, livery: 'praha', variant: 'estate' },
+    siren: true,
+  });
+  assert.equal(on.siren, true);
+  assert.equal(on.vehicle.police, true);
+  assert.equal(on.vehicle.livery, 'praha');
+  assert.equal(on.vehicle.variant, 'estate');
+  const off = buildPresence({
+    uid: 'thief',
+    name: 'Thief',
+    x: 0,
+    z: 0,
+    mode: 'car',
+    vehicle: { type: 'sedan', colour: '#fff' },
+    siren: true,
+  });
+  assert.equal(off.siren, false);
+  assert.equal(off.vehicle.police, undefined);
 });
 
 test('shouldSkipPublish is the gate used before set() — uid required, anonymous allowed', () => {
