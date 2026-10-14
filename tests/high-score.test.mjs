@@ -63,12 +63,8 @@ test('Google display name preferred over email local-part', () => {
   assert.equal(displayNameFor({ isAnonymous: false, displayName: null, email: 'ada@gmail.com' }), 'ada');
 });
 
-test('standalone UI offers Google first; iframe path posts to parent and keeps Google as fallback', async () => {
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(html, /id="high-score-panel"/);
-  assert.match(html, /id="high-score-google"/);
-
-  const doc = {
+function mockScoreDoc() {
+  return {
     elements: {},
     getElementById(id) {
       if (!this.elements[id]) {
@@ -76,7 +72,7 @@ test('standalone UI offers Google first; iframe path posts to parent and keeps G
           id,
           hidden: id === 'high-score-panel' || id === 'high-score-guest',
           disabled: false,
-          textContent: '',
+          textContent: id === 'high-score-google' ? 'Continue with Google' : '',
           value: '',
           dataset: {},
           addEventListener() {},
@@ -85,7 +81,14 @@ test('standalone UI offers Google first; iframe path posts to parent and keeps G
       return this.elements[id];
     },
   };
+}
 
+test('logged-out iframe posts to parent and keeps Google as fallback', async () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="high-score-panel"/);
+  assert.match(html, /id="high-score-google"/);
+
+  const doc = mockScoreDoc();
   const messages = [];
   const prev = globalThis.window;
   globalThis.window = { parent: { postMessage: (data) => messages.push(data) } };
@@ -93,7 +96,7 @@ test('standalone UI offers Google first; iframe path posts to parent and keeps G
   const ui = bindHighScoreUI(doc, {
     getDistance: () => 3200,
     onEmbedded: postGameOver,
-    save: async () => { throw new Error('should not save when embedded'); },
+    save: async () => { throw new Error('should not save when embedded and logged out'); },
     authApi: { currentUser: null },
   });
 
@@ -104,34 +107,21 @@ test('standalone UI offers Google first; iframe path posts to parent and keeps G
   assert.equal(messages[0].score, 3200);
   assert.equal(doc.elements['high-score-panel'].hidden, false);
   assert.equal(doc.elements['high-score-google'].hidden, false);
+  assert.equal(doc.elements['high-score-guest'].hidden, true);
   assert.match(doc.elements['high-score-status'].textContent, /Playful/);
   assert.match(doc.elements['high-score-status'].textContent, /Google/);
 
   if (prev === undefined) delete globalThis.window;
   else globalThis.window = prev;
+});
 
+test('signed-in standalone auto-saves and hides Google/guest chooser', async () => {
+  const prev = globalThis.window;
   const self = {};
   self.parent = self;
   globalThis.window = self;
   const saved = [];
-  // Fresh element map so dataset.bound from the iframe bind does not leak.
-  const standDoc = {
-    elements: {},
-    getElementById(id) {
-      if (!this.elements[id]) {
-        this.elements[id] = {
-          id,
-          hidden: id === 'high-score-panel' || id === 'high-score-guest',
-          disabled: false,
-          textContent: '',
-          value: '',
-          dataset: {},
-          addEventListener() {},
-        };
-      }
-      return this.elements[id];
-    },
-  };
+  const standDoc = mockScoreDoc();
   const stand = bindHighScoreUI(standDoc, {
     getDistance: () => 500,
     save: async (entry) => { saved.push(entry); return entry; },
@@ -141,10 +131,43 @@ test('standalone UI offers Google first; iframe path posts to parent and keeps G
   });
   const out = stand.offer(500);
   assert.equal(out.embedded, false);
+  assert.equal(standDoc.elements['high-score-google'].hidden, true);
+  assert.equal(standDoc.elements['high-score-guest'].hidden, true);
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(saved[0]?.name, 'Driver');
   assert.equal(saved[0]?.score, 500);
   assert.equal(saved[0]?.email, 'd@gmail.com');
+  assert.match(standDoc.elements['high-score-status'].textContent, /Saved as Driver/);
+  assert.equal(standDoc.elements['high-score-google'].hidden, true);
+
+  if (prev === undefined) delete globalThis.window;
+  else globalThis.window = prev;
+});
+
+test('signed-in iframe auto-saves, hides chooser, and still posts GAME_OVER', async () => {
+  const doc = mockScoreDoc();
+  const messages = [];
+  const saved = [];
+  const prev = globalThis.window;
+  globalThis.window = { parent: { postMessage: (data) => messages.push(data) } };
+
+  const ui = bindHighScoreUI(doc, {
+    getDistance: () => 1800,
+    onEmbedded: postGameOver,
+    save: async (entry) => { saved.push(entry); return entry; },
+    authApi: {
+      currentUser: { isAnonymous: false, displayName: 'Ada', email: 'ada@gmail.com', uid: 'ada' },
+    },
+  });
+
+  const result = ui.offer(1800);
+  assert.equal(result.embedded, true);
+  assert.equal(messages[0]?.type, 'GAME_OVER');
+  assert.equal(doc.elements['high-score-google'].hidden, true);
+  assert.equal(doc.elements['high-score-guest'].hidden, true);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(saved[0]?.name, 'Ada');
+  assert.equal(saved[0]?.score, 1800);
 
   if (prev === undefined) delete globalThis.window;
   else globalThis.window = prev;

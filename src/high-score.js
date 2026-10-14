@@ -14,6 +14,9 @@ import { formatDistance } from './finale.js';
 export const GAME_ID = 'gta-praha';
 export const GAME_NAME = 'GTA Praha';
 
+const GOOGLE_LABEL = 'Continue with Google';
+const SAVE_LABEL = 'Save score';
+
 /** Whole metres driven this run — the leaderboard sort key. */
 export function scoreFromDistance(metres) {
   return Math.max(0, Math.round(Number(metres) || 0));
@@ -118,11 +121,36 @@ export function bindHighScoreUI(root = document, {
     if (guestForm) guestForm.hidden = !show;
   };
 
+  /** Hide Continue with Google / Save as guest — used when already signed in. */
+  const hideChooser = () => {
+    if (googleBtn) googleBtn.hidden = true;
+    showGuestFallback(false);
+  };
+
+  /** Logged-out chooser: Google primary, guest only after a failed Google attempt. */
+  const showLoggedOutChooser = (scoreOk) => {
+    if (googleBtn) {
+      googleBtn.hidden = !scoreOk;
+      googleBtn.textContent = GOOGLE_LABEL;
+      googleBtn.disabled = false;
+    }
+    showGuestFallback(false);
+  };
+
+  /** Signed-in retry: single Save score control, no Google/guest pair. */
+  const showSaveRetry = () => {
+    if (googleBtn) {
+      googleBtn.hidden = false;
+      googleBtn.textContent = SAVE_LABEL;
+      googleBtn.disabled = false;
+    }
+    showGuestFallback(false);
+  };
+
   const markSaved = (name) => {
     saved = true;
     setBusy(false);
-    showGuestFallback(false);
-    if (googleBtn) googleBtn.hidden = true;
+    hideChooser();
     setStatus(name ? `Saved as ${name}.` : 'Score saved.', 'ok');
   };
 
@@ -137,8 +165,37 @@ export function bindHighScoreUI(root = document, {
     markSaved(row.name);
   };
 
+  const autoSaveSignedIn = (user) => {
+    const name = displayNameFor(user);
+    hideChooser();
+    setStatus(name ? `Signed in as ${name}. Saving…` : 'Saving…');
+    setBusy(true);
+    persist(user).catch((err) => {
+      console.error('High score auto-save failed:', err);
+      setBusy(false);
+      setStatus('Could not save. Try again.', 'error');
+      showSaveRetry();
+    });
+  };
+
   const onGoogleClick = async () => {
     if (busy || saved || offeredScore <= 0) return;
+
+    // Already signed in: Save score retry (never re-prompt Google/guest).
+    if (isGoogleUser(authApi.currentUser)) {
+      setBusy(true);
+      setStatus('Saving…');
+      try {
+        await persist(authApi.currentUser);
+      } catch (err) {
+        console.error('High score save failed:', err);
+        setBusy(false);
+        setStatus('Could not save. Try again.', 'error');
+        showSaveRetry();
+      }
+      return;
+    }
+
     setBusy(true);
     setStatus('Signing in…');
     showGuestFallback(false);
@@ -149,6 +206,10 @@ export function bindHighScoreUI(root = document, {
       console.error('High score Google sign-in failed:', err);
       setBusy(false);
       setStatus('Google sign-in failed. You can still save with a guest name.', 'error');
+      if (googleBtn) {
+        googleBtn.hidden = false;
+        googleBtn.textContent = GOOGLE_LABEL;
+      }
       showGuestFallback(true);
     }
   };
@@ -187,7 +248,11 @@ export function bindHighScoreUI(root = document, {
     busy = false;
     panel.hidden = true;
     showGuestFallback(false);
-    if (googleBtn) { googleBtn.hidden = false; googleBtn.disabled = false; }
+    if (googleBtn) {
+      googleBtn.hidden = false;
+      googleBtn.disabled = false;
+      googleBtn.textContent = GOOGLE_LABEL;
+    }
     if (guestName) { guestName.value = ''; guestName.disabled = false; }
     if (guestSubmit) guestSubmit.disabled = false;
     setStatus('');
@@ -198,43 +263,34 @@ export function bindHighScoreUI(root = document, {
     offeredScore = score;
     saved = false;
     if (scoreEl) scoreEl.textContent = formatHighScore(score);
+    panel.hidden = false;
 
-    // Hub path: post GAME_OVER so Playful can open LeaderboardPopup. Keep Google
-    // visible as a fallback — if the hub does not show its claim UI, the player
-    // can still save from the busted screen to the same Firestore board.
+    if (score <= 0) {
+      hideChooser();
+      setStatus('Drive farther next time to post a high score.', 'info');
+      return { embedded: isEmbedded(), score };
+    }
+
+    const signedIn = isGoogleUser(authApi.currentUser);
+
+    // Hub path: always notify Playful. If already signed in here, auto-save and
+    // skip the Google/guest chooser. Logged-out embeds keep Google as fallback.
     if (isEmbedded()) {
-      panel.hidden = false;
-      if (googleBtn) googleBtn.hidden = score <= 0;
-      showGuestFallback(false);
-      if (score > 0) {
-        onEmbedded(score);
-        setStatus('Score sent to Playful — sign in there, or use Google here.', 'info');
+      onEmbedded(score);
+      if (signedIn) {
+        autoSaveSignedIn(authApi.currentUser);
       } else {
-        setStatus('Drive farther next time to post a high score.', 'info');
+        showLoggedOutChooser(true);
+        setStatus('Score sent to Playful — sign in there, or use Google here.', 'info');
       }
       return { embedded: true, score };
     }
 
-    // Standalone: Google first, guest name only if Google fails.
-    panel.hidden = false;
-    if (googleBtn) googleBtn.hidden = score <= 0;
-    showGuestFallback(false);
-    if (score <= 0) {
-      setStatus('Drive farther next time to post a high score.', 'info');
-      return { embedded: false, score };
-    }
-
-    if (isGoogleUser(authApi.currentUser)) {
-      const name = displayNameFor(authApi.currentUser);
-      setStatus(name ? `Signed in as ${name}. Saving…` : 'Saving…');
-      setBusy(true);
-      persist(authApi.currentUser).catch((err) => {
-        console.error('High score auto-save failed:', err);
-        setBusy(false);
-        setStatus('Could not save. Try Google again, or use a guest name.', 'error');
-        showGuestFallback(true);
-      });
+    // Standalone: auto-save when already signed in; otherwise Google / guest.
+    if (signedIn) {
+      autoSaveSignedIn(authApi.currentUser);
     } else {
+      showLoggedOutChooser(true);
       setStatus('Save this run with Google to appear on the high-score table.');
     }
 
