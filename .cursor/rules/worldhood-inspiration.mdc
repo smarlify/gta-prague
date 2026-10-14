@@ -1,0 +1,35 @@
+---
+description: Design inspiration from worldhood docs (vision, recognisability, gameplay purity) — not a paste of community process files
+alwaysApply: true
+---
+
+# PragueGTA / worldhood inspiration
+
+Summarise the *interesting design ideas* from this repo’s docs. Read the linked files for detail.
+Do **not** treat CODE_OF_CONDUCT, GOVERNANCE, or LICENSE as agent operating rules.
+
+## Override (Smarlify ship)
+
+When these ideas conflict with shipping this fork (git hooks, Heroku review deploy, secrets, Kaloko, branch/PR workflow), follow the workspace `__manifest` and Playful `.cursor/rules` first.
+
+## Principles (inspiration)
+
+- **Simulation purity.** Physics, traffic decisions, police heat, and camera poses are plain functions over plain data. Test them in Node; keep mesh/render code separate (`docs/GAMEPLAY.md`).
+- **Recognisable places.** Prefer measured open data and local observation. OpenStreetMap (and official open data) is the skeleton; hero landmarks and street feel make a city *that* city, not a generic grid (`docs/RECOGNISABILITY.md`, `docs/VISION.md`).
+- **Step-wise city growth.** Ship useful slices: connect areas, mark inferences honestly, grow the map one area at a time. Do not require the whole city before one street loads (`docs/VISION.md`, `CONTRIBUTING.md` workflow ideas).
+- **Frame-time budget.** Prefer 60 FPS on a laptop at ~1440×900. Measure draw calls / frame time before and after costly changes; batch, instance, LOD, and stream (`docs/GAMEPLAY.md`).
+- **Non-graphic arcade police.** Crashes, pedestrians, and police stay arcade and non-violent; wanted heat is shared engine behaviour, not city-special-cased gore (`docs/GAMEPLAY.md`).
+- **Shared engine, local identity.** Reusable movement, travel, conversations, weather, and police live in shared modules. City character lives in data and scenery — avoid city-name checks in shared gameplay (`docs/GAMEPLAY.md`, `docs/VISION.md`).
+- **Open contribution culture (workflow ideas only).** Small focused PRs; show screenshots/clips for game changes; welcome local knowledge and engine work equally. Do not import upstream maintainer/governance process into this fork’s ship rules (`CONTRIBUTING.md`, `docs/IDEAS.md`).
+
+## Source files (read, don’t paste)
+
+| Topic | File |
+| --- | --- |
+| Ambition and how we grow | `docs/VISION.md` |
+| Wishlist / feature directions | `docs/IDEAS.md` |
+| Code map, purity, police, PRs | `docs/GAMEPLAY.md` |
+| What makes a city readable | `docs/RECOGNISABILITY.md` |
+| Contribution workflow ideas | `CONTRIBUTING.md` |
+
+Leave `CODE_OF_CONDUCT.md`, `GOVERNANCE.md`, and `LICENSE` for humans; they are not Cursor always-apply material.
