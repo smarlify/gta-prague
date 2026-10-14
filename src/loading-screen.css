@@ -2,7 +2,7 @@
 body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#wanted,#location-readout,#touch-controls,#touch-aux,.vignette){visibility:hidden;pointer-events:none}
 
 /* Type system for the card. Two faces, one scale, one spacing rhythm:
-   display  Spectral  — wordmark, tagline, place name (28 / 28 / 20)
+   display  Spectral  — tagline and place name. The words “GTA Praha” use Bungee.
    ui       DM Sans   — eyebrow, button, hints, disclosure, footer (12 / 14 / 16)
    Only the eyebrow uses capitals and tracking. Spacing steps: 8 / 12 / 16 / 24 / 32. */
 #intro.boot-screen{

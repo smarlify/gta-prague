@@ -1,0 +1,10 @@
+{
+  "family": "Bungee",
+  "license": "SIL Open Font License 1.1",
+  "designer": "David Jonathan Ross",
+  "source": "https://github.com/google/fonts/tree/main/ofl/bungee",
+  "download": "https://raw.githubusercontent.com/google/fonts/main/ofl/bungee/Bungee-Regular.ttf",
+  "sha256": "c4f5361ce120af3e6b9156d0bf379fa19cda2ea0cd18ac01fd99596c6bf66e3f",
+  "shipped": "Bungee-Regular.woff2",
+  "use": "Self-hosted display face for the words GTA Praha only."
+}

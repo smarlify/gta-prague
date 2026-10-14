@@ -46,6 +46,8 @@
  @font-face{font-family:Spectral;src:url('/fonts/spectral/Spectral-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
  @font-face{font-family:Spectral;src:url('/fonts/spectral/Spectral-SemiBold.ttf') format('truetype');font-weight:600;font-style:normal;font-display:swap}
  @font-face{font-family:'DM Sans';src:url('/fonts/dm-sans/DMSans-Variable.ttf') format('truetype');font-weight:100 1000;font-style:normal;font-display:swap}
+ @font-face{font-family:Bungee;src:url('/fonts/bungee/Bungee-Regular.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+ .gta-logo{font-family:Bungee,sans-serif;font-weight:400;font-style:normal;font-synthesis:none;letter-spacing:.02em}
  :root{--ink:#30312e;--muted:#69665f;--accent:#da5e38;--paper:#f8f5ee;--line:#30312e26}
  *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:18px/1.65 Spectral,Georgia,serif}
  main{max-width:720px;margin:0 auto;padding:56px 22px 80px}
@@ -67,16 +69,16 @@
 </head>
 <body>
 <main>
- <a class="brand" href="/">🚔 GTA Praha 🇨🇿</a>
+ <a class="brand" href="/">🚔 <span class="gta-logo">GTA Praha</span> 🇨🇿</a>
  <h1>Drive, walk and explore a playable Prague.</h1>
- <p class="lead"><strong>GTA Praha</strong> is a Prague-first fork of <a href="https://worldhood.org">Worldhood</a>: an open-source city playground in your browser. Explore Prague by car, on foot, by bicycle or on an e-scooter. Helsinki and Tampere remain in the build.</p>
+ <p class="lead"><strong><span class="gta-logo">GTA Praha</span></strong> is a Prague-first fork of <a href="https://worldhood.org">Worldhood</a>: an open-source city playground in your browser. Explore Prague by car, on foot, by bicycle or on an e-scooter. Helsinki and Tampere remain in the build.</p>
  <p class="play-links">Play at <a href="https://gtapraha.online/">gtapraha.online</a> or <a href="https://gtapraha.cz/">gtapraha.cz</a>.</p>
  <p>The streets and buildings come from open map and city data, with local details added by contributors. The current game is single-player. A shared online world and player-owned territories are future plans.</p>
 
  <div class="cta"><a class="primary" href="/">Explore Prague</a><a class="secondary" href="https://github.com/smarlify/gta-prague/blob/main/docs/BUILD_YOUR_CITY.md">Build your city</a></div>
 
  <h2>How it started</h2>
- <p>Worldhood began as a one-night experiment: <a href="https://lnkd.in/p/eYCkmVRr">Helsinki rebuilt as a driveable open world</a>, from the city's own 3D model, streets, trees and tram lines. GTA Praha takes that engine and centres it on Prague, with Czech districts, police and open data from IPR Praha alongside OpenStreetMap.</p>
+ <p>Worldhood began as a one-night experiment: <a href="https://lnkd.in/p/eYCkmVRr">Helsinki rebuilt as a driveable open world</a>, from the city's own 3D model, streets, trees and tram lines. <span class="gta-logo">GTA Praha</span> takes that engine and centres it on Prague, with Czech districts, police and open data from IPR Praha alongside OpenStreetMap.</p>
 
  <h2>The vision</h2>
  <p>One shared game, many real cities, with room for people to build their own corner. Improve a place you know, or improve the engine that every city uses. Building inside the game and visiting other players’ creations are future ambitions; today, city contributions happen through the repository.</p>
