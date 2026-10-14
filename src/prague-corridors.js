@@ -3,14 +3,26 @@
 // only opens that ground and, past the terrain grid, supplies heights.
 
 export const CORRIDOR_SPECS = Object.freeze([
- {id: 'tunnel-barrandov', title: 'Tunnel chain, Barrandovský most and Jižní spojka',
-  test: text => /tunel|trojsk|letensk|strahov|mrázov|mrazov|jižní spojka|jizni spojka|barrandov/i.test(text)},
+ {id: 'zlute-lazne', title: 'Podolí to Žluté lázně',
+  test: text => /žluté lázně|zlute lazne|modřansk|modransk|podolsk|u přehrady|u prehrady/i.test(text)},
+ {id: 'barrandov', title: 'Smíchov to Barrandovský most',
+  test: text => /barrandov|strakonick|lihovar/i.test(text)},
+ {id: 'troja', title: 'Troja, the zoo and the botanic garden',
+  test: text => /trojsk|zoolog|přívoz|privoz|přírodní|prirodni/i.test(text)},
+ {id: 'palmovka', title: 'Karlín to Palmovka',
+  test: text => /palmov|zenklov|libeňsk|libensk/i.test(text)},
+ {id: 'bohnice', title: 'Troja to Bohnice',
+  test: text => /bohnic|lodžsk|lodzsk|čimick|cimick/i.test(text)},
+ {id: 'kobylisy', title: 'Kobylisy',
+  test: text => /kobylis|střelnič|strelnic|klapkov/i.test(text)},
  {id: 'magistrala', title: 'Magistrála to Chodov and the D1',
   test: text => /magistrál|magistral|wilsonova|legerova|sokolsk|5\. května|5\. kvetna|spořilov|brněnsk|brnensk|(^|\s)D1(\s|$)/i.test(text)},
  {id: 'severni-spojka', title: 'Severní spojka, Letňany to Černý Most',
   test: text => /kbelsk|cínoveck|cinoveck|chlumeck|vysočansk|vysocansk|novopack|severní spojka|severni spojka/i.test(text)},
  {id: 'airport', title: 'Dejvice to Václav Havel Airport',
   test: text => /evropsk|drnovsk|k letišti|k letisti|aviatick|lipsk/i.test(text)},
+ {id: 'jizni-spojka', title: 'Jižní spojka',
+  test: text => /jižní spojka|jizni spojka/i.test(text)},
 ]);
 
 export function corridorIdFor(name = '') {

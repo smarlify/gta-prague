@@ -18,6 +18,12 @@ const RAW = 'data/raw/cities/prague';
 const OVERLAP = 180;
 const LINK_REACH = 26;
 const DESTINATIONS = {
+ 'zlute-lazne': {name: 'Žluté lázně', lon: 14.4147, lat: 50.0472},
+ 'barrandov': {name: 'Barrandov', lon: 14.380, lat: 50.030},
+ 'troja': {name: 'Troja zoo', lon: 14.413, lat: 50.1165},
+ 'palmovka': {name: 'Palmovka', lon: 14.474, lat: 50.103},
+ 'bohnice': {name: 'Bohnice', lon: 14.410, lat: 50.134},
+ 'kobylisy': {name: 'Kobylisy', lon: 14.452, lat: 50.126},
  'magistrala': {name: 'Chodov', lon: 14.491, lat: 50.0315},
  'severni-spojka': {name: 'Černý Most', lon: 14.577, lat: 50.104},
  'airport': {name: 'Václav Havel Airport', lon: 14.2632, lat: 50.1008},
@@ -91,13 +97,14 @@ function farthest(id) {
 }
 
 function overpass(name, body) {
+ fs.mkdirSync(RAW, {recursive: true});
  const file = path.join(RAW, `${name}.json`);
  if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
  const endpoints = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
- const query = `[out:json][timeout:45];${body}`;
- for (let attempt = 0; attempt < 4; attempt++) {
+ const query = `[out:json][timeout:20];${body}`;
+ for (let attempt = 0; attempt < 1; attempt++) {
   try {
-   const text = execFileSync('curl', ['-sS', '-f', '--max-time', '50', '-A', 'worldhood/0.1 (prague corridor)', '--data-urlencode', `data=${query}`, endpoints[attempt % endpoints.length]], {encoding: 'utf8', maxBuffer: 1 << 28});
+   const text = execFileSync('curl', ['-sS', '-f', '--max-time', '25', '-A', 'worldhood/0.1 (prague corridor)', '--data-urlencode', `data=${query}`, endpoints[attempt % endpoints.length]], {encoding: 'utf8', maxBuffer: 1 << 28});
    const json = JSON.parse(text);
    fs.writeFileSync(file, text);
    console.log(`  ${name}: ${json.elements.length} elements`);
@@ -136,9 +143,17 @@ for (const spec of CORRIDOR_SPECS) {
  const pad = 0.02;
  const south = Math.min(def.origin[1], dest.lat) - pad, north = Math.max(def.origin[1], dest.lat) + pad;
  const west = Math.min(def.origin[0], dest.lon) - pad, east = Math.max(def.origin[0], dest.lon) + pad;
- const pattern = spec.id === 'airport' ? 'Evropská|Lipská|Aviatická|K letišti|Drnovská'
-  : spec.id === 'magistrala' ? '5. května|Spořilovská|Brněnská|D1'
-  : 'Kbelská|Cínovecká|Chlumecká|Novopacká';
+ const pattern = {
+  airport: 'Evropská|Lipská|Aviatická|K letišti|Drnovská',
+  magistrala: '5. května|Spořilovská|Brněnská|D1',
+  'severni-spojka': 'Kbelská|Cínovecká|Chlumecká|Novopacká',
+  'zlute-lazne': 'Modřanská|Podolské nábřeží|U přehrady',
+  barrandov: 'Barrandovský most|K Barrandovu|Strakonická',
+  troja: 'Trojská|Povltavská|U trojského zámku',
+  palmovka: 'Zenklova|Libeňský most',
+  bohnice: 'Čimická|Lodžská|Bohnická',
+  kobylisy: 'Kobyliská|Střelničná|Klapkova',
+ }[spec.id] || spec.title;
  const extra = overpass(`corridor-${spec.id}`, `(way["highway"]["name"~"${pattern}",i](${south},${west},${north},${east}););out geom;`);
  for (const way of extra.elements || []) {
   if (way.type !== 'way' || !way.geometry || way.geometry.length < 2) continue;
@@ -152,7 +167,7 @@ for (const spec of CORRIDOR_SPECS) {
   let length = 0;
   for (let i = 1; i < line.length; i++) length += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
   if (length < 30) continue;
-  extraEdges.push({points: line.map(p => [p[0], p[1]]), length: +length.toFixed(2), lane: /oneway|motorway/.test(`${way.tags?.oneway} ${way.tags?.highway}`) ? 0.35 : 1.6, crossing: false, signal: -1});
+  extraEdges.push({name: way.tags?.name || '', points: line.map(p => [p[0], p[1]]), length: +length.toFixed(2), lane: /oneway|motorway/.test(`${way.tags?.oneway} ${way.tags?.highway}`) ? 0.35 : 1.6, crossing: false, signal: -1});
   extraRoads.push({id: `osm-way-${way.id}`, name: way.tags?.name || '', kind: 'Ajorata', material: 'Asfaltti', rings: bufferLine(line, width)[0] || [line], bbox: line.reduce((b, p) => [Math.min(b[0], p[0]), Math.min(b[1], p[1]), Math.max(b[2], p[0]), Math.max(b[3], p[1])], [Infinity, Infinity, -Infinity, -Infinity])});
  }
 }
@@ -184,15 +199,20 @@ const extensionRoot = path.join(ROOT, 'extensions');
 fs.mkdirSync(extensionRoot, {recursive: true});
 for (const spec of CORRIDOR_SPECS) {
  const roads = groups.get(spec.id);
- const pieces = [];
- for (const road of roads) {
-  const multi = road.piece || (road.rings ? outside([road.rings]) : []);
-  pieces.push(...multi);
- }
- let playable = [];
- if (pieces.length) {
-  try { playable = polygonClipping.union(...pieces); } catch { playable = pieces.flat(); }
- }
+ const piecesFor = list => {
+  const pieces = [];
+  for (const road of list) {
+   const multi = road.extra ? (road.piece || []) : (road.rings ? outside([road.rings]) : []);
+   pieces.push(...multi.filter(poly => poly?.[0]?.length > 3));
+  }
+  return pieces;
+ };
+ const unite = pieces => {
+  if (!pieces.length) return [];
+  try { return polygonClipping.union(...pieces); } catch { return pieces; }
+ };
+ let playable = unite(piecesFor(roads));
+ if (!playable.length) playable = unite(piecesFor(roads.filter(road => !road.extra)));
  playable = playable.map(poly => poly.map(ring => simplifyRing(ring, 8)).filter(ring => ring.length > 3)).filter(poly => poly[0]?.length > 3);
  if (!playable.length) { console.log(`  ${spec.id}: no ground outside the circle`); continue; }
  const bounds = multiBBox(playable);

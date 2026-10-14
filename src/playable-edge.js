@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {pointInPolygon} from './geo.js';
 
 // A closed ring at the playable disk, like a race-area barrier: visible before
 // the car hits the invisible boundary stop.
@@ -20,7 +21,16 @@ function meshFrom(verts, color, name) {
   return mesh;
 }
 
-export function createPlayableEdge(radius, groundAt = () => 0) {
+function opens(openings, x, z) {
+  for (const multi of openings) {
+    for (const rings of multi || []) {
+      if (pointInPolygon(x, z, rings)) return true;
+    }
+  }
+  return false;
+}
+
+export function createPlayableEdge(radius, groundAt = () => 0, openings = []) {
   const group = new THREE.Group();
   group.name = 'Playable edge';
   const r = Math.max(80, Number(radius) || 0);
@@ -40,6 +50,7 @@ export function createPlayableEdge(radius, groundAt = () => 0) {
     const z1 = Math.cos(t1) * at;
     const y0 = groundAt(x0, z0);
     const y1 = groundAt(x1, z1);
+    if (opens(openings, (x0 + x1) / 2, (z0 + z1) / 2)) continue;
     const ox0 = Math.sin(t0) * (at + thick);
     const oz0 = Math.cos(t0) * (at + thick);
     const ox1 = Math.sin(t1) * (at + thick);

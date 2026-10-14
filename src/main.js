@@ -972,7 +972,7 @@ async function boot(){
    const pragueDry={dry:(x,z)=>waterAt(x,z)===null&&!pointInRiverChannel(x,z),inChannel:(x,z)=>waterAt(x,z)!==null||pointInRiverChannel(x,z)};
    if(city.id==='prague'){setRiverChannel(data.water);setDryPassages(data.roads);setBridgeSpans([...data.roads,...data.pavement].filter(isBridgeSurface));}
    if(setTerrain(await terrainData)){surfaceMaterial.defines={...surfaceMaterial.defines,TERRAIN:''};surfaceMaterial.needsUpdate=true;ground.visible=false;cityModel.add(createTerrainGround(ground.material));}
-   cityModel.add(createPlayableEdge(city.radius||2000,groundAt));
+   cityModel.add(createPlayableEdge(city.radius||2000,groundAt,extensions.map(e=>e.playable).filter(Boolean)));
    if((landcoverData.polygons||landcoverData.runs||[]).length)cityModel.add(settleObject(createLandcover(landcoverData)));
    sea=createSea(data.water,data,{helsinkiHarbour:helsinki,riverDrop:city.id==='prague'?.85:0,quayStone:city.id==='prague'});cityModel.add(sea.group);ground.geometry.dispose();ground.geometry=sea.groundGeometry;setWorldMetreUVs(ground.geometry,{plane:true});
    if(city.id==='prague'){
