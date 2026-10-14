@@ -30,9 +30,12 @@ export function isAnonymousProvider(user) {
   return provider === 'anonymous' || !provider && !!user.isAnonymous;
 }
 
-/** Google (or any non-anonymous Firebase user) may join multiplayer. */
+/**
+ * Temp default: any authenticated uid (incl. anonymous) may join the demo room.
+ * Revert to Google-only (`!isAnonymousProvider(user)`) after two-tab testing.
+ */
 export function canJoinMultiplayer(user) {
-  return !!(user && !isAnonymousProvider(user) && user.uid);
+  return !!(user && user.uid);
 }
 
 export function normalizeMode(mode) {
@@ -169,7 +172,7 @@ export function toRtdb(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-/** True when this client must not write presence (anonymous / unsigned). */
+/** True when this client must not write presence (no uid). */
 export function shouldSkipPublish(user) {
   return !canJoinMultiplayer(user);
 }

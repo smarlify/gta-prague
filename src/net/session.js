@@ -1,8 +1,8 @@
 /**
- * Multiplayer session glue: join/leave demo room, throttled publish, remotes.
+ * Multiplayer session glue: auto-join demo room, throttled publish, remotes.
  */
 import { onAuthStateChanged } from 'firebase/auth';
-import { getFirebaseAuth } from '../firebase.js';
+import { ensureAuthUser, getFirebaseAuth } from '../firebase.js';
 import { displayNameFor } from '../high-score.js';
 import { PLAYER_HZ, buildPresence, canJoinMultiplayer } from './protocol.js';
 import { rtdbConfigured } from './firebase-rtdb.js';
@@ -71,12 +71,19 @@ export function createMultiplayerSession(scene, {
   });
 
   try {
+    if (rtdbConfigured()) {
+      void ensureAuthUser().catch((err) => console.warn('multiplayer auth failed', err));
+    }
     authUnsub = onAuthStateChanged(getFirebaseAuth(), async (user) => {
       if (!canJoinMultiplayer(user)) {
         await leave();
         return;
       }
-      // Already signed in at boot: do not auto-join; user opts in via HUD.
+      // Temp default: auto-join demo for every authenticated uid (incl. anonymous).
+      if (!room) {
+        const result = await joinDemoRoom(user);
+        if (result.kind === 'joined') room = result.room;
+      }
       hud.refresh();
     });
   } catch {
@@ -88,7 +95,6 @@ export function createMultiplayerSession(scene, {
     onlineCount,
     remotes,
     async ensureJoinedIfSignedIn() {
-      // Optional: mid-session Google from high-score can call this to enable MP.
       const user = (() => {
         try { return getFirebaseAuth().currentUser; } catch { return null; }
       })();

@@ -1,6 +1,6 @@
 /**
- * Demo-room presence: Google-signed players publish pose + police; others listen.
- * No slots / host election — thinner than Marooned.
+ * Demo-room presence: any authenticated uid (incl. anonymous) may publish pose + police.
+ * Temp default for two-tab testing — revert to Google-only after. No slots / host election.
  */
 import {
   onDisconnect,
@@ -9,8 +9,8 @@ import {
   remove,
   set,
 } from 'firebase/database';
-import { getFirebaseAuth } from '../firebase.js';
-import { displayNameFor, isGoogleUser, signInWithGoogle } from '../high-score.js';
+import { ensureAuthUser, getFirebaseAuth } from '../firebase.js';
+import { displayNameFor } from '../high-score.js';
 import { getFirebaseRtdb, rtdbConfigured } from './firebase-rtdb.js';
 import {
   DEMO_ROOM,
@@ -80,7 +80,7 @@ export class PresenceRoom {
 }
 
 /**
- * Join demo room when the current user is Google-signed and RTDB is configured.
+ * Join demo room when the current user has a uid and RTDB is configured.
  * @returns {Promise<{ kind: 'solo' } | { kind: 'joined', room: PresenceRoom }>}
  */
 export async function joinDemoRoom(user = getFirebaseAuth().currentUser) {
@@ -116,11 +116,11 @@ export async function joinDemoRoom(user = getFirebaseAuth().currentUser) {
 }
 
 /**
- * Sign in with Google (if needed) then join the demo room.
- * Anonymous / cancelled sign-in → solo.
+ * Join the demo room with the current user (anonymous is fine).
+ * Signs in anonymously when no uid yet — does not force Google for the temp default.
  */
 export async function goOnline({
-  signIn = signInWithGoogle,
+  ensureUser = ensureAuthUser,
   authUser = () => {
     try {
       return getFirebaseAuth().currentUser;
@@ -131,11 +131,11 @@ export async function goOnline({
   join = joinDemoRoom,
 } = {}) {
   let user = authUser();
-  if (!isGoogleUser(user)) {
+  if (!canJoinMultiplayer(user)) {
     try {
-      user = await signIn();
+      user = await ensureUser();
     } catch (err) {
-      console.warn('Go online sign-in failed', err);
+      console.warn('Go online auth failed', err);
       return { kind: 'solo' };
     }
   }

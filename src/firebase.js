@@ -3,7 +3,7 @@
  * Client config comes from VITE_SCOREBOARD_* at build time (Heroku config / local .env).
  */
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 function readConfig() {
@@ -56,6 +56,17 @@ export function getGoogleProvider() {
   return googleProviderInstance;
 }
 
+/**
+ * Return the current Firebase user, signing in anonymously when none is present.
+ * Used so demo-room multiplayer can auto-join without a Google popup.
+ */
+export async function ensureAuthUser() {
+  const authApi = getFirebaseAuth();
+  if (authApi.currentUser) return authApi.currentUser;
+  const cred = await signInAnonymously(authApi);
+  return cred.user;
+}
+
 /** Lazy currentUser accessor so unit tests can import high-score without scoreboard env. */
 export const auth = {
   get currentUser() {
@@ -67,4 +78,4 @@ export const auth = {
   },
 };
 
-export default { ensureApp, getFirebaseAuth, getFirebaseFirestore, getGoogleProvider, auth };
+export default { ensureApp, getFirebaseAuth, getFirebaseFirestore, getGoogleProvider, ensureAuthUser, auth };

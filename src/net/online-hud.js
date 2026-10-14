@@ -1,6 +1,6 @@
 /**
- * Small HUD control: Go online (Google) / online count / Go offline.
- * Does not force sign-in to play — multiplayer is opt-in.
+ * Small HUD control: Online · N (click to leave) / Go online (rejoin).
+ * Temp default auto-joins; toggle leaves or rejoins without requiring Google.
  */
 import { rtdbConfigured } from './firebase-rtdb.js';
 
@@ -33,8 +33,8 @@ export function bindOnlineHud(root = document, {
           : 'Go online';
     }
     btn.title = online
-      ? 'Leave the demo multiplayer room'
-      : 'Sign in with Google to see other drivers in the demo room';
+      ? 'Go offline — leave the demo multiplayer room'
+      : 'Rejoin the demo multiplayer room';
   };
 
   const setBusy = (value) => {

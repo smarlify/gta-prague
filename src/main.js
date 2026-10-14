@@ -143,7 +143,7 @@ let treeTrunks=null,cityModelPromise,surfaceStreamer=null,extensionStreamer=null
 let birds=null,birdColonies=[],crowd=null,waterfowl=null; // gulls, pigeons, crows and sparrows from the city's map data (birds.js)
 let pavlova={phase:'idle'},ambulance=null;
 let cyclists,cyclistRenderer,npcScooters,npcScooterRenderer,buses,police,policeRenderer,roadblock; // shared riders and police in every city
-let multiplayer=null; // Google-only demo-room presence; anonymous stays offline
+let multiplayer=null; // Temp default: auto-join demo (anonymous ok); HUD toggles leave/rejoin
 let distance=0,viewSpan=150,desiredSpan=150,lastTime=0,lastUI=0,lastTile=0,lastToast=0,toastTimer,areaLabel;
 let sound=false,audioContext,mobileControls=null;
 const cityAudio=createCityAudio();

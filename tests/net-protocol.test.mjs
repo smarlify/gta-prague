@@ -21,12 +21,17 @@ test('presence constants match the demo room plan', () => {
   assert.equal(MAX_POLICE_UNITS, 12);
 });
 
-test('anonymous users cannot join or publish', () => {
+test('unsigned users cannot join or publish', () => {
   assert.equal(canJoinMultiplayer(null), false);
-  assert.equal(canJoinMultiplayer({ uid: 'a', isAnonymous: true }), false);
-  assert.equal(isAnonymousProvider({ isAnonymous: true }), true);
-  assert.equal(shouldSkipPublish({ uid: 'a', isAnonymous: true }), true);
+  assert.equal(canJoinMultiplayer({}), false);
   assert.equal(shouldSkipPublish(null), true);
+  assert.equal(isAnonymousProvider({ isAnonymous: true }), true);
+});
+
+test('anonymous users can join multiplayer (temp default)', () => {
+  const anon = { uid: 'a', isAnonymous: true };
+  assert.equal(canJoinMultiplayer(anon), true);
+  assert.equal(shouldSkipPublish(anon), false);
 });
 
 test('Google-signed users can join multiplayer', () => {
@@ -118,8 +123,8 @@ test('toRtdb strips undefined for Firebase', () => {
   assert.deepEqual(payload, { a: 1, c: { d: 2 } });
 });
 
-test('anonymous does not write — shouldSkipPublish is the gate used before set()', () => {
-  // Room.publishPlayer / joinDemoRoom must refuse anonymous; this documents the gate.
-  assert.equal(shouldSkipPublish({ uid: 'anon', isAnonymous: true }), true);
+test('shouldSkipPublish is the gate used before set() — uid required, anonymous allowed', () => {
+  assert.equal(shouldSkipPublish({ uid: 'anon', isAnonymous: true }), false);
   assert.equal(shouldSkipPublish({ uid: 'g', isAnonymous: false }), false);
+  assert.equal(shouldSkipPublish(null), true);
 });
