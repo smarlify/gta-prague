@@ -626,14 +626,14 @@ function policeCarSources(){
   const index=Number(String(unit.id).replace(/\D/g,''))||0;
   return createPoliceCarSource(unit,{
    visual:{type:'police',police:true,livery:agency.livery,variant:unitVariant(index)},
-   blockers:()=>[...police.units.filter(u=>u!==unit&&!u.playerTaken),...(multiplayer?.remotes?.solidBodies?.(unit)||[])],
+   blockers:()=>[...police.units.filter(u=>u!==unit&&!u.playerTaken),...(travel?.parked?.()||[]),...(multiplayer?.remotes?.solidBodies?.(unit)||[])],
    claimUnit(taken){police.units=police.units.filter(u=>u!==taken);if(police.parked)police.parked=police.parked.filter(u=>u!==taken);},
   });
  });
  // Patrols published by the other player (stopped for their arrest) are enterable too.
  return [...local,...(multiplayer?.remotes?.policeCars?.()||[]).map(source=>{
   const own=source.blockers?.bind(source);
-  return {...source,blockers(){return [...(own?.()||[]),...police.units.filter(u=>u!==source.actor&&!u.playerTaken)];}};
+  return {...source,blockers(){return [...(own?.()||[]),...police.units.filter(u=>u!==source.actor&&!u.playerTaken),...(travel?.parked?.()||[])];}};
  })];
 }
 function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,l.heading??(l.name==='Senate Square'?0:-Math.PI/2+.17));car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
