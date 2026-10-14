@@ -10,7 +10,7 @@ test('distributed third-party notices match locked runtime dependencies and font
  const result=run('scripts/third-party-licenses.mjs');
  assert.equal(result.status,0,result.stderr);
  const text=fs.readFileSync('public/THIRD_PARTY_LICENSES.txt','utf8');
- for(const required of ['three.js authors','Alexander Milevski','MAGENTA','SIL International','DM Sans','Manrope','Spectral'])assert.ok(text.includes(required),`Missing ${required}`);
+ for(const required of ['three.js authors','Alexander Milevski','MAGENTA','SIL International','DM Sans','Manrope','Spectral','Bungee'])assert.ok(text.includes(required),`Missing ${required}`);
 });
 
 function fixture(t){

@@ -147,8 +147,9 @@ city's data under its licence, and update this file and the in-game Sources pane
 
 ## Fonts
 
-The interface bundles DM Sans, Manrope and Spectral locally. Their SIL Open Font License notices
-are included with the files under `public/fonts/`. Playing the game does not request fonts from Google.
+The interface bundles DM Sans, Manrope and Spectral locally. The words “GTA Praha” use Bungee
+(David Jonathan Ross, SIL Open Font License 1.1). Notices sit with the files under `public/fonts/`.
+Playing the game does not request fonts from Google.
 
 The game's 3D signs also use the Helvetiker, Optimer and Gentilis example typefaces distributed
 with three.js. Their original font notices are preserved in `public/THIRD_PARTY_LICENSES.txt`;
