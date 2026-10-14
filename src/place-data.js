@@ -31,7 +31,8 @@ export function matchPaving(rules,{layer,street='',type='',material=''},ring){
 // Tree register species name → model family (src/tree-species.js). Finnish register names carry
 // the scientific genus first, e.g. "TILIA X VULGARIS (PUISTOLEHMUS)".
 const FAMILIES=[[/^TILIA/,'lime'],[/^ACER/,'maple'],[/^BETULA/,'birch'],[/^PINUS/,'pine'],[/^PICEA/,'spruce'],[/^ABIES/,'fir'],[/^LARIX/,'larch'],
- [/^QUERCUS/,'oak'],[/^ULMUS/,'elm'],[/^FRAXINUS/,'ash'],[/^SORBUS/,'rowan'],[/^ALNUS/,'alder'],[/^(PRUNUS|MALUS|PYRUS|CRATAEGUS)/,'blossom'],
+ [/^QUERCUS/,'oak'],[/^ULMUS/,'elm'],[/^FRAXINUS/,'ash'],[/^SORBUS/,'rowan'],[/^ALNUS/,'alder'],
+ [/SERRULATA|SAKURA|CHERRY BLOSSOM|YOSHINO|KANZAN/,'cherry'],[/^(PRUNUS|MALUS|PYRUS|CRATAEGUS)/,'blossom'],
  [/PYLVÄSHAAPA|FASTIGIATA|ERECTA/,'columnar'],[/^POPULUS/,'poplar'],[/^SALIX/,'willow'],[/^AESCULUS/,'chestnut'],[/^(THUJA|JUNIPERUS|TAXUS)/,'spruce']];
 export function speciesFamily(species='',conifer=false){
  const s=String(species).toUpperCase().trim();
@@ -42,7 +43,7 @@ export function speciesFamily(species='',conifer=false){
 
 // Register height class ("11 - 15m", "Ei tietoa") and trunk girth (cm) → metres. Unknown classes
 // fall back on girth, then on the family's typical mature height in Finnish street use.
-export const MATURE={lime:16,maple:15,birch:17,pine:18,spruce:18,fir:14,larch:18,oak:14,elm:17,ash:17,rowan:8,alder:12,blossom:6,columnar:14,poplar:20,willow:12,chestnut:14,broadleaf:12};
+export const MATURE={lime:16,maple:15,birch:17,pine:18,spruce:18,fir:14,larch:18,oak:14,elm:17,ash:17,rowan:8,alder:12,blossom:6,cherry:6,columnar:14,poplar:20,willow:12,chestnut:14,broadleaf:12};
 export function registerHeight(cls,girth,family){
  const m=/(\d+)\s*-\s*(\d+)/.exec(cls||'');
  if(m){const lo=+m[1],hi=+m[2];return lo<=1?hi:(lo+hi)/2;} // young trees in the 1–5 m class are near its top in the photos

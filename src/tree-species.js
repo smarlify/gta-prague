@@ -29,6 +29,8 @@ export const FAMILY={
  rowan:    {width:.65,base:.35,shape:'ovoid',lumps:16,size:.22,leaf:'#4f6b36',tip:'#7c9f4c',bark:'#6a6560',open:.25},
  alder:    {width:.5,base:.3,shape:'ovoid',lumps:20,size:.2,leaf:'#384e29',tip:'#56763a',bark:'#4b4642',open:.2},
  blossom:  {width:.95,base:.32,shape:'dome',lumps:16,size:.25,leaf:'#506938',tip:'#7d9e50',bark:'#4a3f38',open:.2},
+ // Prague sakura / cherry: soft pink canopy on a short dark stem (Petřín, Letná).
+ cherry:   {width:.9,base:.3,shape:'dome',lumps:18,size:.24,leaf:'#e8a0b8',tip:'#f5d0dc',bark:'#4a3f38',open:.22},
  willow:   {width:.95,base:.25,shape:'weeping',lumps:24,size:.2,leaf:'#6d7d59',tip:'#a2b385',bark:'#5f584d',open:.2},
  poplar:   {width:.6,base:.3,shape:'ovoid',lumps:26,size:.19,leaf:'#466135',tip:'#6f9650',bark:'#6d6a62',open:.25},
  columnar: {width:.22,base:.12,shape:'column',lumps:18,size:.15,leaf:'#466434',tip:'#6f9a4c',bark:'#77746b',open:.1},

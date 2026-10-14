@@ -6,12 +6,15 @@ import {slopeAt} from './terrain.js';
 
 export const TRAVEL_MODES=Object.freeze({
  walk:{label:'On foot',speed:2,run:9.6,acceleration:8,braking:12,halfWidth:.28,halfLength:.28},
+ swim:{label:'Swimming',speed:1.55,run:2.2,acceleration:3.5,braking:5,halfWidth:.35,halfLength:.45},
  bike:{label:'Bicycle',speed:7,acceleration:2.4,braking:7,halfWidth:.34,halfLength:.9},
  scooter:{label:'Scooter',speed:25/3.6,acceleration:2.8,braking:8,halfWidth:.3,halfLength:.62},
 });
 export const CRASH_SPEED=2.2; // m/s: slower bumps just stop the ride
 // Impact kinds (impacts.js HITTER_MASS) of the player's own body, and the speeds below which people simply step aside.
-export const HIT_KIND={walk:'walker',bike:'bicycle',scooter:'scooter'},HIT_SPEED={walker:1,bicycle:1.2,scooter:1.2};
+export const HIT_KIND={walk:'walker',swim:'walker',bike:'bicycle',scooter:'scooter'},HIT_SPEED={walker:1,bicycle:1.2,scooter:1.2};
+const onFoot=mode=>mode==='walk'||mode==='swim';
+const inMappedWater=(world,x,z)=>world.water?.some(b=>(!b.bbox||x>=b.bbox[0]&&x<=b.bbox[2]&&z>=b.bbox[1]&&z<=b.bbox[3])&&pointInPolygon(x,z,b.rings));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 // Speed factor for a grade along the direction of travel (rise/run, uphill positive). Walking follows
 // Tobler's hiking rule (a gentle descent is easiest, steep either way is slow); bicycles slow hard uphill
@@ -19,6 +22,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function slopeFactor(mode,grade){
  const g=clamp(grade,-.4,.4);
  if(mode==='walk')return clamp(Math.exp(-3.5*(Math.abs(g+.05)-.05)),.35,1.1);
+ if(mode==='swim')return 1;
  if(mode==='bike')return g>0?Math.max(.3,1/(1+9*g)):Math.min(1.35,1-4*g);
  if(mode==='scooter')return g>0?Math.max(.45,1/(1+4.5*g)):Math.min(1.15,1-2*g);
  return 1;
@@ -40,10 +44,11 @@ export function travelCollision(p,mode,world,obstacles=[],ignore=[],from=null){
   if(!insidePlayable(q.x,q.z,.2))return 'boundary';
   const building=ignore.length&&buildings.near?buildings.near(q.x,q.z).find(b=>!b.disabled&&!ignore.includes(b)&&pointInPolygon(q.x,q.z,b.rings)):buildings.at(q.x,q.z);
   if(building&&!ignore.includes(building))return 'building';
-  if(!world.roads.at(q.x,q.z)&&!world.pavement?.at(q.x,q.z)&&world.water?.some(b=>pointInPolygon(q.x,q.z,b.rings)))return 'water';
+  // Swimming is allowed in mapped water; walking still stops at the shore.
+  if(mode!=='swim'&&!world.roads.at(q.x,q.z)&&!world.pavement?.at(q.x,q.z)&&inMappedWater(world,q.x,q.z))return 'water';
  }
  const dimensions={halfWidth:w,halfLength:l,ignore};
- if(from&&world.objects?.blocksStep?world.objects.blocksStep(from,p,dimensions):world.objects?.overlap(p,dimensions))return 'building';
+ if(mode!=='swim'&&(from&&world.objects?.blocksStep?world.objects.blocksStep(from,p,dimensions):world.objects?.overlap(p,dimensions)))return 'building';
  if(obstacles.some(b=>b!==p&&!b.disabled&&!b.playerTaken&&b.edge!==null&&!ignore.includes(b)&&bodyContains(b,p.x,p.z,spec.halfWidth)))return 'vehicle';
  return null;
 }
@@ -95,7 +100,7 @@ export class PlayerTravel{
  constructor(car,world,{cars=()=>[],rides=()=>[],obstacles=()=>[]}={}){this.carSources=cars;this.rideSources=rides;this.obstacles=obstacles;this.reset(car,world);}
  reset(car,world){
   for(const source of this.claimedSources||[])source.release?.();
-  this.claimedSources=[];this.world=world;this.car=car;this.homeCar=car;car.travelMode='car';car.id='car';this.cars=[car];this.actor=car;this.mode='car';this.rides=starterRides(car,world);this.riding=null;this.transition=null;this.sprint=false;
+  this.claimedSources=[];this.world=world;this.car=car;this.homeCar=car;car.travelMode='car';car.id='car';this.cars=[car];this.actor=car;this.mode='car';this.rides=starterRides(car,world);this.riding=null;this.transition=null;this.sprint=false;this.sunkCar=null;
  }
  parked(){return [...this.cars.filter(c=>c!==this.actor),...this.rides.filter(r=>r!==this.riding)];}
  parkedBodies(){return this.parked().map(p=>({...p,hw:p.halfWidth??.98,hl:p.halfLength??2.36,ref:{...p,parked:true}}));}
@@ -107,14 +112,25 @@ export class PlayerTravel{
    // The target vehicle's own collider is ignored only for reaching it;
    // real buildings and intervening vehicles still prevent entry.
    const ignore=r.source?.obstacle?[r.source.obstacle]:[],bodies=[...parked,...obstacles].filter(b=>b!==r.actor),stopped=Math.abs(r.actor.speed||0)<=1.2;
-   const path=this.mode==='walk'&&near&&stopped&&r.source?.canClaim?.()!==false&&clearTravelPath(this.actor,r.actor,this.world,bodies,ignore);
+   const path=onFoot(this.mode)&&near&&stopped&&r.source?.canClaim?.()!==false&&clearTravelPath(this.actor,r.actor,this.world,bodies,ignore);
    const mount=path&&r.mode!=='car'?mountPosition(r.actor,r.mode,this.world,bodies,ignore):null;
    return {...r,distance,mount,available:!!path&&(r.mode==='car'||!!mount)};
   });
  }
  nearest(obstacles=this.obstacles()){return this.choices(obstacles).filter(c=>c.available).sort((a,b)=>a.distance-b.distance)[0]||null;}
+ // Drive into the Vltava: the car sinks and the player swims to shore for a new ride.
+ sinkInWater(){
+  if(this.mode!=='car')return {ok:false};
+  const from={...this.actor},sunk=this.actor;
+  sunk.sunk=true;sunk.disabled=true;sunk.speed=0;sunk.steer=0;sunk.sinkProgress=0;
+  this.cars=this.cars.filter(c=>c!==sunk);
+  this.actor=makeActor({x:from.x,z:from.z,heading:from.heading},'swim',from.distance);
+  this.mode='swim';this.car=this.cars[0]||null;this.riding=null;this.sprint=false;this.sunkCar=sunk;
+  this.startTransition(from);
+  return {ok:true,message:'Swim to shore and find another car.',sunk};
+ }
  interact(id=null,obstacles=this.obstacles()){
-  if(this.mode!=='walk'){
+  if(!onFoot(this.mode)){
    if(Math.abs(this.actor.speed)>1.2)return {ok:false,message:'Stop before getting off.'};
    const position=exitPosition(this.actor,this.mode,this.world,[...this.parked(),...obstacles]);
    if(!position)return {ok:false,message:'There is no room to get off here. Move to a clear spot.'};
@@ -123,7 +139,7 @@ export class PlayerTravel{
    return {ok:true,message:'On foot'};
   }
   const choice=id?this.choices(obstacles).find(c=>c.id===id&&c.available):this.nearest(obstacles);
-  if(!choice)return {ok:false,message:'Move beside a stopped car, bicycle or scooter.'};
+  if(!choice)return {ok:false,message:this.mode==='swim'?'Reach the shore, then Enter a stopped car.':'Move beside a stopped car, bicycle or scooter.'};
   let target=choice.actor;
   if(choice.source){
    const taken=choice.source.claim?.();if(taken===false)return {ok:false,message:'Wait for the ride to stop.'};
@@ -172,11 +188,16 @@ export class PlayerTravel{
  }
  step(keys,dt,obstacles=[]){
   if(this.mode==='car')return {collision:null};
+  if(this.sunkCar){this.sunkCar.sinkProgress=Math.min(1,(this.sunkCar.sinkProgress||0)+dt*.35);if(this.sunkCar.sinkProgress>=1)this.sunkCar=null;}
   const fall=this.actor.knockdown;if(fall){fall.elapsed+=Math.max(0,dt);this.actor.speed=0;if(fall.elapsed>=fall.duration)delete this.actor.knockdown;return {collision:null};}
-  const p=this.actor,spec=TRAVEL_MODES[this.mode],walk=this.mode==='walk';
+  // Leave the river: swimming ends on shore / pavement / road.
+  if(this.mode==='swim'&&!inMappedWater(this.world,this.actor.x,this.actor.z)){
+   const from={...this.actor};this.actor=makeActor(from,'walk',from.distance);this.mode='walk';this.startTransition(from);
+  }
+  const p=this.actor,spec=TRAVEL_MODES[this.mode],walk=onFoot(this.mode);
   const up=keys.has('KeyW')||keys.has('ArrowUp'),down=keys.has('KeyS')||keys.has('ArrowDown'),brake=keys.has('Space');
   const steer=(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)-(keys.has('KeyD')||keys.has('ArrowRight')?1:0)||(keys.tilt||0);
-  const sprint=walk&&(this.sprint||keys.has('ShiftLeft')||keys.has('ShiftRight'));
+  const sprint=this.mode==='walk'&&(this.sprint||keys.has('ShiftLeft')||keys.has('ShiftRight'));
   const base=brake?0:up===down?0:up?(sprint?spec.run:spec.speed):walk?-1.4:p.speed>.15?0:-1.3;
   const target=base*slopeFactor(this.mode,gradeAhead(p,Math.sign(base)));
   const acceleration=target===0||target*p.speed<0||Math.abs(target)<Math.abs(p.speed)?spec.braking:spec.acceleration;
@@ -193,5 +214,5 @@ export class PlayerTravel{
   if(collision&&!walk&&Math.abs(before.speed)>=CRASH_SPEED){const v=Math.abs(before.speed);this.crash(v,obstacles);return {collision,moved:gap(before,p),crashed:v};}
   return {collision,moved:gap(before,p)};
  }
- snapshot(){const copy=({visual,...actor})=>({...actor});return {mode:this.mode,sprint:this.sprint,actor:copy(this.actor),car:copy(this.car),cars:this.cars.map(copy),rides:this.rides.map(copy),choices:this.choices().map(({id,mode,label,distance,available})=>({id,mode,label,distance,available}))};}
+ snapshot(){const copy=({visual,...actor})=>({...actor});return {mode:this.mode,sprint:this.sprint,actor:copy(this.actor),car:this.car?copy(this.car):null,cars:this.cars.map(copy),rides:this.rides.map(copy),choices:this.choices().map(({id,mode,label,distance,available})=>({id,mode,label,distance,available})),sunk:!!this.sunkCar};}
 }
