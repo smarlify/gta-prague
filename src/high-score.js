@@ -16,6 +16,8 @@ export const GAME_NAME = 'GTA Praha';
 
 const GOOGLE_LABEL = 'Continue with Google';
 const SAVE_LABEL = 'Save score';
+/** Temp: hide Continue with Google in the BUSTED strip. Sign-in code stays wired. */
+const SHOW_CONTINUE_WITH_GOOGLE = false;
 
 /** Whole metres driven this run — the leaderboard sort key. */
 export function scoreFromDistance(metres) {
@@ -128,14 +130,15 @@ export function bindHighScoreUI(root = document, {
     showGuestFallback(false);
   };
 
-  /** Logged-out chooser: Google primary, guest only after a failed Google attempt. */
+  /** Logged-out chooser: Google primary (when enabled), else guest name only. */
   const showLoggedOutChooser = (scoreOk) => {
     if (googleBtn) {
-      googleBtn.hidden = !scoreOk;
+      googleBtn.hidden = !(scoreOk && SHOW_CONTINUE_WITH_GOOGLE);
       googleBtn.textContent = GOOGLE_LABEL;
       googleBtn.disabled = false;
     }
-    showGuestFallback(false);
+    // While Google is hidden, offer guest save immediately so scores still ship.
+    showGuestFallback(!!scoreOk && !SHOW_CONTINUE_WITH_GOOGLE);
   };
 
   /** Signed-in retry: single Save score control, no Google/guest pair. */
@@ -209,7 +212,7 @@ export function bindHighScoreUI(root = document, {
       setBusy(false);
       setStatus('Google sign-in failed. You can still save with a guest name.', 'error');
       if (googleBtn) {
-        googleBtn.hidden = false;
+        googleBtn.hidden = !SHOW_CONTINUE_WITH_GOOGLE;
         googleBtn.textContent = GOOGLE_LABEL;
       }
       showGuestFallback(true);
@@ -251,7 +254,7 @@ export function bindHighScoreUI(root = document, {
     panel.hidden = true;
     showGuestFallback(false);
     if (googleBtn) {
-      googleBtn.hidden = false;
+      googleBtn.hidden = !SHOW_CONTINUE_WITH_GOOGLE;
       googleBtn.disabled = false;
       googleBtn.textContent = GOOGLE_LABEL;
     }
@@ -283,7 +286,12 @@ export function bindHighScoreUI(root = document, {
         autoSaveSignedIn(authApi.currentUser);
       } else {
         showLoggedOutChooser(true);
-        setStatus('Score sent to Playful — sign in there, or use Google here.', 'info');
+        setStatus(
+          SHOW_CONTINUE_WITH_GOOGLE
+            ? 'Score sent to Playful — sign in there, or use Google here.'
+            : 'Score sent to Playful — sign in there, or save with a guest name here.',
+          'info',
+        );
       }
       return { embedded: true, score };
     }
@@ -293,7 +301,11 @@ export function bindHighScoreUI(root = document, {
       autoSaveSignedIn(authApi.currentUser);
     } else {
       showLoggedOutChooser(true);
-      setStatus('Save this run with Google to appear on the high-score table.');
+      setStatus(
+        SHOW_CONTINUE_WITH_GOOGLE
+          ? 'Save this run with Google to appear on the high-score table.'
+          : 'Save this run with a guest name to appear on the high-score table.',
+      );
     }
 
     return { embedded: false, score };
