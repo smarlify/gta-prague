@@ -106,10 +106,11 @@ test('logged-out iframe posts to parent and keeps Google as fallback', async () 
   assert.equal(messages[0].type, 'GAME_OVER');
   assert.equal(messages[0].score, 3200);
   assert.equal(doc.elements['high-score-panel'].hidden, false);
-  assert.equal(doc.elements['high-score-google'].hidden, false);
-  assert.equal(doc.elements['high-score-guest'].hidden, true);
+  // Temp: Continue with Google is hidden; guest save is shown instead.
+  assert.equal(doc.elements['high-score-google'].hidden, true);
+  assert.equal(doc.elements['high-score-guest'].hidden, false);
   assert.match(doc.elements['high-score-status'].textContent, /Playful/);
-  assert.match(doc.elements['high-score-status'].textContent, /Google/);
+  assert.match(doc.elements['high-score-status'].textContent, /guest name/);
 
   if (prev === undefined) delete globalThis.window;
   else globalThis.window = prev;

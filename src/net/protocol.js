@@ -36,9 +36,13 @@ export function isAnonymousProvider(user) {
   return provider === 'anonymous' || !provider && !!user.isAnonymous;
 }
 
-/** Google sign-in only. Anonymous sessions stay offline. */
+/**
+ * Temp default: any authenticated uid (incl. anonymous) may join the demo room.
+ * Google is not required — Brave and other browsers can auto-join without sign-in.
+ * Typed names come from localStorage / the name field, not from Google.
+ */
 export function canJoinMultiplayer(user) {
-  return !!(user && user.uid && !isAnonymousProvider(user));
+  return !!(user && user.uid);
 }
 
 export function normalizeMode(mode) {

@@ -4,7 +4,7 @@
 import { onAuthStateChanged } from 'firebase/auth';
 import { ensureAuthUser, getFirebaseAuth } from '../firebase.js';
 import { displayNameFor } from '../high-score.js';
-import { bindPlayerNameField, currentPresenceName, rememberGoogleName } from './player-name.js';
+import { bindPlayerNameField, rememberGoogleName } from './player-name.js';
 import { applyCrashImpulse } from '../crash-physics.js';
 import {
   buildPresence,
@@ -68,11 +68,6 @@ export function createMultiplayerSession(scene, {
   doc = document,
 } = {}) {
   const remotes = createRemotePresence(scene);
-  const names = bindPlayerNameField(doc, {
-    googleName: () => {
-      try { return displayNameFor() || ''; } catch { return ''; }
-    },
-  });
   let room = null;
   let authUnsub = null;
   let lastHudKey = '';
@@ -81,6 +76,10 @@ export function createMultiplayerSession(scene, {
   let pendingImpulse = null;
   const appliedImpulses = new Map();
   let beatTimer = null;
+  /** Force the next step() to publish even before the Hz interval (name edits). */
+  let publishSoon = false;
+  /** Filled after `api` exists so the name field can trigger an immediate publish. */
+  let requestNamePublish = () => { publishSoon = true; };
 
   const isOnline = () => !!room;
   const onlineCount = () => (room ? room.onlineCount() : 0);
@@ -96,7 +95,7 @@ export function createMultiplayerSession(scene, {
 
   const join = async () => {
     if (!rtdbConfigured()) return;
-    const result = await goOnline();
+    const result = await goOnline({ name: presenceName() });
     if (result.kind !== 'joined') return;
     if (room) await room.leave();
     room = result.room;
@@ -110,27 +109,13 @@ export function createMultiplayerSession(scene, {
     onGoOffline: leave,
   });
 
-  try {
-    if (rtdbConfigured()) {
-      void ensureAuthUser().catch((err) => console.warn('multiplayer auth failed', err));
-    }
-    authUnsub = onAuthStateChanged(getFirebaseAuth(), async (user) => {
-      if (!canJoinMultiplayer(user)) {
-        await leave();
-        return;
-      }
-      rememberGoogleName(displayNameFor(user) || '');
-      names.prefill();
-      // Google accounts auto-join the demo room. Anonymous sessions stay offline.
-      if (!room) {
-        const result = await joinDemoRoom(user);
-        if (result.kind === 'joined') room = result.room;
-      }
-      hud.refresh();
-    });
-  } catch {
-    // Scoreboard env missing — HUD stays hidden via rtdbConfigured.
-  }
+  const names = bindPlayerNameField(doc, {
+    googleName: () => {
+      try { return displayNameFor() || ''; } catch { return ''; }
+    },
+    onNameChange: () => { requestNamePublish(); },
+  });
+  const presenceName = () => names.getName() || 'Driver';
 
   const api = {
     isOnline,
@@ -141,7 +126,7 @@ export function createMultiplayerSession(scene, {
         try { return getFirebaseAuth().currentUser; } catch { return null; }
       })();
       if (!rtdbConfigured() || !canJoinMultiplayer(user) || room) return;
-      const result = await joinDemoRoom(user);
+      const result = await joinDemoRoom(user, { name: presenceName() });
       if (result.kind === 'joined') {
         room = result.room;
         hud.refresh();
@@ -183,7 +168,9 @@ export function createMultiplayerSession(scene, {
         if (pendingImpulse && now - pendingImpulse.at > 2500) pendingImpulse = null;
         const publishing = presencePublishes({ paused, afk, busted });
         const interval = 1000 / presencePublishHz({ afk, busted });
-        if (publishing && (!lastPublishMs || now - lastPublishMs >= interval)) {
+        const due = publishSoon || !lastPublishMs || now - lastPublishMs >= interval;
+        if (publishing && due) {
+          publishSoon = false;
           lastPublishMs = now;
           const travel = getTravel();
           const actor = travel?.actor || travel?.car;
@@ -195,7 +182,7 @@ export function createMultiplayerSession(scene, {
           const vehicle = vehicleFromTravel(travel, getPlayerCars());
           const presence = buildPresence({
             uid: room.uid,
-            name: currentPresenceName(displayNameFor() || '') || 'Driver',
+            name: presenceName(),
             x: actor?.x,
             z: actor?.z,
             heading: actor?.heading,
@@ -229,6 +216,38 @@ export function createMultiplayerSession(scene, {
       await leave();
     },
   };
+
+  requestNamePublish = () => {
+    publishSoon = true;
+    if (!room) return;
+    const busted = !!getPolice()?.busted;
+    api.step(0, { paused: false, afk: false, busted });
+  };
+
+  try {
+    if (rtdbConfigured()) {
+      void ensureAuthUser().catch((err) => console.warn('multiplayer auth failed', err));
+    }
+    authUnsub = onAuthStateChanged(getFirebaseAuth(), async (user) => {
+      if (!canJoinMultiplayer(user)) {
+        await leave();
+        return;
+      }
+      rememberGoogleName(displayNameFor(user) || '');
+      names.prefill();
+      // Auto-join demo for any authenticated uid (incl. anonymous).
+      if (!room) {
+        const result = await joinDemoRoom(user, { name: presenceName() });
+        if (result.kind === 'joined') room = result.room;
+      } else {
+        requestNamePublish();
+      }
+      hud.refresh();
+    });
+  } catch {
+    // Scoreboard env missing — HUD stays hidden via rtdbConfigured.
+  }
+
   // A hidden tab stops requestAnimationFrame, so the pose stream would die and
   // peers would cull the player. Heartbeat once a second while the document is hidden.
   beatTimer = setInterval(() => {
