@@ -82,9 +82,10 @@ export class PresenceRoom {
 
 /**
  * Join demo room when the current user has a uid and RTDB is configured.
+ * `name` seeds presence.name (typed / localStorage / Google); defaults to Driver.
  * @returns {Promise<{ kind: 'solo' } | { kind: 'joined', room: PresenceRoom }>}
  */
-export async function joinDemoRoom(user = getFirebaseAuth().currentUser) {
+export async function joinDemoRoom(user = getFirebaseAuth().currentUser, { name } = {}) {
   if (!rtdbConfigured()) return { kind: 'solo' };
   if (!canJoinMultiplayer(user)) return { kind: 'solo' };
   try {
@@ -92,11 +93,14 @@ export async function joinDemoRoom(user = getFirebaseAuth().currentUser) {
     const uid = user.uid;
     const room = new PresenceRoom(db, DEMO_ROOM, uid);
     const rowRef = ref(db, playerPath(uid));
+    const seedName = (typeof name === 'string' && name.trim())
+      ? name.trim().slice(0, 48)
+      : (currentPresenceName(displayNameFor(user) || '') || 'Driver');
     await onDisconnect(rowRef).remove();
     // Seed a minimal row so peers see the join immediately.
     await set(rowRef, toRtdb({
       uid,
-      name: currentPresenceName(displayNameFor(user) || '') || 'Driver',
+      name: seedName,
       x: 0,
       z: 0,
       heading: 0,
@@ -129,6 +133,7 @@ export async function goOnline({
     }
   },
   join = joinDemoRoom,
+  name,
 } = {}) {
   let user = authUser();
   if (!canJoinMultiplayer(user)) {
@@ -140,5 +145,5 @@ export async function goOnline({
     }
   }
   if (!canJoinMultiplayer(user)) return { kind: 'solo' };
-  return join(user);
+  return join(user, { name });
 }

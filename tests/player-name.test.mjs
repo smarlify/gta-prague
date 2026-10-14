@@ -7,6 +7,7 @@ import {
   currentPresenceName,
   readStoredPlayerName,
   rememberGoogleName,
+  resolvePresenceName,
   writeStoredPlayerName,
 } from '../src/net/player-name.js';
 
@@ -51,4 +52,26 @@ test('presence row publishes the typed name instead of Driver', () => {
   assert.equal(row.name, 'Dave 2');
   assert.equal(parsePresence(row).name, 'Dave 2');
   assert.equal(buildPresence({ uid: 'uid-empty', name: cleanPlayerName('') }).name, 'Driver');
+});
+
+test('live input wins over empty localStorage so remotes never see Driver', () => {
+  const storage = memoryStorage();
+  assert.equal(resolvePresenceName({
+    inputValue: 'Dave',
+    googleName: '',
+    storage,
+  }), 'Dave');
+  assert.equal(storage.getItem(PLAYER_NAME_STORAGE_KEY), 'Dave');
+  assert.equal(resolvePresenceName({
+    inputValue: '  Dave 2 ',
+    googleName: 'Google',
+    storage,
+  }), 'Dave 2');
+  assert.equal(parsePresence(buildPresence({
+    uid: 'uid-live',
+    name: resolvePresenceName({ inputValue: 'Dave 2', storage }),
+    x: 0,
+    z: 0,
+    mode: 'car',
+  })).name, 'Dave 2');
 });
