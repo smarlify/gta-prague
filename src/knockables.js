@@ -14,9 +14,9 @@ export function carContact(car,x,z,radius){
   return Math.abs(lateral)<CAR_HALF_WIDTH+radius&&Math.abs(longitudinal)<CAR_HALF_LENGTH+radius?{lateral,longitudinal}:null;
 }
 
-export function createKnockables(items,parts,{radius=.3,height=1.1}={}){
+export function createKnockables(items,parts,{radius=.3,height=1.1,castShadow=true}={}){
   const group=new THREE.Group();group.name='Knockable street furniture';
-  const meshes=parts.map(({geometry,material})=>{const m=new THREE.InstancedMesh(geometry,material,items.length);m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;group.add(m);return m;});
+  const meshes=parts.map(({geometry,material})=>{const m=new THREE.InstancedMesh(geometry,material,items.length);m.castShadow=castShadow;m.receiveShadow=true;m.frustumCulled=false;group.add(m);return m;});
   const bodies=items.map((p,i)=>({id:p.id??i,home:{x:p.x,z:p.z,yaw:p.yaw},x:p.x,y:0,z:p.z,yaw:p.yaw,vx:0,vy:0,vz:0,spin:0,
     tilt:0,tiltRate:0,axis:new THREE.Vector3(1,0,0),knocked:false,resting:true,restTime:0,rand:randomFor(i+1)}));
   const qYaw=new THREE.Quaternion(),qTilt=new THREE.Quaternion(),up=new THREE.Vector3(0,1,0),matrix=new THREE.Matrix4(),pos=new THREE.Vector3(),one=new THREE.Vector3(1,1,1);

@@ -24,7 +24,7 @@ function patchShader(shader,texture,refs){
   .replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed=(signPose()*vec4(transformed,1.)).xyz;');
 }
 
-export function createBreakableSigns(name='Breakable signs',{register=true}={}){
+export function createBreakableSigns(name='Breakable signs',{register=true,castShadow=true}={}){
  const group=new THREE.Group();group.name=name;
  const posts=[],attached=[],materials=new Map(),uniforms=[],pending=new Map();
  group.worldObjects=posts;
@@ -80,7 +80,7 @@ export function createBreakableSigns(name='Breakable signs',{register=true}={}){
   for(const [base,gs]of pending){group.add(mesh(mergeGeometries(gs),base));gs.forEach(g=>g.dispose());}pending.clear();
   if(posts.length&&!stumps){
    const g=new THREE.CylinderGeometry(.03,.036,.34,7);g.translate(0,.17,0);
-   stumps=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:'#9aa2a0',metalness:.3,roughness:.55}),posts.length);stumps.name=`${name} stumps`;stumps.frustumCulled=false;stumps.castShadow=true;group.add(stumps);
+   stumps=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:'#9aa2a0',metalness:.3,roughness:.55}),posts.length);stumps.name=`${name} stumps`;stumps.frustumCulled=false;stumps.castShadow=castShadow;group.add(stumps);
   }
   dirty=true;update();return group;
  }

@@ -73,6 +73,7 @@ export function createExtensionStreamer({entries=[],load,install=async()=>{},con
  return {...stream,
   // A direct jump must finish its destination before actors are moved there.
   ensureStart(start){return start?.extension?stream.require([start.extension]):Promise.resolve([]);},
+  // Open a region before the player reaches it. Troja's edge is about 2 km north and Bohnice about 2.6 km; 1200 m plus look-ahead covers both on the way. Ground tiles inside a region use the shorter surface radius.
   update(player,options={}){stream.update(player,{radius:1200,aheadSeconds:20,...options});},
   prefetchAll(){return stream.require(entries.map(e=>e.id),{background:true});},
  };

@@ -34,7 +34,10 @@ test('the view distance stops short of the whole city disk and the HUD names the
  const main = fs.readFileSync('src/main.js', 'utf8');
  const html = fs.readFileSync('index.html', 'utf8');
  assert.match(main, /new THREE\.Fog\('#b9cbd4',330,580\)/);
+ assert.match(main, /SURFACE_STREAM_RADIUS=640/);
  assert.match(main, /new THREE\.PerspectiveCamera\(58,captureFrame\.w\/captureFrame\.h,\.25,720\)/);
+ assert.match(fs.readFileSync('src/tree-species.js', 'utf8'), /far:600/);
+ assert.match(fs.readFileSync('src/extensions.js', 'utf8'), /radius:1200/);
  assert.match(main, /fps-readout/);
  assert.match(html, /id="fps-readout"/);
  assert.match(html, /id="district-label"[\s\S]{0,80}id="fps-readout"/);
