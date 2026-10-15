@@ -59,7 +59,7 @@ const night={
  ...clear,
 };
 // June white night: the sun skims the northern horizon; dim blue-pink dusk, nothing is dark.
-// Manual cycle only. The live clock uses Night after evening.
+// Manual cycle only. Automatic night begins once the Prague sun is down.
 const whitenight={
  label:'White night',
  sky:{zenith:'#223a62',mid:'#4f6a99',horizon:'#e3b7b0',sunGlow:'#ffc9b0',cloudLit:'#d7b4b8',cloudShade:'#5e5d7c',coverage:.6,sunDisc:.6},
@@ -186,7 +186,7 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
  if(!LOOKS[initial])throw Error(`Unknown daytime "${initial}"`);
  if(!WEATHERS[initialWeather])throw Error(`Unknown weather "${initialWeather}"`);
  let day=initial,wx=initialWeather,target=compose(day,wx);
- let settled=target,lastSkyEvent=0,dayAuto=!!automatic,wxAuto=!!automatic,liveDay=day,liveWx=wx,flash=0,thunderIn=8;
+ let settled=target,lastSkyEvent=0,dayAuto=!!automatic,wxAuto=!!automatic,liveDay=day,liveWx=wx,flash=0,thunderIn=8,thunderCues=0;
  // A transition has settled when every numeric channel of the blended state is within 1% of its target.
  const settledEnough=(a,b)=>Object.keys(a).every(key=>{const x=a[key],y=b[key];
   if(x instanceof THREE.Color||x instanceof THREE.Vector3){const p=x.toArray(),q=y.toArray();return p.every((v,i)=>Math.abs(v-q[i])<.01);}
@@ -214,12 +214,13 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
   for(const [m,base] of baseColors){m.roughness=1-c.wetness*.72;m.color.copy(base).multiplyScalar(1-c.wetness*.3);}
  }
  // Lightning is a short flash on the thunderstorm weather only. The daytime sun stays put between flashes.
+ // Each strike queues one thunder cue. Ordinary rain and snow never do.
  function stepFlash(dt){
   const storm=wx==='thunder';
   if(!(storm&&current.rain>.45))flash=storm?Math.max(0,flash-dt*3.2):0;
   else{
    flash=Math.max(0,flash-dt*3.2);thunderIn-=dt;
-   if(thunderIn<=0){flash=1;thunderIn=7+Math.random()*10;}
+   if(thunderIn<=0){flash=1;thunderIn=7+Math.random()*10;thunderCues++;}
   }
   if(flash<=.02)return;
   const k=Math.min(1,flash);
@@ -237,6 +238,7 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
   get automatic(){return dayAuto;},
   get weatherAutomatic(){return wxAuto;},
   get storm(){return wx==='thunder';},
+  consumeThunder(){const n=thunderCues;thunderCues=0;return n;},
   get current(){return current;},
   uniforms:WEATHER_UNIFORMS,
   rain:rainLines,
