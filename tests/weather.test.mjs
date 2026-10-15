@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {LOOKS,LOOK_ORDER,WEATHERS,WEATHER_ORDER,WEATHER_UNIFORMS,createLook,createRain} from '../src/weather.js';
+import {LOOKS,LOOK_ORDER,WEATHERS,WEATHER_ORDER,WEATHER_UNIFORMS,SNOW_DUST,createLook,createRain,createSnow} from '../src/weather.js';
 import {createSky,SUN_OFFSET} from '../src/sky.js';
 import {GRADE_DEFAULTS} from '../src/post.js';
 
@@ -28,12 +28,27 @@ test('every look is complete, with valid colours and a sun above the horizon',()
  assert.ok(LOOKS.golden.sunOffset[1]/Math.hypot(...LOOKS.golden.sunOffset)<Math.sin(25*Math.PI/180),'golden evening sun is low');
  assert.ok(LOOKS.morning.sunOffset[0]>0,'morning sun is in the east');
  assert.ok(LOOKS.morning.sunOffset[1]/Math.hypot(...LOOKS.morning.sunOffset)<Math.sin(28*Math.PI/180),'morning sun is low');
- assert.equal(LOOKS.night.fog.near,WEATHERS.rain.fog.near);assert.equal(LOOKS.night.fog.far,WEATHERS.rain.fog.far);
+ assert.ok(LOOKS.night.fog.near>WEATHERS.rain.fog.near&&LOOKS.night.fog.far>WEATHERS.rain.fog.far,'clear night fog starts past the rainy street');
  assert.equal(WEATHERS.rain.wetness,1);assert.equal(WEATHERS.rain.rain,1);assert.equal(WEATHERS.rain.snow,0);
  assert.equal(WEATHERS.snow.wetness,0);assert.equal(WEATHERS.snow.rain,1);assert.equal(WEATHERS.snow.snow,1);
  assert.equal(WEATHERS.thunder.wetness,1);assert.equal(WEATHERS.thunder.rain,1);assert.equal(WEATHERS.thunder.label,'Thunderstorm');
  assert.equal(WEATHERS.clear.wetness,0);assert.equal(WEATHERS.clear.rain,0);assert.equal(WEATHERS.overcast.fog.near,230);
  assert.equal(LOOKS.whitenight.label,'White night');
+});
+
+test('night is moonlit and still darker than midday',()=>{
+ const night=LOOKS.night,day=LOOKS.midday;
+ assert.equal(night.sunIntensity,.58);assert.equal(night.hemiIntensity,1.1);assert.equal(night.grade.exposure,.86);
+ assert.ok(night.sunIntensity<day.sunIntensity&&night.hemiIntensity<day.hemiIntensity&&night.grade.exposure<day.grade.exposure);
+ assert.equal(night.hemiSky,'#8eabcc');assert.equal(night.hemiGround,'#3a424c');assert.equal(night.sunColor,'#b7c6de');
+ assert.ok(night.grade.vignette>day.grade.vignette&&night.grade.vignette<.4,'night still frames the view without blacking the corners');
+ assert.equal(night.fog.near,300);assert.equal(night.fog.far,800);
+ assert.ok(night.fog.near>110&&night.fog.near<day.fog.near&&night.fog.far<day.fog.far);
+ assert.equal(night.sky.zenith,'#070d18');
+ assert.notEqual(night.sky.zenith,LOOKS.golden.sky.zenith);assert.notEqual(night.sky.horizon,LOOKS.golden.sky.horizon);
+ assert.notEqual(night.sky.zenith,LOOKS.whitenight.sky.zenith);assert.ok(night.sky.sunDisc<LOOKS.whitenight.sky.sunDisc);
+ assert.equal(LOOKS.morning.sunIntensity,1.85);assert.equal(LOOKS.golden.sunIntensity,2);assert.equal(LOOKS.whitenight.sunIntensity,1.3);
+ assert.equal(LOOKS.morning.grade.exposure,1.02);assert.equal(LOOKS.golden.grade.exposure,1);assert.equal(LOOKS.whitenight.grade.exposure,.9);
 });
 
 test('look blends toward the target and drives sky, lights, fog and weather uniforms',()=>{
@@ -68,10 +83,11 @@ test('look blends toward the target and drives sky, lights, fog and weather unif
  look.setWeather('snow',{instant:true});
  assert.equal(look.name,'whitenight');assert.equal(look.label,'White night');assert.equal(look.weatherLabel,'Snow');
  assert.equal(WEATHER_UNIFORMS.snow.value,1);assert.equal(WEATHER_UNIFORMS.wetness.value,0);
- assert.ok(look.rain.visible);assert.equal(look.rain.material.uniforms.uSnow,WEATHER_UNIFORMS.snow);
+ assert.equal(look.snow.visible,true);assert.equal(look.rain.visible,false,'snow hides the rain streaks');
+ assert.equal(look.snow.material.uniforms.uSnow,WEATHER_UNIFORMS.snow);
  assert.ok(surface.roughness>.9,'snow does not gloss the road');
  assert.ok(sun.position.clone().sub(sun.target.position).distanceTo(new THREE.Vector3(...LOOKS.whitenight.sunOffset))<1e-3,'snow keeps the daytime sun');
- look.dispose();assert.ok(!scene.children.includes(look.rain));
+ look.dispose();assert.ok(!scene.children.includes(look.rain));assert.ok(!scene.children.includes(look.snow));
 });
 
 test('snow at night keeps the night sun and adds the snow tint',()=>{
@@ -87,7 +103,7 @@ test('snow at night keeps the night sun and adds the snow tint',()=>{
  assert.equal(WEATHER_UNIFORMS.snow.value,1);assert.equal(WEATHER_UNIFORMS.wetness.value,0);assert.equal(WEATHER_UNIFORMS.rain.value,1);
  look.setWeather('overcast',{instant:true});
  assert.ok(Math.abs(sky.uniforms.uSunDisc.value-LOOKS.night.sky.sunDisc)<.01,'overcast does not hide the night sun');
- assert.ok(Math.abs(scene.fog.near-LOOKS.night.fog.near)<1,'night fog is already as tight as overcast');
+ assert.ok(Math.abs(scene.fog.near-WEATHERS.overcast.fog.near)<1,'overcast still pulls a clear night inward');
  look.dispose();
 });
 
@@ -135,6 +151,32 @@ test('rain is a single transparent line batch that never writes depth',()=>{
  assert.ok(rain.isLineSegments);assert.equal(rain.material.transparent,true);assert.equal(rain.material.depthWrite,false);
  assert.equal(rain.frustumCulled,false);assert.ok(rain.geometry.attributes.position.count>=2000);
  assert.equal(rain.material.uniforms.uRain,WEATHER_UNIFORMS.rain,'opacity follows the shared weather uniform');
+ assert.equal(rain.material.uniforms.uSnow,undefined,'streaks no longer borrow the snow uniform');
+});
+
+test('snow shows soft flakes and hides streaks, and rain still shows streaks',()=>{
+ assert.ok(SNOW_DUST>0&&SNOW_DUST<.5,'roads and the ground only take a light dusting');
+ const snow=createSnow();
+ assert.ok(snow.isPoints);assert.equal(snow.isLineSegments,undefined);
+ assert.match(snow.material.fragmentShader,/gl_PointCoord/);
+ assert.match(snow.material.vertexShader,/sin\(/);
+ assert.doesNotMatch(snow.material.vertexShader,/position\.x/);
+ assert.equal(snow.material.transparent,true);assert.equal(snow.material.depthWrite,false);
+ assert.equal(snow.material.uniforms.uSnow,WEATHER_UNIFORMS.snow);
+ const scene=new THREE.Scene();
+ const look=createLook({scene,initial:'midday',weather:'clear'});
+ assert.equal(look.rain.visible,false);assert.equal(look.snow.visible,false);
+ look.setWeather('rain',{instant:true});
+ assert.equal(look.rain.visible,true);assert.equal(look.snow.visible,false);
+ look.setWeather('snow');
+ let both=false;
+ for(let i=0;i<800;i++){look.update(1/60,i/60);if(look.rain.visible&&look.snow.visible)both=true;}
+ assert.equal(both,false,'only one of the two draws is visible');
+ assert.equal(look.snow.visible,true);assert.equal(look.rain.visible,false);
+ assert.notEqual(look.snow.geometry,look.rain.geometry);
+ look.setWeather('thunder',{instant:true});
+ assert.equal(look.rain.visible,true);assert.equal(look.snow.visible,false,'thunder keeps the rain streaks');
+ look.dispose();
 });
 
 test('a look transition fires skychange while blending and once more when it settles, then stays quiet',()=>{

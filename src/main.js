@@ -14,7 +14,7 @@ import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities} from './ci
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
-import {animateVehicle} from './vehicles.js';
+import {animateVehicle,streetLampsOn,vehicleLampsOn} from './vehicles.js';
 import {Mobility} from './mobility.js';
 import {createStreetLife} from './street-life.js';
 import {SKODA_PAINT,policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
@@ -104,7 +104,7 @@ import {createBirdFlightClearance} from './bird-flight-clearance.js';
 import {gameIsStopped,onGameStop,reportGameError} from './game-resilience.js';
 import {createSky} from './sky.js';
 import {createPostPipeline} from './post.js';
-import {attachSnow,createLook,WEATHER_UNIFORMS} from './weather.js';
+import {attachSnow,createLook,SNOW_DUST,WEATHER_UNIFORMS} from './weather.js';
 import {clockLook,pragueHour,startPragueForecast} from './live-weather.js';
 import {createStreetFurniture,combineKnockables} from './street-furniture.js';
 import {breakableSigns} from './breakable-signs.js';
@@ -117,7 +117,7 @@ import {createMappedFurniture} from './mapped-furniture.js';
 import {createPlace} from './place-scene.js';
 import {createSpeciesTrees} from './tree-species.js';
 import {createTreeTrunks} from './tree-trunks.js';
-import {PlayerTravel,TRAVEL_MODES} from './player-travel.js';
+import {PlayerTravel,TRAVEL_MODES,cameraBody} from './player-travel.js';
 import {createPlayerTravelRenderer,travelCameraPose} from './player-travel-renderer.js';
 import {createTravelUI} from './player-travel-ui.js';
 import {createMobileControls} from './mobile-controls.js';
@@ -154,7 +154,7 @@ let detailPeople=[],travel=null,peopleInteraction=null,staticCars=[],trafficCars
 const $=id=>document.getElementById(id);
 const keys=new Set();
 let data,world,car,startPoint,roofIndex,surfaceIndex,aerialIndex,ready=false,started=false,paused=false,mapOpen=false;
-let angryDrivers=null,photoMode=false,captureMode=false,captureBadgeTimer=0,highCamera=false,chaseCamera=true,cameraLook=0,mobility,streetLife,tramSim,tramRenderer,cameraHeading=0,cathedralModel,harbour;
+let angryDrivers=null,photoMode=false,captureMode=false,captureBadgeTimer=0,highCamera=false,chaseCamera=true,cameraLook=0,mobility,streetLife,tramSim,tramRenderer,cameraHeading=0,cathedralModel,harbour,refreshStreetLamps=()=>{};
 const driveCamera=createDriveCameraState();let cameraFov=DRIVE_FOV.min,cameraRoll=0,cameraShake=[0,0,0];
 // Cobblestone rumble (src/road-surface.js): mapped sett polygons bounce the car body and, at half amplitude, the drive camera.
 const roadRumble=createRumbleState();let cameraRumble=[0,0,0],surfaceNow={surface:'off',roughness:0},rumbleNow={bob:0,roll:0,pitch:0,intensity:0};
@@ -215,16 +215,17 @@ const skyEnvironment=createSkyEnvironment(renderer,sky.mesh);
 let post=null;try{post=createPostPipeline(renderer);}catch(e){console.warn('Post pipeline unavailable, rendering directly:',e);}
 let look=null;
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(11000,11000),new THREE.MeshStandardMaterial({color:'#94988b',roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.y=-.5;ground.receiveShadow=true;cityModel.add(ground);
-attachSnow(ground.material);
+attachSnow(ground.material,{amount:SNOW_DUST});
 setWorldMetreUVs(ground.geometry,{plane:true});
 const surfaceMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide});
 surfaceMaterial.onBeforeCompile=shader=>{
  shader.vertexShader='varying vec3 vGround;\n#ifdef TERRAIN\nattribute float terrainY;\n#endif\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvGround=position;\n#ifdef TERRAIN\nvGround.y-=terrainY;\n#endif');
  // uWetness comes from weather.js (WEATHER_UNIFORMS.wetness): rain darkens and smooths the asphalt bays.
  shader.uniforms.uWetness=WEATHER_UNIFORMS.wetness;
+ shader.uniforms.uSnow=WEATHER_UNIFORMS.snow;
  shader.uniforms.uAsphalt=ASPHALT_UNIFORM;
  shader.uniforms.uAsphaltScale=ASPHALT_SCALE_UNIFORM;
- shader.fragmentShader='varying vec3 vGround;uniform float uWetness;uniform sampler2D uAsphalt;uniform float uAsphaltScale;\nfloat groundHash(vec2 p){return fract(sin(dot(p,vec2(41.7,113.1)))*4371.3);}\nfloat groundNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(groundHash(i),groundHash(i+vec2(1,0)),f.x),mix(groundHash(i+vec2(0,1)),groundHash(i+vec2(1,1)),f.x),f.y);}\n'+GRANITE_SETTS_GLSL+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+ shader.fragmentShader='varying vec3 vGround;uniform float uWetness;uniform float uSnow;uniform sampler2D uAsphalt;uniform float uAsphaltScale;\nfloat groundHash(vec2 p){return fract(sin(dot(p,vec2(41.7,113.1)))*4371.3);}\nfloat groundNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(groundHash(i),groundHash(i+vec2(1,0)),f.x),mix(groundHash(i+vec2(0,1)),groundHash(i+vec2(1,1)),f.x),f.y);}\n'+GRANITE_SETTS_GLSL+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
  // Filter sub-pixel masonry and grain; unfiltered fract() patterns sparkle in motion.
  float footprint=max(length(dFdx(vGround.xz)),length(dFdy(vGround.xz)));
  vec2 settFp=vec2(length(vec2(dFdx(vGround.x),dFdy(vGround.x))),length(vec2(dFdx(vGround.z),dFdy(vGround.z))));
@@ -255,9 +256,11 @@ surfaceMaterial.onBeforeCompile=shader=>{
  }else if(vGround.y>0.04&&vGround.y<0.06){
   vec2 grid=abs(fract(vGround.xz/vec2(0.7,0.48))-0.5);float seam=smoothstep(0.46,0.50,max(grid.x,grid.y));diffuseColor.rgb*=0.62-mix(0.15,seam,detail)*0.10+grain*0.04;
  }else diffuseColor.rgb*=1.0+grain*0.04;
+ // Light dusting on the carriageway. Snow does not gloss the road, and it does not pile up.
+ diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.94,0.95,0.97),clamp(uSnow,0.0,1.0)*${SNOW_DUST});
  `).replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\n roughnessFactor*=1.0-wetRough*0.6;');
 };
-surfaceMaterial.customProgramCacheKey=()=>'surface-asphalt-map';
+surfaceMaterial.customProgramCacheKey=()=>'surface-asphalt-map-snow';
 const buildingMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.88});
 buildingMaterial.onBeforeCompile=shader=>{
  shader.uniforms.uPlaster={value:buildingMaterial.userData.plaster||0};
@@ -812,7 +815,9 @@ function frame(now){
     }else if(!r.crashed){const h=travel.hitPeople(previous,[...mobility.people,...detailPeople],impacts,{police,obstacles:travelObstacles()});
      if(h?.fell){car=travel.actor;playerCars.sync(travel);toast(h.fell>5?'Ouch. You hit someone and went flying.':'You hit someone and came off. Press Enter to get back on.');lastToast=now;}else if(h?.bumped&&now-lastToast>1500){toast('Sorry!');lastToast=now;}}
     distance=car.distance;
-    if(r.collision==='water'&&driving){const sink=travel.sinkInWater();car=travel.actor;playerCars.sync(travel);if(sink.ok&&now-lastToast>1200){toast('Car sinking — swim to shore, then Enter a stopped car.');lastToast=now;}}else if(r.collision&&now-lastToast>2200){lastToast=now;}
+    // Bridge decks are mapped as water, so a splash stops the car instead of sinking it.
+    if(r.collision&&now-lastToast>2200){lastToast=now;}
+    if(travel.mode!=='car')car=cameraBody(travel,car);
    }
    const beforeTransitImpact=Math.abs(car.speed);
    tramSim.step(step,car,[...mobility.cars,...(buses?.obstacles||[]),...police.obstacles,...parked]);
@@ -826,17 +831,18 @@ function frame(now){
    roadblock?.step(step,car,before,{started:started&&driving,knockables,onBurst:()=>finale.offence('roadblock','Drove into a police roadblock')});
    if(police.busted){setBusted(true);break;}
   }
-  knockables?.update();streetLife.update(dt,car);tramRenderer.update(car);cyclistRenderer.update(car);npcScooterRenderer.update(car,dt);policeRenderer.update(dt);roadblock?.update(dt,car);
+  knockables?.update();streetLife.update(dt,car,vehicleLampsOn(look.name,look.weather));tramRenderer.update(car);cyclistRenderer.update(car);npcScooterRenderer.update(car,dt);policeRenderer.update(dt);roadblock?.update(dt,car);
   if(police.message){toast(police.message);police.message=null;}
  }else if(ready&&police?.busted){policeRenderer.update(dt);roadblock?.update(dt,car);if(finale.cinematicStep(dt,roadblock?.playing)){$('busted-overlay').classList.toggle('live',!!roadblock?.active);$('busted-overlay').hidden=false;highScore.offer(finale.summary?.raw?.distance??car?.distance??distance);$('busted-continue').focus();}} // arrest cinematic: strobes keep flashing, then the end screen
  if(car){
+   car=cameraBody(travel,car); // after a crash or leftover sink, follow the new body, not the abandoned car
    speedometer.update(car,dt,{mode:travel.mode});
-   travel.advanceTransition(paused||mapOpen?0:dt);playerCars.sync(travel,dt);const vehicle=travel.sunkCar||travel.car||car;
+   const lamps=vehicleLampsOn(look.name,look.weather);playerCars.setLamps(lamps);streetLife?.setLamps(lamps,car);refreshStreetLamps();travel.advanceTransition(paused||mapOpen?0:dt);playerCars.sync(travel,dt);const vehicle=travel.sunkCar||travel.car||car;
    treeFocus.value.set(car.x,car.z);
    treeFade.value=chaseCamera&&started?0:1;
    surfaceNow=world?surfaceDetailAt(world,car.x,car.z):surfaceNow;rumbleNow=rumbleFor(travel.mode==='car'&&started&&!paused&&!mapOpen?surfaceNow.surface:'asphalt',travel.mode==='car'?car.speed:0,paused||mapOpen?0:dt,roadRumble,surfaceNow.roughness);
    const slope=groundPose(vehicle.x,vehicle.z,vehicle.heading,1.4,.8); // terrain: wheels on the ground, body pitched and rolled with the slope
-   const sinkY=(vehicle.sunk||vehicle.sinkProgress)?-(vehicle.sinkProgress||0)*3.2:0;carGroup.visible=travel.mode==='car'||!!travel.sunkCar;carGroup.position.set(vehicle.x,.12+rumbleNow.bob+slope.y+sinkY,vehicle.z);carGroup.rotation.y=vehicle.heading;carGroup.rotation.x=rumbleNow.pitch+slope.pitch+(sinkY?-0.25*Math.min(1,-sinkY/3):0);
+   carGroup.visible=travel.mode==='car'||!!travel.sunkCar;carGroup.position.set(vehicle.x,.12+rumbleNow.bob+slope.y,vehicle.z);carGroup.rotation.y=vehicle.heading;carGroup.rotation.x=rumbleNow.pitch+slope.pitch; // no sink drop: bridge decks are mapped as water
    carGroup.rotation.z=(started?-vehicle.steer*Math.min(Math.abs(vehicle.speed)*.002,.04):0)+rumbleNow.roll+slope.roll;
    animateVehicle(carGroup,vehicle.speed,vehicle.steer,paused||mapOpen?0:dt,keys.has('Space')||keys.has('KeyS')||keys.has('ArrowDown'));
    for(const w of carGroup.userData.wheels)w.pivot.scale.y=vehicle.flat?.7:1;if(vehicle.flat)carGroup.position.y-=.08; // shredded tyres: squashed wheels, car sits on its rims
@@ -1050,7 +1056,7 @@ async function boot(){
    // Detected street furniture: solid boxes join the obstacles; posts, bins and barriers can be knocked down.
    const mapped=furnitureData&&await furnitureData;let mappedFurniture=null;
    if(mapped?.items)for(const pl of places)mapped.items=mapped.items.filter(i=>!(pl.dropFurniture||[]).some(([x,z,r])=>Math.hypot(i.x-x,i.z-z)<r)); // replaced by the place's own lamps and masts
-   if(mapped?.items?.length){mappedFurniture=createMappedFurniture(mapped,{player:()=>car,mobility:()=>mobility});cityModel.add(mappedFurniture.group);streetObstacles.push(...mappedFurniture.obstacles);knockables=combineKnockables([knockables,mappedFurniture.knockables]);}
+   if(mapped?.items?.length){mappedFurniture=createMappedFurniture(mapped,{player:()=>car,mobility:()=>mobility,night:()=>streetLampsOn(look.name)});refreshStreetLamps=()=>mappedFurniture.update();cityModel.add(mappedFurniture.group);streetObstacles.push(...mappedFurniture.obstacles);knockables=combineKnockables([knockables,mappedFurniture.knockables]);}
    world={buildings:new SpatialIndex([...data.buildings,...streetObstacles.filter(o=>!o.breakable),...ads.obstacles]),roads:new SpatialIndex(data.roads.filter(r=>!/Koroke/.test(r.kind))),pavement:new SpatialIndex(data.pavement),trafficForbidden:new SpatialIndex(helsinki?[...data.pavement.filter(inHarbour),...data.roads.filter(r=>/Koroke/.test(r.kind)),...olympiaTramOnlySurfaces(data)]:data.roads.filter(r=>/Koroke/.test(r.kind))),water:data.water};
    if(city.id==='prague'){
     world.roadClearsBuildings=true; // OSM footprints spilled onto asphalt are not solid mid-road walls
@@ -1068,7 +1074,7 @@ async function boot(){
    setStart(firstStart);history.replaceState(null,'',startUrl(location,city,firstStart));
    progress(58,'Preparing the driving map');await new Promise(r=>setTimeout(r,30));drawMapBase();
    progress(68,'Loading buildings and textures');focus.set(car.x,0,car.z);await Promise.all([ensureCityModel(),updateTiles()]);
-   progress(88,'Loading traffic and pedestrians');mobility=helsinki?new Mobility(correctHarbourLanes(mobilityData),world,{stationCars:16,corridorCars:HARBOUR_CORRIDOR_CARS,corridor:harbourCorridor(world.roads)}):new Mobility(mobilityData,world);mobility.reset(car);angryDrivers=createAngryDrivers({vehicleOf:a=>streetLife?.traffic?.vehicleOf(a)});scene.add(angryDrivers.group);mobility.onCrash=a=>angryDrivers.trigger(a,mobility.time);streetLife=createStreetLife(scene,mobility,{paintColors:city.id==='prague'?SKODA_PAINT:null});streetLife.update(0,car);world.objects.add(breakableSigns.bodies);
+   progress(88,'Loading traffic and pedestrians');mobility=helsinki?new Mobility(correctHarbourLanes(mobilityData),world,{stationCars:16,corridorCars:HARBOUR_CORRIDOR_CARS,corridor:harbourCorridor(world.roads)}):new Mobility(mobilityData,world);mobility.reset(car);angryDrivers=createAngryDrivers({vehicleOf:a=>streetLife?.traffic?.vehicleOf(a)});scene.add(angryDrivers.group);mobility.onCrash=a=>angryDrivers.trigger(a,mobility.time);streetLife=createStreetLife(scene,mobility,{paintColors:city.id==='prague'?SKODA_PAINT:null});streetLife.update(0,car,vehicleLampsOn(look.name,look.weather));world.objects.add(breakableSigns.bodies);
    trafficCars=mobility.cars.map(actor=>{const visual=streetLife.traffic.vehicleOf(actor);return {id:`traffic-${actor.id}`,label:visual?.type==='taxi'?'Taxi':'Car',actor,visual:{type:visual?.type||'sedan',paint:visual?.paint.getStyle()},claim(){if(actor.playerTaken||actor.edge===null||Math.abs(actor.speed)>1.2)return false;actor.playerTaken=true;actor.edge=null;actor.speed=0;return true;},release(){delete actor.playerTaken;}};});
    police=new PoliceSimulation(mobility.roads,world);policeRenderer=createPoliceRenderer(scene,police,{livery:policeLiveryFor(city.id),cityId:city.id});police.onIncident=(...incident)=>finale.incident(...incident);roadblock=createRoadblock(scene,{world,police,carModel:carGroup,playerLook:travelRenderer.look,isVisible:trafficInView,obstacles:()=>[...mobility.cars.filter(c=>c.edge),...(tramSim?.bodies||[]),...(buses?.bodies||[]),...travel.parkedBodies(),...police.obstacles],onWarning:message=>toast(message,{important:true}),uniformWord:()=>{const a=policeAgencyFor(city.id,police.level);return city.id==='prague'?a.uniform:a.word;}});
    tramSim=new TramSimulation(tramData,world);tramSim.reset(car);tramRenderer=createTramRenderer(scene,tramSim);tramRenderer.update(car);

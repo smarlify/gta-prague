@@ -77,9 +77,9 @@ function plateGeometry(size,rect){
  g.deleteAttribute('normal');g.computeVertexNormals();return g.toNonIndexed();
 }
 
-export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,canvas=globalThis.document}={}){
+export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,night=()=>false,canvas=globalThis.document}={}){
  const group=new THREE.Group();group.name='Mapped street furniture';
- const items=layer?.items||[],obstacles=[],chunks=new Map(),lights=[];
+ const items=layer?.items||[],obstacles=[],chunks=new Map(),lights=[],streetLamps=[];
  const painted=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.6,metalness:.2});
  const atlas=canvas&&layer.faces?.length?signAtlas(layer.faces):null;
  const plates=new THREE.MeshStandardMaterial({map:atlas?.texture||null,alphaTest:.5,roughness:.55,side:THREE.FrontSide});
@@ -102,6 +102,7 @@ export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,c
    const front=plateGeometry(size,rect);front.translate(0,p.y,.045);place(front,it.x,it.z,p.yaw,chunk,i,chunk.plates);
    const rear=plateGeometry(size,back);rear.rotateY(Math.PI);rear.translate(0,p.y,.035);place(rear,it.x,it.z,p.yaw,chunk,i,chunk.plates);}
   if(LENSES[it.k])lights.push({x:it.x,z:it.z,yaw,kind:it.k,post:chunk.signs.bodies[i],edge:undefined});
+  if(it.k==='lamp')streetLamps.push({x:it.x,z:it.z,yaw,post:chunk.signs.bodies[i],chunk});
  });
  for(const chunk of chunks.values()){
   if(chunk.painted.length){const m=chunk.signs.mesh(mergeGeometries(chunk.painted),painted);m.name='Mapped furniture posts';chunk.group.add(m);}
@@ -141,6 +142,24 @@ export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,c
   if(moved)lenses.instanceMatrix.needsUpdate=true;if(coloured&&lenses.instanceColor)lenses.instanceColor.needsUpdate=true;
  }
 
+ // The cream lamp head is merged into the post, so it cannot glow on its own. One unlit bulb
+ // sits on that head, inside the same view range, and only after dark. No point lights.
+ let bulbs=null;
+ if(streetLamps.length){
+  bulbs=new THREE.InstancedMesh(new THREE.SphereGeometry(.16,8,6),new THREE.MeshBasicMaterial({color:'#fff1c8',toneMapped:false,fog:false}),streetLamps.length);
+  bulbs.name='Street lamp bulbs';bulbs.frustumCulled=false;bulbs.count=0;bulbs.castShadow=bulbs.receiveShadow=false;group.add(bulbs);
+ }
+ function updateStreetLamps(p){
+  if(!bulbs)return;
+  const on=!!(p&&night());let n=0;
+  if(on)for(const lamp of streetLamps){
+   if(!lamp.chunk.group.visible||lamp.post.state!=='upright')continue;
+   if(Math.hypot(lamp.x-p.x,lamp.z-p.z)>VIEW_RANGE)continue;
+   const yaw=lamp.yaw;m4.compose(v.set(lamp.x+Math.sin(yaw)*1.5,8.21+groundAt(lamp.x,lamp.z),lamp.z+Math.cos(yaw)*1.5),q.setFromAxisAngle(UP,yaw),one);bulbs.setMatrixAt(n++,m4);
+  }
+  if(bulbs.count!==n||n){bulbs.count=n;bulbs.instanceMatrix.needsUpdate=true;}
+ }
+
  // Knockable light items and solid boxes.
  const knock=[];
  const binParts=()=>[cyl(.028,.028,.55,.275,'#5b615f',6),cyl(.215,.2,.68,.86,'#3a4541',10),cyl(.23,.215,.06,1.22,'#2f3836',10)];
@@ -173,7 +192,7 @@ export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,c
  function update(){
   const p=player();if(!p)return;
   for(const c of chunks.values())c.group.visible=Math.hypot(c.centre[0]-p.x,c.centre[1]-p.z)<VIEW_RANGE+CHUNK*.71;
-  updateLenses(p);
+  updateLenses(p);updateStreetLamps(p);
  }
  const counts={};for(const it of items)counts[it.k]=(counts[it.k]||0)+1;
  group.userData={source:layer?.source,licence:layer?.licence,counts,chunks:chunks.size,lights:lights.length};
