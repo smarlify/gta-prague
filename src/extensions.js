@@ -42,7 +42,8 @@ export async function loadExtension(e,json,unpack){
   if(land){city.parks.push(...land.parks);city.trees.push(...land.trees);}
   // HSL buses and light rail of the area (scripts/build-extension-transit.mjs), when it has them.
   const transitLines=e.transit?await json(dataUrl(`${e.dir}/${e.transit}`)):null;
-  return {...e,city,buildings,surfaces,mobility,transitLines};
+  const furniture=e.furniture?await json(dataUrl(`${e.dir}/${e.furniture}`)):null;
+  return {...e,city,buildings,surfaces,mobility,transitLines,furniture};
 }
 // Compatibility for import/build tools. Runtime startup uses the catalog alone.
 export async function loadExtensions(json,unpack){

@@ -1,22 +1,57 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {gunzipSync} from 'node:zlib';
 import {extensionCredit, extensionSourcesText} from '../src/extensions.js';
-import {CORRIDOR_PROVENANCE} from '../src/prague-corridors.js';
+import {CORRIDOR_PROVENANCE, CORRIDOR_SPECS, NORTH_LAYER_IDS, NORTH_LAYER_NOTE} from '../src/prague-corridors.js';
 
 const index = JSON.parse(fs.readFileSync('public/cities/prague/extensions/index.json', 'utf8'));
+const KEPT = ['zlute-lazne', 'barrandov', 'troja', 'palmovka', 'bohnice', 'kobylisy', 'severni-spojka'];
 
 test('Prague corridor catalog entries carry an OpenStreetMap provenance note', () => {
- assert.ok(index.extensions.length >= 9);
+ assert.deepEqual(index.extensions.map(entry => entry.id), KEPT);
+ assert.ok(!fs.existsSync('public/cities/prague/extensions/magistrala'));
+ assert.ok(!fs.existsSync('public/cities/prague/extensions/airport'));
+ assert.ok(CORRIDOR_SPECS.some(spec => spec.id === 'severni-spojka'));
+ assert.ok(CORRIDOR_SPECS.some(spec => spec.id === 'jizni-spojka'));
+ assert.ok(!CORRIDOR_SPECS.some(spec => spec.id === 'magistrala' || spec.id === 'airport'));
  for (const entry of index.extensions) {
-  assert.equal(entry.provenance.note, CORRIDOR_PROVENANCE.note);
-  assert.equal(extensionCredit(entry), CORRIDOR_PROVENANCE.note);
+  const note = NORTH_LAYER_IDS.includes(entry.id) ? NORTH_LAYER_NOTE : CORRIDOR_PROVENANCE.note;
+  assert.equal(entry.provenance.note, note);
+  assert.equal(extensionCredit(entry), note);
  }
  const line = extensionSourcesText(index.extensions, {helsinki: false});
  assert.match(line, /Troja to Bohnice/);
  assert.match(line, /OpenStreetMap contributors/);
  assert.doesNotMatch(line, /Seurasaari/);
  assert.doesNotMatch(line, /City of Helsinki/);
+ assert.doesNotMatch(line, /Magistrála|Airport/);
+});
+
+test('the view distance stops short of the whole city disk and the HUD names the frame rate', () => {
+ const main = fs.readFileSync('src/main.js', 'utf8');
+ const html = fs.readFileSync('index.html', 'utf8');
+ assert.match(main, /new THREE\.Fog\('#b9cbd4',330,580\)/);
+ assert.match(main, /new THREE\.PerspectiveCamera\(58,captureFrame\.w\/captureFrame\.h,\.25,720\)/);
+ assert.match(main, /fps-readout/);
+ assert.match(html, /id="fps-readout"/);
+ assert.match(html, /id="district-label"[\s\S]{0,80}id="fps-readout"/);
+});
+
+test('Troja and Bohnice keep centre layers instead of a thinned outline', () => {
+ for (const id of NORTH_LAYER_IDS) {
+  const entry = index.extensions.find(item => item.id === id);
+  const city = JSON.parse(gunzipSync(fs.readFileSync(`public/cities/prague/extensions/${id}/city.pack`)));
+  assert.ok(city.roads.length > 20, `${id} roads`);
+  assert.ok(city.pavement.length > 10, `${id} pavement`);
+  assert.ok(city.buildings.length > 10, `${id} buildings`);
+  assert.ok(city.trees.length > 10, `${id} trees`);
+  assert.equal(entry.furniture, 'furniture.json');
+  const furniture = JSON.parse(fs.readFileSync(`public/cities/prague/extensions/${id}/furniture.json`, 'utf8'));
+  assert.ok(furniture.items.length > 0, `${id} furniture`);
+  const surfaces = JSON.parse(fs.readFileSync(`public/cities/prague/extensions/${id}/surface-index.json`, 'utf8'));
+  assert.ok(surfaces.length > 0, `${id} surfaces`);
+ }
 });
 
 test('a Helsinki extension without a note still uses the municipal credit', () => {

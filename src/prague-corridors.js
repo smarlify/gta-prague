@@ -12,6 +12,11 @@ export const CORRIDOR_PROVENANCE = Object.freeze({
  note: '© OpenStreetMap contributors (ODbL): playable outline of mapped roads beyond the city disk, including extra carriageways from OpenStreetMap; buildings stay on the main city build',
 });
 
+// Troja, Bohnice, and the Stromovka edge ship the same layers as the centre.
+// The shorter strips stay outlines.
+export const NORTH_LAYER_IDS = Object.freeze(['troja', 'bohnice']);
+export const NORTH_LAYER_NOTE = '© OpenStreetMap contributors (ODbL): roads, pavement, buildings, trees, and street furniture for Troja, Bohnice, and the Stromovka edge. Bored tunnels are omitted. Bridge decks, park planting, and surface colours follow the centre.';
+
 export const CORRIDOR_SPECS = Object.freeze([
  {id: 'zlute-lazne', title: 'Podolí to Žluté lázně',
   test: text => /žluté lázně|zlute lazne|modřansk|modransk|podolsk|u přehrady|u prehrady/i.test(text)},
@@ -25,12 +30,8 @@ export const CORRIDOR_SPECS = Object.freeze([
   test: text => /bohnic|lodžsk|lodzsk|čimick|cimick|ústeck|usteck|pazder|havránk|havrank/i.test(text)},
  {id: 'kobylisy', title: 'Kobylisy',
   test: text => /kobylis|střelnič|strelnic|klapkov/i.test(text)},
- {id: 'magistrala', title: 'Magistrála to Chodov and the D1',
-  test: text => /magistrál|magistral|wilsonova|legerova|sokolsk|5\. května|5\. kvetna|spořilov|brněnsk|brnensk|(^|\s)D1(\s|$)/i.test(text)},
  {id: 'severni-spojka', title: 'Severní spojka, Letňany to Černý Most',
   test: text => /kbelsk|cínoveck|cinoveck|chlumeck|vysočansk|vysocansk|novopack|severní spojka|severni spojka/i.test(text)},
- {id: 'airport', title: 'Dejvice to Václav Havel Airport',
-  test: text => /evropsk|drnovsk|k letišti|k letisti|aviatick|lipsk/i.test(text)},
  {id: 'jizni-spojka', title: 'Jižní spojka',
   test: text => /jižní spojka|jizni spojka/i.test(text)},
 ]);

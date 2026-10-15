@@ -24,9 +24,7 @@ const DESTINATIONS = {
  'palmovka': {name: 'Palmovka', lon: 14.474, lat: 50.103},
  'bohnice': {name: 'Bohnice', lon: 14.410, lat: 50.134},
  'kobylisy': {name: 'Kobylisy', lon: 14.452, lat: 50.126},
- 'magistrala': {name: 'Chodov', lon: 14.491, lat: 50.0315},
  'severni-spojka': {name: 'Černý Most', lon: 14.577, lat: 50.104},
- 'airport': {name: 'Václav Havel Airport', lon: 14.2632, lat: 50.1008},
 };
 
 const city = JSON.parse(gunzipSync(fs.readFileSync(path.join(ROOT, 'city.pack'))));
@@ -144,8 +142,6 @@ for (const spec of CORRIDOR_SPECS) {
  const south = Math.min(def.origin[1], dest.lat) - pad, north = Math.max(def.origin[1], dest.lat) + pad;
  const west = Math.min(def.origin[0], dest.lon) - pad, east = Math.max(def.origin[0], dest.lon) + pad;
  const pattern = {
-  airport: 'Evropská|Lipská|Aviatická|K letišti|Drnovská',
-  magistrala: '5. května|Spořilovská|Brněnská|D1',
   'severni-spojka': 'Kbelská|Cínovecká|Chlumecká|Novopacká',
   'zlute-lazne': 'Modřanská|Podolské nábřeží|U přehrady',
   barrandov: 'Barrandovský most|K Barrandovu|Strakonická',

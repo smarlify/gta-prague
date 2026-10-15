@@ -94,6 +94,7 @@ export function setRiverChannel(water){
 }
 export function setDryPassages(roads){dryPassages=(roads||[]).filter(r=>r.passage&&r.rings);}
 export function setBridgeSpans(items){bridgeSpans=items?.length?new SpatialIndex(items):null;}
+export function addBridgeSpans(items){if(!items?.length)return;if(!bridgeSpans)bridgeSpans=new SpatialIndex(items);else bridgeSpans.add(items);}
 export function bridgeSpanAt(x,z){return !!bridgeSpans?.at(x,z);}
 export function pointInRiverChannel(x,z){return inRiver(x,z);}
 function channelAt(x,z){return waterAt(x,z)!==null||inRiver(x,z);}
