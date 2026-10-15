@@ -136,8 +136,9 @@ export function treeInstance(t,i=0){
 }
 
 // All species trees of a city in three BatchedMeshes (near, mid, far): one draw call per level, with
-// per-tree visibility by distance and per-tree frustum culling. Returns {group, update(focus), stats}.
-export const SPECIES_LOD={near:140,mid:460,far:850};
+// per-tree visibility by distance and per-tree frustum culling. Far ends near the fog.
+// Returns {group, update(focus), stats}.
+export const SPECIES_LOD={near:140,mid:460,far:600};
 export function treeLevel(d,b=SPECIES_LOD){return d<b.near?'near':d<b.mid?'mid':d<b.far?'far':null;}
 export function createSpeciesTrees(trees){
  const group=new THREE.Group();group.name='Species trees';

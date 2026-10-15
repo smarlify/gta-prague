@@ -24,6 +24,9 @@ test('the Praha number comes from the nearest area anchor',()=>{
  assert.equal(pragueDistrictNumber(PRAGUE_AREAS,KARLIN.x,KARLIN.z),'8');
  // Vltavská's start is nearer Holešovice. A point nearer Karlín is Praha 8.
  assert.equal(pragueDistrictNumber(PRAGUE_AREAS,VLTAVSKA.x,VLTAVSKA.z),'7');
+ assert.equal(pragueDistrictNumber(PRAGUE_AREAS,-682.48,-3347.94),'7');
+ assert.equal(pragueDistrictNumber(PRAGUE_AREAS,-783.9,-5371.15),'8');
+ assert.equal(pragueDistrictNumber(PRAGUE_AREAS,3730.54,-1727.92),'8');
  const dx=HOLESOVICE.x-KARLIN.x,dz=HOLESOVICE.z-KARLIN.z,len=Math.hypot(dx,dz);
  const karlSide={x:KARLIN.x+dx/len*200,z:KARLIN.z+dz/len*200};
  assert.equal(pragueDistrictNumber(PRAGUE_AREAS,karlSide.x,karlSide.z),'8');

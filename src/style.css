@@ -12,6 +12,7 @@
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 .photographic .vignette{background:linear-gradient(180deg,#f7f5eee0 0,rgba(247,245,238,.5) 95px,transparent 190px,transparent calc(100% - 205px),rgba(247,245,238,.6) calc(100% - 80px),#f7f5eec7)}
 .photographic .location-tag{background:#f8f5edda;backdrop-filter:blur(8px);padding:7px 12px;border-radius:4px;top:106px;left:28px}
+.fps-readout{font-variant-numeric:tabular-nums;letter-spacing:.4px;opacity:.72}
 .photographic .landmark-label{background:#f8f5eddd;padding:9px 12px;border-radius:4px;filter:none;box-shadow:0 2px 12px #0002}
 .photographic .journey{background:#f8f5edd9;padding:13px 17px;border-radius:4px;backdrop-filter:blur(8px)}
 .photographic .speedometer{background:#f8f5ede8;padding:13px 17px;border-radius:4px;backdrop-filter:blur(8px);width:155px}

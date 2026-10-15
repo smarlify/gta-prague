@@ -11,16 +11,20 @@ import proj4 from 'proj4';
 import polygonClipping from 'polygon-clipping';
 import {decodeTerrain} from '../src/terrain.js';
 import {readPng} from './city-terrain.mjs';
-import {CORRIDOR_SPECS, corridorIdFor, circleRing, simplifyRing, multiBBox, heightSamples} from '../src/prague-corridors.js';
+import {CORRIDOR_SPECS, CORRIDOR_PROVENANCE, CORRIDOR_STARTS, corridorIdFor, circleRing, simplifyRing, multiBBox, heightSamples} from '../src/prague-corridors.js';
 
 const ROOT = 'public/cities/prague';
 const RAW = 'data/raw/cities/prague';
 const OVERLAP = 180;
 const LINK_REACH = 26;
 const DESTINATIONS = {
- 'magistrala': {name: 'Chodov', lon: 14.491, lat: 50.0315},
+ 'zlute-lazne': {name: 'Žluté lázně', lon: 14.4147, lat: 50.0472},
+ 'barrandov': {name: 'Barrandov', lon: 14.380, lat: 50.030},
+ 'troja': {name: 'Troja zoo', lon: 14.413, lat: 50.1165},
+ 'palmovka': {name: 'Palmovka', lon: 14.474, lat: 50.103},
+ 'bohnice': {name: 'Bohnice', lon: 14.410, lat: 50.134},
+ 'kobylisy': {name: 'Kobylisy', lon: 14.452, lat: 50.126},
  'severni-spojka': {name: 'Černý Most', lon: 14.577, lat: 50.104},
- 'airport': {name: 'Václav Havel Airport', lon: 14.2632, lat: 50.1008},
 };
 
 const city = JSON.parse(gunzipSync(fs.readFileSync(path.join(ROOT, 'city.pack'))));
@@ -91,13 +95,14 @@ function farthest(id) {
 }
 
 function overpass(name, body) {
+ fs.mkdirSync(RAW, {recursive: true});
  const file = path.join(RAW, `${name}.json`);
  if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
  const endpoints = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
- const query = `[out:json][timeout:45];${body}`;
- for (let attempt = 0; attempt < 4; attempt++) {
+ const query = `[out:json][timeout:20];${body}`;
+ for (let attempt = 0; attempt < 1; attempt++) {
   try {
-   const text = execFileSync('curl', ['-sS', '-f', '--max-time', '50', '-A', 'worldhood/0.1 (prague corridor)', '--data-urlencode', `data=${query}`, endpoints[attempt % endpoints.length]], {encoding: 'utf8', maxBuffer: 1 << 28});
+   const text = execFileSync('curl', ['-sS', '-f', '--max-time', '25', '-A', 'worldhood/0.1 (prague corridor)', '--data-urlencode', `data=${query}`, endpoints[attempt % endpoints.length]], {encoding: 'utf8', maxBuffer: 1 << 28});
    const json = JSON.parse(text);
    fs.writeFileSync(file, text);
    console.log(`  ${name}: ${json.elements.length} elements`);
@@ -136,9 +141,15 @@ for (const spec of CORRIDOR_SPECS) {
  const pad = 0.02;
  const south = Math.min(def.origin[1], dest.lat) - pad, north = Math.max(def.origin[1], dest.lat) + pad;
  const west = Math.min(def.origin[0], dest.lon) - pad, east = Math.max(def.origin[0], dest.lon) + pad;
- const pattern = spec.id === 'airport' ? 'Evropská|Lipská|Aviatická|K letišti|Drnovská'
-  : spec.id === 'magistrala' ? '5. května|Spořilovská|Brněnská|D1'
-  : 'Kbelská|Cínovecká|Chlumecká|Novopacká';
+ const pattern = {
+  'severni-spojka': 'Kbelská|Cínovecká|Chlumecká|Novopacká',
+  'zlute-lazne': 'Modřanská|Podolské nábřeží|U přehrady',
+  barrandov: 'Barrandovský most|K Barrandovu|Strakonická',
+  troja: 'Trojská|Povltavská|U trojského zámku',
+  palmovka: 'Zenklova|Libeňský most',
+  bohnice: 'Čimická|Lodžská|Bohnická|K Bohnicím|Ústecká|Pazder',
+  kobylisy: 'Kobyliská|Střelničná|Klapkova',
+ }[spec.id] || spec.title;
  const extra = overpass(`corridor-${spec.id}`, `(way["highway"]["name"~"${pattern}",i](${south},${west},${north},${east}););out geom;`);
  for (const way of extra.elements || []) {
   if (way.type !== 'way' || !way.geometry || way.geometry.length < 2) continue;
@@ -152,7 +163,7 @@ for (const spec of CORRIDOR_SPECS) {
   let length = 0;
   for (let i = 1; i < line.length; i++) length += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
   if (length < 30) continue;
-  extraEdges.push({points: line.map(p => [p[0], p[1]]), length: +length.toFixed(2), lane: /oneway|motorway/.test(`${way.tags?.oneway} ${way.tags?.highway}`) ? 0.35 : 1.6, crossing: false, signal: -1});
+  extraEdges.push({name: way.tags?.name || '', points: line.map(p => [p[0], p[1]]), length: +length.toFixed(2), lane: /oneway|motorway/.test(`${way.tags?.oneway} ${way.tags?.highway}`) ? 0.35 : 1.6, crossing: false, signal: -1});
   extraRoads.push({id: `osm-way-${way.id}`, name: way.tags?.name || '', kind: 'Ajorata', material: 'Asfaltti', rings: bufferLine(line, width)[0] || [line], bbox: line.reduce((b, p) => [Math.min(b[0], p[0]), Math.min(b[1], p[1]), Math.max(b[2], p[0]), Math.max(b[3], p[1])], [Infinity, Infinity, -Infinity, -Infinity])});
  }
 }
@@ -184,16 +195,48 @@ const extensionRoot = path.join(ROOT, 'extensions');
 fs.mkdirSync(extensionRoot, {recursive: true});
 for (const spec of CORRIDOR_SPECS) {
  const roads = groups.get(spec.id);
- const pieces = [];
- for (const road of roads) {
-  const multi = road.piece || (road.rings ? outside([road.rings]) : []);
-  pieces.push(...multi);
- }
- let playable = [];
- if (pieces.length) {
-  try { playable = polygonClipping.union(...pieces); } catch { playable = pieces.flat(); }
- }
+ const piecesFor = list => {
+  const pieces = [];
+  for (const road of list) {
+   const multi = road.extra ? (road.piece || []) : (road.rings ? outside([road.rings]) : []);
+   pieces.push(...multi.filter(poly => poly?.[0]?.length > 3));
+  }
+  return pieces;
+ };
+ const unite = pieces => {
+  if (!pieces.length) return [];
+  try { return polygonClipping.union(...pieces); } catch { return pieces; }
+ };
+ let playable = unite(piecesFor(roads));
+ if (!playable.length) playable = unite(piecesFor(roads.filter(road => !road.extra)));
  playable = playable.map(poly => poly.map(ring => simplifyRing(ring, 8)).filter(ring => ring.length > 3)).filter(poly => poly[0]?.length > 3);
+ // Bohnice sits past Trojská. A union of the buffers drops segments and leaves
+ // gaps, so the driveable strip is the overlapping quads themselves.
+ if (spec.id === 'bohnice') {
+  const quads = [];
+  const addLine = line => {
+   if (!line || line.length < 2) return;
+   const w = 14;
+   for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1], b = line[i], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
+    if (len < 0.5) continue;
+    if (Math.hypot(a[0], a[1]) < 3000 && Math.hypot(b[0], b[1]) < 3000) continue;
+    const ux = dx / len, uz = dz / len, ext = 12;
+    const a2 = [a[0] - ux * ext, a[1] - uz * ext], b2 = [b[0] + ux * ext, b[1] + uz * ext];
+    const nx = -uz * w, nz = ux * w;
+    const ring = [[a2[0] + nx, a2[1] + nz], [b2[0] + nx, b2[1] + nz], [b2[0] - nx, b2[1] - nz], [a2[0] - nx, a2[1] - nz], [a2[0] + nx, a2[1] + nz]];
+    quads.push([ring.map(p => [Math.round(p[0]), Math.round(p[1])])]);
+   }
+  };
+  for (const road of roads) if (!road.extra) addLine(road.rings?.[0]);
+  for (const road of city.roads) {
+   if (!/trojsk|havránk|havrank/i.test(road.name || '') || !road.rings?.[0]) continue;
+   if (!road.rings[0].some(p => p[1] < -2800 && Math.hypot(p[0], p[1]) > 3000)) continue;
+   addLine(road.rings[0]);
+  }
+  for (const edge of extraEdges) if (corridorIdFor(edge.name) === spec.id) addLine(edge.points);
+  if (quads.length) playable = quads;
+ }
  if (!playable.length) { console.log(`  ${spec.id}: no ground outside the circle`); continue; }
  const bounds = multiBBox(playable);
  const samples = heightSamples(playable, {minRadius: terrainExtent - 40, step: 40});
@@ -202,6 +245,23 @@ for (const spec of CORRIDOR_SPECS) {
  for (const sample of samples) {
   try { heights.push({...sample, h: +((elevationAt(sample.x, sample.z) - base).toFixed(2))}); }
   catch { failed++; }
+ }
+ if (spec.id === 'bohnice') {
+  const seen = new Set(heights.map(s => `${Math.round(s.x / 40)},${Math.round(s.z / 40)}`));
+  const extraPts = [];
+  for (const edge of extraEdges) if (corridorIdFor(edge.name) === spec.id) extraPts.push(...edge.points);
+  for (const road of city.roads) {
+   if (!/trojsk|bohnic/i.test(road.name || '') || !road.rings?.[0]) continue;
+   extraPts.push(...road.rings[0]);
+  }
+  for (const p of extraPts) {
+   if (Math.hypot(p[0], p[1]) < terrainExtent - 40) continue;
+   const key = `${Math.round(p[0] / 40)},${Math.round(p[1] / 40)}`;
+   if (seen.has(key)) continue;
+   seen.add(key);
+   try { heights.push({x: Math.round(p[0]), z: Math.round(p[1]), h: +((elevationAt(p[0], p[1]) - base).toFixed(2))}); }
+   catch { failed++; }
+  }
  }
  console.log(`  ${spec.id}: ${roads.length} roads, ${playable.length} polygons, ${heights.length} heights${failed ? `, ${failed} height samples skipped` : ''}`);
  const dir = path.join(extensionRoot, spec.id);
@@ -223,7 +283,8 @@ for (const spec of CORRIDOR_SPECS) {
  fs.writeFileSync(path.join(dir, 'buildings3d-index.json'), JSON.stringify({source: 'Corridor buildings stay on the main city build.', tiles: [], buildings: 0}));
  fs.writeFileSync(path.join(dir, 'surface-index.json'), '[]');
  fs.writeFileSync(path.join(dir, 'mobility.json'), JSON.stringify({signals: [], roads: {nodes, edges}, walks: {nodes: [], edges: []}}));
- catalog.push({id: spec.id, dir: `extensions/${spec.id}`, title: spec.title, mapBounds: bounds.map(v => Math.round(v)), playable, heights});
+ const starts = CORRIDOR_STARTS.filter(start => start.extension === spec.id);
+ catalog.push({id: spec.id, dir: `extensions/${spec.id}`, title: spec.title, mapBounds: bounds.map(v => Math.round(v)), playable, heights, provenance: CORRIDOR_PROVENANCE, ...(starts.length ? {starts} : {})});
 }
 fs.writeFileSync(path.join(extensionRoot, 'index.json'), JSON.stringify({schemaVersion: 1, extensions: catalog}));
 const big = [];

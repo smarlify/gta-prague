@@ -26,4 +26,7 @@ test('Prague anchors name the neighbourhood, not PRAHA CENTRE',()=>{
  assert.match(areaName(PRAGUE_AREAS,-50,50,'Praha'),/STARÉ MĚSTO|STARE MESTO/);
  assert.match(areaName(PRAGUE_AREAS,-1800,-1200,'Praha'),/DEJVICE/);
  assert.match(areaName(PRAGUE_AREAS,-1100,1500,'Praha'),/SMÍCHOV|SMICHOV/);
+ assert.match(areaName(PRAGUE_AREAS,-682,-3348,'Praha'),/TROJA/);
+ assert.match(areaName(PRAGUE_AREAS,-784,-5371,'Praha'),/BOHNICE/);
+ assert.match(areaName(PRAGUE_AREAS,3731,-1728,'Praha'),/LIBEŇ|LIBEN/);
 });

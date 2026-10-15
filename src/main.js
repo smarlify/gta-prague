@@ -4,10 +4,10 @@ import './speedometer.css';
 import {createSpeedometer} from './speedometer.js';
 import {createLoadingScreen} from './loading-screen.js';
 import * as THREE from 'three';
-import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+import {createFallbackBuildingMeshes} from './fallback-buildings.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {SpatialIndex,RADIUS,pointInPolygon,insidePlayable,setPlayableRadius} from './geo.js';
-import {loadExtensionIndex,loadExtension,applyExtensions,mapViewFor,activateExtension,createExtensionStreamer} from './extensions.js';
+import {loadExtensionIndex,loadExtension,applyExtensions,mapViewFor,activateExtension,createExtensionStreamer,extensionSourcesText} from './extensions.js';
 import {setTramLivery} from './tram-model.js';
 import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities} from './cities.js';
@@ -25,6 +25,8 @@ import {createPavlovaAmbulance} from './pavlova-scene.js';
 import {passageDeck,stripBoredTunnels,bridgeDeckHeight,bridgeDriveHeight,isBridgeSurface,isFeaturedBridge} from './passage.js';
 import {pragueSceneryTrees,pragueParkPlanting,createParkFlowers,createCharlesStatues} from './prague-scenery.js';
 import {createPassageDeck,createPragueBridgeDecks} from './passage-deck.js';
+import {createPlayableEdge} from './playable-edge.js';
+import {NORTH_LAYER_IDS} from './prague-corridors.js';
 import {buildTileInWorker,materialiseBuilding,createSourceShell} from './building-loader.js';
 import {attachFacades,applyFacadeHeights} from './facade-data.js';
 import {tileLevel,applyTileLod,createMergedShells,freezeTileGroup,freezeMesh,applyTreeLod,createStaticShadowCuller} from './tile-lod.js';
@@ -123,8 +125,8 @@ import {createMobileControls} from './mobile-controls.js';
 import {locationPageTitle,updateWorldhoodBrand} from './worldhood-brand.js';
 import {installMapillaryAttribution} from './mapillary-attribution.js';
 import './worldhood-brand.css';
-import {decodeTerrain,setTerrain,hasTerrain,groundAt,groundPose,liftBuildings,footprintBase,setCorridorHeights,setDriveHeight,waterAt} from './terrain.js';
-import {drapeGeometry,settleObject,createTerrainGround,drawLakeMap,setRiverChannel,setDryPassages,setBridgeSpans,pointInRiverChannel} from './terrain-mesh.js';
+import {decodeTerrain,setTerrain,hasTerrain,groundAt,groundPose,liftBuildings,setCorridorHeights,setDriveHeight,waterAt} from './terrain.js';
+import {drapeGeometry,settleObject,createTerrainGround,drawLakeMap,setRiverChannel,setDryPassages,setBridgeSpans,addBridgeSpans,pointInRiverChannel} from './terrain-mesh.js';
 import {loadSurfaceTextures,applyGroundTexture,setWorldMetreUVs,ASPHALT_UNIFORM,ASPHALT_SCALE_UNIFORM} from './surface-textures.js';
 const remoteHitAt=new Map();
 const impacts=new ImpactSystem();impacts.onVehicleHit=(from,hitCar,a)=>{
@@ -157,20 +159,22 @@ let angryDrivers=null,photoMode=false,captureMode=false,captureBadgeTimer=0,high
 const driveCamera=createDriveCameraState();let cameraFov=DRIVE_FOV.min,cameraRoll=0,cameraShake=[0,0,0];
 // Cobblestone rumble (src/road-surface.js): mapped sett polygons bounce the car body and, at half amplitude, the drive camera.
 const roadRumble=createRumbleState();let cameraRumble=[0,0,0],surfaceNow={surface:'off',roughness:0},rumbleNow={bob:0,roll:0,pitch:0,intensity:0};
-let treeTrunks=null,cityModelPromise,surfaceStreamer=null,extensionStreamer=null,switchingStart=false,startVisitVersion=0,places=[],speciesTrees=null;const placeHidden=new Set();
+let treeTrunks=null,cityModelPromise,surfaceStreamer=null,extensionStreamer=null,switchingStart=false,startVisitVersion=0,places=[],speciesTrees=null;const placeHidden=new Set(),speciesBatches=[];
 let birds=null,birdColonies=[],crowd=null,waterfowl=null; // gulls, pigeons, crows and sparrows from the city's map data (birds.js)
 let pavlova={phase:'idle'},ambulance=null;
 let cyclists,cyclistRenderer,npcScooters,npcScooterRenderer,buses,police,policeRenderer,roadblock; // shared riders and police in every city
 let multiplayer=null; // Temp default: auto-join demo (anonymous ok); HUD toggles leave/rejoin
 let stolenSirenOn=false;const stolenSiren=createSiren();
-let distance=0,viewSpan=150,desiredSpan=150,lastTime=0,lastUI=0,lastTile=0,lastToast=0,toastTimer,areaLabel;
+let distance=0,viewSpan=150,desiredSpan=150,lastTime=0,lastUI=0,lastTile=0,lastToast=0,toastTimer,areaLabel,fpsRolling=0;
 let sound=false,audioContext,mobileControls=null;
 const cityAudio=createCityAudio();
 let startPicker=null,previewVersion=0,previewing=false,startAfterPreview=false; // the ‹ › starting-point picker on the welcome card
 onGameStop(()=>{surfaceStreamer?.dispose();extensionStreamer?.dispose();mobileControls?.release();keys.clear();paused=true;peopleInteraction?.dispose();gullEncounter.reset();birds?.clearEncounter();marketShopRenderer?.dispose();audioContext?.suspend().catch(()=>{});});
 const scene=new THREE.Scene();
 const cityModel=new THREE.Group(),aerialGroup=new THREE.Group();scene.add(cityModel,aerialGroup);aerialGroup.visible=false;document.body.classList.add('photographic');
-scene.background=new THREE.Color('#b9cbd4');scene.fog=new THREE.Fog('#b9cbd4',330,850);
+scene.background=new THREE.Color('#b9cbd4');scene.fog=new THREE.Fog('#b9cbd4',330,580);
+// Ground streams just past the fog. Extension regions keep a longer preload of their own.
+const SURFACE_STREAM_RADIUS=640;
 // Optional fixed frame for video capture: ?frame=1:1 (largest box of that aspect that fits the window)
 // or ?frame=1080x1080 (exact CSS pixels, capped to the window). The game renders only inside the box,
 // centred on black, and the HUD is laid out relative to it, so a "record selected portion" over the
@@ -190,7 +194,7 @@ function layoutFrame(){
  if(captureFrame.fixed){document.body.classList.add('framed');const st=document.body.style;st.left=captureFrame.x+'px';st.top=captureFrame.y+'px';st.width=captureFrame.w+'px';st.height=captureFrame.h+'px';}
 }
 layoutFrame();
-const camera=new THREE.PerspectiveCamera(58,captureFrame.w/captureFrame.h,.25,1500);
+const camera=new THREE.PerspectiveCamera(58,captureFrame.w/captureFrame.h,.25,720);
 let inspectionCamera=null;
 const trafficFrustum=new THREE.Frustum(),trafficProjection=new THREE.Matrix4(),trafficSphere=new THREE.Sphere(new THREE.Vector3(),4);
 const trafficInView=a=>{trafficSphere.center.set(a.x,1.5+groundAt(a.x,a.z),a.z);return trafficFrustum.intersectsSphere(trafficSphere);};
@@ -346,7 +350,7 @@ async function createTrees(trees=data.trees){
  // Every drawn tree gets a solid trunk (src/tree-trunks.js); register points on a traffic lane's carriageway are dropped.
  if(treeTrunks){const t=treeTrunks.build(trees,world);trees=t.draw;world.objects.add(t.obstacles);}
  // Cities other than Helsinki: every registered tree gets its species' shape (src/tree-species.js).
- if(city.scenery!=='helsinki'){speciesTrees=createSpeciesTrees(trees.filter(t=>!world.buildings.at(...t.p)));cityModel.add(speciesTrees.group);speciesTrees.update(focus);return;}
+ if(city.scenery!=='helsinki'){const batch=createSpeciesTrees(trees.filter(t=>!world.buildings.at(...t.p)));cityModel.add(batch.group);speciesBatches.push(batch);speciesTrees={update(at){for(const item of speciesBatches)item.update(at);},get stats(){const count=speciesBatches.reduce((n,item)=>n+(item.stats?.count||0),0);return {...(speciesBatches[0]?.stats||{}),count,batches:speciesBatches.length};},levels(){const c={near:0,mid:0,far:0};for(const item of speciesBatches){const l=item.levels();for(const k of Object.keys(c))c[k]+=l[k]||0;}return c;}};batch.update(focus);return;}
  const {createRouteTrees,detailedTreeArea,detailedTreeCell}=await import('./route-trees.js');
  const detailed=createRouteTrees(trees.filter(t=>detailedTreeArea(t)&&!world.buildings.at(...t.p)));cityModel.add(detailed);harbour.group.userData.detailedTrees=detailed.userData;
  // Detailed trees get blob proxies in cells matching createRouteTrees' buckets (detailedTreeCell); applyTreeLod swaps them by distance.
@@ -380,17 +384,17 @@ async function createTrees(trees=data.trees){
  for(const mesh of detailed.children){mesh.userData.shadowLod=true;cells.get(mesh.userData.cell)?.detailed[mesh.userData.lod==='far'?'far':'near'].push(mesh);}
 }
 function createFallbackBuildings(buildings=data.buildings){
- const geoms=[];
+ const kept=[];
  const models=roofIndex.tiles.flatMap(t=>t.parts),ratus=new Set(models.filter(m=>m.ratu>0).map(m=>String(m.ratu))),index=new SpatialIndex(models);
  for(const b of buildings){
   const bb=b.bbox,cx=(bb[0]+bb[2])/2,cz=(bb[1]+bb[3])/2;
   if(ratus.has(String(b.ratu))||index.near(cx,cz).some(m=>{const a=m.bbox;return Math.max(0,Math.min(a[2],bb[2])-Math.max(a[0],bb[0]))*Math.max(0,Math.min(a[3],bb[3])-Math.max(a[1],bb[1]))/Math.max(1,(bb[2]-bb[0])*(bb[3]-bb[1]))>.5;}))continue;
-  const shape=new THREE.Shape(b.rings[0].map(p=>new THREE.Vector2(p[0],-p[1])));
-  for(const r of b.rings.slice(1))shape.holes.push(new THREE.Path(r.map(p=>new THREE.Vector2(p[0],-p[1]))));
-  const small=(b.bbox[2]-b.bbox[0])*(b.bbox[3]-b.bbox[1])<90;const h=small?3.5:15;
-  const g=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false,steps:1});g.rotateX(-Math.PI/2);g.translate(0,.1+footprintBase(b.rings),0);g.deleteAttribute('uv');geoms.push(g);
+  kept.push(b);
  }
- if(geoms.length){const mesh=new THREE.Mesh(mergeGeometries(geoms),new THREE.MeshStandardMaterial({color:'#c5c4b8',roughness:1}));mesh.castShadow=true;mesh.receiveShadow=true;cityModel.add(mesh);geoms.forEach(g=>g.dispose());}
+ if(!kept.length)return;
+ const plaster=!!buildingMaterial.userData.plaster;
+ const material=plaster?buildingMaterial:new THREE.MeshStandardMaterial({color:'#c5c4b8',roughness:1});
+ for(const mesh of createFallbackBuildingMeshes(kept,{material,vertexColor:plaster?'#d6c7b2':null}))cityModel.add(mesh);
 }
 function loadRoof(t,at=focus){
  if(ready&&tileDistance(t,at)>650||loadedTiles.has(t.file))return Promise.resolve();
@@ -457,10 +461,9 @@ function initSurfaceStreamer(){
  surfaceStreamer.add(surfaceIndex);
 }
 async function ensureCityModel(){
- // Fog ends at 850 m. Load all ground surfaces that can be seen from this start,
- // then keep the same detail streaming ahead as the player travels.
+ // Fog ends at 580 m. Load ground just past that, then keep the same distance streaming ahead.
  if(!cityModelPromise)cityModelPromise=(async()=>{
-  initSurfaceStreamer();await surfaceStreamer.ensure(car,{radius:900});
+  initSurfaceStreamer();await surfaceStreamer.ensure(car,{radius:SURFACE_STREAM_RADIUS});
   await createTrees();createFallbackBuildings();
  })();
  return cityModelPromise;
@@ -493,7 +496,7 @@ async function visitStart(destination,button){
  try{
   await extensionStreamer.ensureStart(destination);
   const near=roofIndex.tiles.filter(t=>tileDistance(t,destination)<430).sort((a,b)=>tileDistance(a,destination)-tileDistance(b,destination));
-  await Promise.all([surfaceStreamer.ensure(destination,{radius:900}),pool(near,4,t=>loadRoof(t,destination))]);
+  await Promise.all([surfaceStreamer.ensure(destination,{radius:SURFACE_STREAM_RADIUS}),pool(near,4,t=>loadRoof(t,destination))]);
   // GPU uploads are spread across frames, including while this dialog is open.
   while(uploads.size){if(gameIsStopped())throw Error('The game stopped while loading this place');await new Promise(requestAnimationFrame);}
   if(version!==startVisitVersion||!$('map-dialog').open)return; // Closing the map cancels the jump, while its downloads remain useful.
@@ -602,7 +605,7 @@ async function previewStart(destination){
  try{
   await extensionStreamer.ensureStart(destination);
   const near=roofIndex.tiles.filter(t=>tileDistance(t,destination)<430).sort((a,b)=>tileDistance(a,destination)-tileDistance(b,destination));
-  await Promise.all([surfaceStreamer.ensure(destination,{radius:900}),pool(near,4,t=>loadRoof(t,destination))]);
+  await Promise.all([surfaceStreamer.ensure(destination,{radius:SURFACE_STREAM_RADIUS}),pool(near,4,t=>loadRoof(t,destination))]);
   // Match visitStart: wait for rationed GPU uploads so a bad texture init cannot
   // throw from the rAF loop while the picker still shows "Loading …".
   while(uploads.size){if(gameIsStopped()||version!==previewVersion)return;await new Promise(requestAnimationFrame);}
@@ -772,6 +775,7 @@ function updateHUD(now){
  if(car.battery===0)$('gear').textContent='R TO RECHARGE';else if(car.battery<=.2)$('gear').textContent='LOW BATTERY · R TO RECHARGE';
  if(!driving){$('gear').textContent=TRAVEL_MODES[travel.mode].label.toUpperCase();$('speed').title='Speed in kilometres per hour';}
  if(areaLabel){const text=areaLabel(car.x,car.z,now);$('district-label').textContent=text;const caption=document.querySelector('.minimap-caption')?.firstChild;if(caption&&caption.textContent!==`${text} `)caption.textContent=`${text} `;}
+ const fpsEl=$('fps-readout');if(fpsEl)fpsEl.textContent=fpsRolling?`${Math.round(fpsRolling)} FPS`:'';
  const location=currentLocation();locationReadout.update(location);
  $('coordinates').textContent=`${location.coordinates.latitude.toFixed(6)}° N · ${location.coordinates.longitude.toFixed(6)}° E`;
  drawMinimap();
@@ -779,7 +783,7 @@ function updateHUD(now){
 }
 function frame(now){
  if(gameIsStopped())return;
- requestAnimationFrame(frame);const frameMs=lastTime?now-lastTime:0;const steps=simulationSteps(lastTime?(now-lastTime)/1000:0),dt=steps.reduce((a,b)=>a+b,0);lastTime=now;
+ requestAnimationFrame(frame);const frameMs=lastTime?now-lastTime:0;if(frameMs>0&&frameMs<1000){const sample=1000/frameMs;fpsRolling=fpsRolling?fpsRolling*.92+sample*.08:sample;}const steps=simulationSteps(lastTime?(now-lastTime)/1000:0),dt=steps.reduce((a,b)=>a+b,0);lastTime=now;
  mobileControls.update({started,paused,mapOpen,busted:!!police?.busted,mode:travel?.mode||'car',speed:car?.speed||0});
  if(ready)peopleInteraction.update(dt,car,nearbyPeople(),{enabled:canTalk()});
  if(ready&&marketShop){marketShop.update(paused||mapOpen?0:dt,car,{enabled:canTalk()});for(const m of marketShop.drainMessages())marketUI.say(m);}
@@ -881,7 +885,7 @@ function frame(now){
  if(ready){const busted=!!police?.busted,afk=(!!paused||document.hidden)&&!busted;multiplayer?.step(dt,{paused:afk,afk,busted});}
  if(now-lastUI>140&&ready){updateHUD(now);travelUI.update(travel,{started,paused,mapOpen,busted:police?.busted,hidden:captureMode});peopleUI.update(peopleInteraction?.snapshot(),{hidden:!canTalk()||captureMode||gullEncounter.snapshot().phase==='chase'});refreshMarketUI();noticeGulls();lastUI=now;}
  uploads.step(); // rationed GPU uploads for streamed tiles
- if(now-lastTile>1200&&ready&&!switchingStart){surfaceStreamer?.update(car,{radius:1000,aheadSeconds:12});extensionStreamer?.update(car);updateTiles().catch(handleTileError);lastTile=now;}
+ if(now-lastTile>1200&&ready&&!switchingStart){surfaceStreamer?.update(car,{radius:SURFACE_STREAM_RADIUS,aheadSeconds:12});extensionStreamer?.update(car);updateTiles().catch(handleTileError);lastTile=now;}
  cityAudio.update(audioContext,{enabled:sound,active:started&&!paused&&!mapOpen,driving:travel?.mode==='car',car,surface:surfaceNow,people:[...(mobility?.people||[]).filter(p=>p.edge),...detailPeople.filter(p=>Number.isFinite(p.x))],trams:tramSim?.trams||[],heading:car?.heading??cameraHeading,throttle:keys.has('KeyW')||keys.has('ArrowUp'),reverse:keys.has('KeyS')||keys.has('ArrowDown'),brake:keys.has('Space'),waterDistance:car&&world?.water?nearestWaterDistance(car.x,car.z,world.water):Infinity});
  policeRenderer?.audio(audioContext,sound&&started&&!paused&&!mapOpen&&(!police?.busted||!finale.ended));
  {const drivingStolen=travel?.mode==='car'&&!!travel.car?.visual?.police;if(!drivingStolen)stolenSirenOn=false;
@@ -946,15 +950,36 @@ async function boot(){
    const regionStages=new Map(),transitQueue=[],addTransit=e=>{if(!tramSim||!buses)transitQueue.push(e);else installTransit(e.transitLines,{trams:tramSim,tramRenderer,buses:buses.simulation});};
    extensionStreamer=createExtensionStreamer({entries:extensions,load:e=>loadExtension(e,json,unpack),onError:handleTileError,install:async e=>{
     if(gameIsStopped())return;
+    if(city.id==='prague'&&NORTH_LAYER_IDS.includes(e.id)&&!e.northPrepared){
+     const stripped=stripBoredTunnels(e.city,e.mobility);e.city=stripped.city;if(stripped.mobility)e.mobility=stripped.mobility;e.northPrepared=true;
+    }
     if(!world){applyExtensions([e],{data,roofIndex,surfaceIndex,mobility:mobilityData});addTransit(e);return;}
-    // Finish nearby ground before opening the region. Other tiles continue to stream ahead.
-    surfaceStreamer.add(e.surfaces);await surfaceStreamer.ensure(car,{radius:1000,aheadSeconds:12});
+    // Finish nearby ground before opening the region. Tiles use the same radius as the drive.
+    surfaceStreamer.add(e.surfaces);await surfaceStreamer.ensure(car,{radius:SURFACE_STREAM_RADIUS,aheadSeconds:12});
     if(gameIsStopped())return;
     let stage=regionStages.get(e.id);
-    if(!stage){
+     if(!stage){
      const roadStart=mobility.roads.edges.length,walkStart=mobility.walks.edges.length;addTransit(e);
      applyExtensions([e],{data,roofIndex,surfaceIndex,mobility,world,police,activate:false});
      stage={roads:mobility.roads.edges.slice(roadStart),walks:mobility.walks.edges.slice(walkStart)};regionStages.set(e.id,stage);
+    }
+    if(city.id==='prague'&&NORTH_LAYER_IDS.includes(e.id)&&!stage.depth){
+     const spans=[...e.city.roads,...e.city.pavement].filter(isBridgeSurface);
+     addBridgeSpans(spans);setDryPassages(data.roads);
+     const featured=[...e.city.roads,...e.city.pavement].filter(isFeaturedBridge);
+     if(featured.length)world.featuredBridges?.push(...featured);
+     const deckHeight=(x,z)=>bridgeDeckHeight(groundAt,x,z,pragueDry);
+     const decks=createPragueBridgeDecks([...e.city.roads,...e.city.pavement],deckHeight);
+     if(decks.children.length)cityModel.add(decks);
+     const planting=pragueParkPlanting(e.city.parks,data.trees,data.buildings,data.water);
+     if(planting.trees.length){e.city.trees.push(...planting.trees);data.trees.push(...planting.trees);}
+     const flowers=createParkFlowers(planting.flowers);if(flowers)cityModel.add(flowers);
+     if(e.furniture?.items?.length){
+      const mapped=createMappedFurniture(e.furniture,{player:()=>car,mobility:()=>mobility,castShadow:false});
+      cityModel.add(mapped.group);world.buildings.add(mapped.obstacles);world.objects?.add(mapped.obstacles);
+      knockables=combineKnockables([knockables,mapped.knockables]);
+     }
+     stage.depth=true;
     }
     if(!stage.trees){treeTrunks.addLanes(stage.roads);await createTrees(e.city.trees);stage.trees=true;}
     if(!stage.buildings){createFallbackBuildings(e.city.buildings);stage.buildings=true;}
@@ -971,6 +996,7 @@ async function boot(){
    const pragueDry={dry:(x,z)=>waterAt(x,z)===null&&!pointInRiverChannel(x,z),inChannel:(x,z)=>waterAt(x,z)!==null||pointInRiverChannel(x,z)};
    if(city.id==='prague'){setRiverChannel(data.water);setDryPassages(data.roads);setBridgeSpans([...data.roads,...data.pavement].filter(isBridgeSurface));}
    if(setTerrain(await terrainData)){surfaceMaterial.defines={...surfaceMaterial.defines,TERRAIN:''};surfaceMaterial.needsUpdate=true;ground.visible=false;cityModel.add(createTerrainGround(ground.material));}
+   cityModel.add(createPlayableEdge(city.radius||2000,groundAt,extensions.map(e=>e.playable).filter(Boolean)));
    if((landcoverData.polygons||landcoverData.runs||[]).length)cityModel.add(settleObject(createLandcover(landcoverData)));
    sea=createSea(data.water,data,{helsinkiHarbour:helsinki,riverDrop:city.id==='prague'?.85:0,quayStone:city.id==='prague'});cityModel.add(sea.group);ground.geometry.dispose();ground.geometry=sea.groundGeometry;setWorldMetreUVs(ground.geometry,{plane:true});
    if(city.id==='prague'){
@@ -1099,10 +1125,15 @@ async function boot(){
    }
    if(extensions.length){
     const names=extensions.map(e=>e.title).join(' and ');
-    document.querySelector('#map-dialog .dialog-copy').textContent=`Two kilometres around the cathedral, plus the ${names} corridor (dashed outline). Pick a starting point, then find your own way.`;
-    document.querySelector('#map-dialog .map-caption span').textContent='2 KM RADIUS + EXTENSIONS';
+    if(helsinki){
+     document.querySelector('#map-dialog .dialog-copy').textContent=`Two kilometres around the cathedral, plus the ${names} corridor (dashed outline). Pick a starting point, then find your own way.`;
+     document.querySelector('#map-dialog .map-caption span').textContent='2 KM RADIUS + EXTENSIONS';
+    }else{
+     document.querySelector('#map-dialog .dialog-copy').textContent=`${(city.radius/1000).toFixed(1)} km around the centre of ${city.name}, plus ${names}. Pick a starting point, then find your own way.`;
+     document.querySelector('#map-dialog .map-caption span').textContent=`${(city.radius/1000).toFixed(1)} KM RADIUS + EXTENSIONS`;
+    }
     const note=document.createElement('p');note.className='help-note';
-    note.textContent=`Map extensions: ${extensions.map(e=>`${e.title} — ${e.provenance.note||`City of Helsinki data fetched ${e.provenance.fetchedAt} (CC BY 4.0); ${e.counts.inferredForestTrees.toLocaleString('en')} forest trees are inferred inside mapped forest areas`}`).join('; ')}. Route crop outlines © OpenStreetMap contributors (ODbL). Seurasaari is car-free in reality.`;
+    note.textContent=extensionSourcesText(extensions,{helsinki});
     $('data-counts').after(note);
    }
    if(requestedStart&&!pickStart(data.landmarks,requestedStart))toast(`No start called “${requestedStart}”. Starting at ${firstStart.name}.`);

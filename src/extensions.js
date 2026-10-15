@@ -16,6 +16,22 @@ export async function loadExtensionIndex(json){
  if(!Array.isArray(index?.extensions))throw Error('Invalid map extension catalog');
  return index.extensions;
 }
+// A catalog entry credits itself with provenance.note, or with the Helsinki
+// municipal fallback (fetchedAt plus inferred forest trees). Omitting both is
+// a broken catalog: startup must not invent a credit.
+export function extensionCredit(entry){
+ const note=entry?.provenance?.note;
+ if(note)return note;
+ const fetchedAt=entry?.provenance?.fetchedAt,trees=entry?.counts?.inferredForestTrees;
+ if(fetchedAt!=null&&trees!=null)return `City of Helsinki data fetched ${fetchedAt} (CC BY 4.0); ${trees.toLocaleString('en')} forest trees are inferred inside mapped forest areas`;
+ throw Error(`Map extension “${entry?.title||entry?.id||'unknown'}” is missing a provenance note`);
+}
+export function extensionSourcesText(entries,{helsinki=false}={}){
+ const credits=entries.map(e=>`${e.title} — ${extensionCredit(e)}`).join('; ');
+ return helsinki
+  ?`Map extensions: ${credits}. Route crop outlines © OpenStreetMap contributors (ODbL). Seurasaari is car-free in reality.`
+  :`Map extensions: ${credits}. Corridor outlines © OpenStreetMap contributors (ODbL).`;
+}
 export async function loadExtension(e,json,unpack){
   const [city,buildings,surfaces,mobility]=await Promise.all([
    unpack(dataUrl(`${e.dir}/city.pack`)).then(b=>JSON.parse(new TextDecoder().decode(b))),
@@ -26,7 +42,8 @@ export async function loadExtension(e,json,unpack){
   if(land){city.parks.push(...land.parks);city.trees.push(...land.trees);}
   // HSL buses and light rail of the area (scripts/build-extension-transit.mjs), when it has them.
   const transitLines=e.transit?await json(dataUrl(`${e.dir}/${e.transit}`)):null;
-  return {...e,city,buildings,surfaces,mobility,transitLines};
+  const furniture=e.furniture?await json(dataUrl(`${e.dir}/${e.furniture}`)):null;
+  return {...e,city,buildings,surfaces,mobility,transitLines,furniture};
 }
 // Compatibility for import/build tools. Runtime startup uses the catalog alone.
 export async function loadExtensions(json,unpack){
@@ -56,6 +73,7 @@ export function createExtensionStreamer({entries=[],load,install=async()=>{},con
  return {...stream,
   // A direct jump must finish its destination before actors are moved there.
   ensureStart(start){return start?.extension?stream.require([start.extension]):Promise.resolve([]);},
+  // Open a region before the player reaches it. Troja's edge is about 2 km north and Bohnice about 2.6 km; 1200 m plus look-ahead covers both on the way. Ground tiles inside a region use the shorter surface radius.
   update(player,options={}){stream.update(player,{radius:1200,aheadSeconds:20,...options});},
   prefetchAll(){return stream.require(entries.map(e=>e.id),{background:true});},
  };

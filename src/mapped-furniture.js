@@ -77,7 +77,7 @@ function plateGeometry(size,rect){
  g.deleteAttribute('normal');g.computeVertexNormals();return g.toNonIndexed();
 }
 
-export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,canvas=globalThis.document}={}){
+export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,canvas=globalThis.document,castShadow=true}={}){
  const group=new THREE.Group();group.name='Mapped street furniture';
  const items=layer?.items||[],obstacles=[],chunks=new Map(),lights=[];
  const painted=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.6,metalness:.2});
@@ -85,7 +85,7 @@ export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,c
  const plates=new THREE.MeshStandardMaterial({map:atlas?.texture||null,alphaTest:.5,roughness:.55,side:THREE.FrontSide});
  const templates=new Map(),m4=new THREE.Matrix4(),q=new THREE.Quaternion(),UP=new THREE.Vector3(0,1,0),one=new THREE.Vector3(1,1,1),zero=new THREE.Vector3(),v=new THREE.Vector3();
  const chunkOf=(x,z)=>{const key=`${Math.floor(x/CHUNK)},${Math.floor(z/CHUNK)}`;
-  if(!chunks.has(key)){const signs=createBreakableSigns(`Mapped furniture posts ${key}`),g=new THREE.Group();g.name='Mapped furniture chunk';group.add(g);
+  if(!chunks.has(key)){const signs=createBreakableSigns(`Mapped furniture posts ${key}`,{castShadow}),g=new THREE.Group();g.name='Mapped furniture chunk';group.add(g);
    chunks.set(key,{key,group:g,signs,painted:[],plates:[],centre:[(Math.floor(x/CHUNK)+.5)*CHUNK,(Math.floor(z/CHUNK)+.5)*CHUNK]});}
   return chunks.get(key);};
  const place=(geometry,x,z,yaw,chunk,i,list)=>{geometry.applyMatrix4(m4.compose(v.set(x,groundAt(x,z),z),q.setFromAxisAngle(UP,yaw),one));chunk.signs.tag(geometry,i);list.push(geometry);};
@@ -104,7 +104,7 @@ export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,c
   if(LENSES[it.k])lights.push({x:it.x,z:it.z,yaw,kind:it.k,post:chunk.signs.bodies[i],edge:undefined});
  });
  for(const chunk of chunks.values()){
-  if(chunk.painted.length){const m=chunk.signs.mesh(mergeGeometries(chunk.painted),painted);m.name='Mapped furniture posts';chunk.group.add(m);}
+  if(chunk.painted.length){const m=chunk.signs.mesh(mergeGeometries(chunk.painted),painted,{castShadow});m.name='Mapped furniture posts';chunk.group.add(m);}
   if(chunk.plates.length){const m=chunk.signs.mesh(mergeGeometries(chunk.plates),plates,{castShadow:false});m.name='Mapped sign plates';chunk.group.add(m);}
   [...chunk.painted,...chunk.plates].forEach(g=>g.dispose());chunk.painted=chunk.plates=null;
   chunk.group.add(chunk.signs.finish());
@@ -149,7 +149,7 @@ export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,c
  for(const [kind,parts] of [['bin',binParts],['barrier',barrierParts],['cone',coneParts]]){
   const list=items.filter(i=>i.k===kind);if(!list.length)continue;
   const g=mergeGeometries(parts());g.computeVertexNormals();
-  const k=createKnockables(list.map((it,i)=>({id:itemId(it,i),x:it.x,z:it.z,yaw:it.yaw||0})),[{geometry:g,material:painted}],KNOCKABLE[kind]);
+  const k=createKnockables(list.map((it,i)=>({id:itemId(it,i),x:it.x,z:it.z,yaw:it.yaw||0})),[{geometry:g,material:painted}],{...KNOCKABLE[kind],castShadow});
   k.group.name=`Mapped ${kind}s`;group.add(k.group);knock.push(k);
  }
  const solidParts={'junction-box':([w,d,h])=>[box(w,h,d,0,h/2,0,'#8a9086'),box(w+.04,.05,d+.04,0,h+.02,0,'#6d736a')],
@@ -162,7 +162,7 @@ export function createMappedFurniture(layer,{player=()=>null,mobility=()=>null,c
  for(const [kind,size] of Object.entries(SOLIDS)){
   const list=items.filter(i=>i.k===kind);if(!list.length)continue;
   const g=mergeGeometries(solidParts[kind](size));g.computeVertexNormals();
-  const mesh=new THREE.InstancedMesh(g,painted,list.length);mesh.name=`Mapped ${kind}`;mesh.castShadow=mesh.receiveShadow=true;
+  const mesh=new THREE.InstancedMesh(g,painted,list.length);mesh.name=`Mapped ${kind}`;mesh.castShadow=castShadow;mesh.receiveShadow=true;
   list.forEach((it,i)=>{const yaw=it.yaw||0;mesh.setMatrixAt(i,m4.compose(v.set(it.x,groundAt(it.x,it.z),it.z),q.setFromAxisAngle(UP,yaw),one));
    const [w,d]=size,c=Math.cos(yaw),s=Math.sin(yaw),ring=[[-w/2,-d/2],[w/2,-d/2],[w/2,d/2],[-w/2,d/2]].map(([a,b])=>[it.x+a*c+b*s,it.z-a*s+b*c]);
    obstacles.push({id:itemId(it,i),name:kind,rings:[ring],bbox:[Math.min(...ring.map(p=>p[0])),Math.min(...ring.map(p=>p[1])),Math.max(...ring.map(p=>p[0])),Math.max(...ring.map(p=>p[1]))]});});

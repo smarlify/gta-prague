@@ -19,6 +19,12 @@ export const PRAGUE_AREAS=[
  {district:'Praha 7 - Letná',x:-447,z:-1060},
  {district:'Praha 7 - Holešovice',x:1842,z:-1839},
  {district:'Praha 8 - Karlín',x:2057,z:-616},
+ {district:'Praha 5 - Hlubočepy',x:-1065.34,z:5252.32},
+ {district:'Praha 7 - Troja',x:-682.48,z:-3347.94},
+ {district:'Praha 7 - Bubeneč',x:71.35,z:-2585.91},
+ {district:'Praha 8 - Libeň',x:3730.54,z:-1727.92},
+ {district:'Praha 8 - Bohnice',x:-783.9,z:-5371.15},
+ {district:'Praha 14 - Černý Most',x:11047.4,z:-2424.48},
 ];
 // Praha number of the nearest anchor ("Praha 8 - Karlín" → "8"). No reach cap and no
 // uppercasing: the tab uses whichever anchor is nearer, not the minimap caption.

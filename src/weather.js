@@ -5,6 +5,7 @@ import {GRADE_DEFAULTS} from './post.js';
 // Time-of-day and weather "looks". Every preset describes the whole image at once: sky dome
 // palette and cloud cover, sun/hemisphere light, fog, water tint, post exposure and grade,
 // rain and road wetness. Switching looks blends every value over a couple of seconds.
+// Clear looks end fog at 580 m, with the scene fog, so ground streamed just past it still covers the view. Rain stays shorter.
 //
 // Shared weather uniforms for other shaders (the street-surface owner can hook wet asphalt):
 //   import {WEATHER_UNIFORMS} from './weather.js';
@@ -17,7 +18,7 @@ const midday={
  sky:{zenith:'#2b64bd',mid:'#6d9dd6',horizon:SKY_PALETTE.horizon,sunGlow:SKY_PALETTE.sunGlow,cloudLit:SKY_PALETTE.cloudLit,cloudShade:SKY_PALETTE.cloudShade,coverage:.5,sunDisc:1},
  sunOffset:[...SUN_OFFSET],sunColor:LIGHTING.sunColor,sunIntensity:LIGHTING.sunIntensity,
  hemiSky:LIGHTING.hemiSky,hemiGround:LIGHTING.hemiGround,hemiIntensity:LIGHTING.hemiIntensity,
- fog:{color:FOG_COLOR,near:330,far:850},
+ fog:{color:FOG_COLOR,near:330,far:580},
  sea:{deep:'#28332f',shore:'#434a42',sunColor:'#fff1d6'},
  grade:{...GRADE_DEFAULTS},
  wetness:0,rain:0,
@@ -28,7 +29,7 @@ const golden={
  sky:{zenith:'#4d7cb7',mid:'#9ab2cf',horizon:'#f0cfae',sunGlow:'#ffd9a0',cloudLit:'#ffe3c4',cloudShade:'#9a8fa0',coverage:.56,sunDisc:1},
  sunOffset:[-208,118,-250],sunColor:'#ffc37a',sunIntensity:2.0,
  hemiSky:'#c4d2e6',hemiGround:'#746a5e',hemiIntensity:1.7,
- fog:{color:'#f0cfae',near:280,far:800},
+ fog:{color:'#f0cfae',near:280,far:580},
  sea:{deep:'#2c3230',shore:'#4a4640',sunColor:'#ffd9a0'},
  grade:{...GRADE_DEFAULTS,exposure:1.0,tint:[1.03,1,.96],lift:[.02,.014,.02],saturation:1.04,bloomStrength:.3,vignette:.26},
  wetness:0,rain:0,
@@ -39,7 +40,7 @@ const whitenight={
  sky:{zenith:'#223a62',mid:'#4f6a99',horizon:'#e3b7b0',sunGlow:'#ffc9b0',cloudLit:'#d7b4b8',cloudShade:'#5e5d7c',coverage:.6,sunDisc:.6},
  sunOffset:[-59,42,-338],sunColor:'#ffb48c',sunIntensity:1.3,
  hemiSky:'#a9bbda',hemiGround:'#55575f',hemiIntensity:1.7,
- fog:{color:'#e3b7b0',near:260,far:780},
+ fog:{color:'#e3b7b0',near:260,far:580},
  sea:{deep:'#1f2630',shore:'#3b3a44',sunColor:'#ffc9b0'},
  grade:{...GRADE_DEFAULTS,exposure:.9,tint:[.98,.97,1.06],lift:[.02,.02,.05],saturation:.9,contrast:1.0,bloomStrength:.3,vignette:.3},
  wetness:0,rain:0,
@@ -49,7 +50,7 @@ const overcast={
  sky:{zenith:'#8d979f',mid:'#aab3ba',horizon:'#c7cdd2',sunGlow:'#d8dde1',cloudLit:'#d7dcdf',cloudShade:'#8d969d',coverage:.05,sunDisc:0},
  sunOffset:[-120,300,120],sunColor:'#e9edf1',sunIntensity:.55,
  hemiSky:'#cfd6dc',hemiGround:'#747873',hemiIntensity:1.55,
- fog:{color:'#c7cdd2',near:230,far:760},
+ fog:{color:'#c7cdd2',near:230,far:580},
  sea:{deep:'#2b3233',shore:'#454a48',sunColor:'#d8dde1'},
  grade:{...GRADE_DEFAULTS,exposure:1.0,tint:[.99,1,1.02],lift:[.02,.022,.03],saturation:.9,contrast:1.0,bloomStrength:.12,bloomThreshold:1.2,vignette:.2,aoStrength:.85},
  wetness:0,rain:0,

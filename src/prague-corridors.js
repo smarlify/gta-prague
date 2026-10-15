@@ -2,15 +2,49 @@
 // road polygons and the driving graph out to the download edge; a corridor
 // only opens that ground and, past the terrain grid, supplies heights.
 
+// The sources dialog reads provenance.note. These corridors are OpenStreetMap
+// outlines, not a municipal extract, so they carry a note instead of fetchedAt
+// and forest-tree counts.
+export const CORRIDOR_PROVENANCE = Object.freeze({
+ provider: 'OpenStreetMap contributors',
+ license: 'ODbL',
+ licenseUrl: 'https://www.openstreetmap.org/copyright',
+ note: '© OpenStreetMap contributors (ODbL): playable outline of mapped roads beyond the city disk, including extra carriageways from OpenStreetMap; buildings stay on the main city build',
+});
+
+// Troja, Bohnice, and the Stromovka edge ship the same layers as the centre.
+// The shorter strips stay outlines.
+export const NORTH_LAYER_IDS = Object.freeze(['troja', 'bohnice']);
+export const NORTH_LAYER_NOTE = '© OpenStreetMap contributors (ODbL): roads, pavement, buildings, trees, and street furniture for Troja, Bohnice, and the Stromovka edge. Bored tunnels are omitted. Bridge decks, park planting, and surface colours follow the centre.';
+
 export const CORRIDOR_SPECS = Object.freeze([
- {id: 'tunnel-barrandov', title: 'Tunnel chain, Barrandovský most and Jižní spojka',
-  test: text => /tunel|trojsk|letensk|strahov|mrázov|mrazov|jižní spojka|jizni spojka|barrandov/i.test(text)},
- {id: 'magistrala', title: 'Magistrála to Chodov and the D1',
-  test: text => /magistrál|magistral|wilsonova|legerova|sokolsk|5\. května|5\. kvetna|spořilov|brněnsk|brnensk|(^|\s)D1(\s|$)/i.test(text)},
+ {id: 'zlute-lazne', title: 'Podolí to Žluté lázně',
+  test: text => /žluté lázně|zlute lazne|modřansk|modransk|podolsk|u přehrady|u prehrady/i.test(text)},
+ {id: 'barrandov', title: 'Smíchov to Barrandovský most',
+  test: text => /barrandov|strakonick|lihovar/i.test(text)},
+ {id: 'troja', title: 'Troja, the zoo and the botanic garden',
+  test: text => /trojsk|zoolog|přívoz|privoz|přírodní|prirodni/i.test(text)},
+ {id: 'palmovka', title: 'Karlín to Palmovka',
+  test: text => /palmov|zenklov|libeňsk|libensk/i.test(text)},
+ {id: 'bohnice', title: 'Troja to Bohnice',
+  test: text => /bohnic|lodžsk|lodzsk|čimick|cimick|ústeck|usteck|pazder|havránk|havrank/i.test(text)},
+ {id: 'kobylisy', title: 'Kobylisy',
+  test: text => /kobylis|střelnič|strelnic|klapkov/i.test(text)},
  {id: 'severni-spojka', title: 'Severní spojka, Letňany to Černý Most',
   test: text => /kbelsk|cínoveck|cinoveck|chlumeck|vysočansk|vysocansk|novopack|severní spojka|severni spojka/i.test(text)},
- {id: 'airport', title: 'Dejvice to Václav Havel Airport',
-  test: text => /evropsk|drnovsk|k letišti|k letisti|aviatick|lipsk/i.test(text)},
+ {id: 'jizni-spojka', title: 'Jižní spojka',
+  test: text => /jižní spojka|jizni spojka/i.test(text)},
+]);
+
+// Starts parked in a clear lane of a corridor that actually has a carriageway.
+// Žluté lázně and Kobylisy have no such lane. Jižní spojka has no pack.
+export const CORRIDOR_STARTS = Object.freeze([
+ {extension: 'barrandov', name: 'Barrandovský most', district: 'Praha 5 - Hlubočepy', street: 'Strakonická', x: -1065.34, z: 5252.32, heading: -2.9229},
+ {extension: 'troja', name: 'Troja', district: 'Praha 7 - Troja', street: 'Trojská', x: -682.48, z: -3347.94, heading: 0.1902},
+ {extension: 'troja', name: 'Stromovka', district: 'Praha 7 - Bubeneč', street: 'Za Elektrárnou', x: 71.35, z: -2585.91, heading: -1.5745},
+ {extension: 'palmovka', name: 'Palmovka', district: 'Praha 8 - Libeň', street: 'Zenklova', x: 3730.54, z: -1727.92, heading: 0.0843},
+ {extension: 'bohnice', name: 'Bohnice', district: 'Praha 8 - Bohnice', street: 'Bohnická', x: -783.9, z: -5371.15, heading: -1.4877},
+ {extension: 'severni-spojka', name: 'Černý Most', district: 'Praha 14 - Černý Most', street: 'Chlumecká', x: 11047.4, z: -2424.48, heading: 1.7748},
 ]);
 
 export function corridorIdFor(name = '') {
