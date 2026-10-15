@@ -14,7 +14,7 @@ import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,sceneQuery,
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
-import {animateVehicle,streetLampsOn,vehicleLampsOn} from './vehicles.js';
+import {animateVehicle,cycleHeadlights,headlightModeLabel,playerHeadlightsOn,streetLampsOn,vehicleLampsOn} from './vehicles.js';
 import {Mobility} from './mobility.js';
 import {createStreetLife} from './street-life.js';
 import {SKODA_PAINT,policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
@@ -164,6 +164,7 @@ let pavlova={phase:'idle'},ambulance=null;
 let cyclists,cyclistRenderer,npcScooters,npcScooterRenderer,buses,police,policeRenderer,roadblock; // shared riders and police in every city
 let multiplayer=null; // Temp default: auto-join demo (anonymous ok); HUD toggles leave/rejoin
 let stolenSirenOn=false;const stolenSiren=createSiren();
+let headlightMode='auto'; // L cycles auto → on → off. Night still starts with the beams on.
 let distance=0,viewSpan=150,desiredSpan=150,lastTime=0,lastUI=0,lastTile=0,lastToast=0,toastTimer,areaLabel;
 let sound=false,audioContext,mobileControls=null;
 const cityAudio=createCityAudio();
@@ -720,6 +721,7 @@ window.addEventListener('keydown',e=>{
  if(e.code==='KeyC'){cycleCamera();return;}
  if(e.code==='KeyT'){look.cycle();toast(look.label);return;}
  if(e.code==='KeyY'){look.cycleWeather();toast(look.weatherLabel);return;}
+ if(e.code==='KeyL'){headlightMode=cycleHeadlights(headlightMode);toast(headlightModeLabel(headlightMode));return;}
  if(e.code==='KeyH'){
   if(travel?.mode==='car'&&travel.car?.visual?.police)stolenSirenOn=!stolenSirenOn;
   return;
@@ -839,7 +841,7 @@ function frame(now){
  if(car){
    car=cameraBody(travel,car); // after a crash or leftover sink, follow the new body, not the abandoned car
    speedometer.update(car,dt,{mode:travel.mode});
-   const lamps=vehicleLampsOn(look.name,look.weather);playerCars.setLamps(lamps);streetLife?.setLamps(lamps,car);refreshStreetLamps();travel.advanceTransition(paused||mapOpen?0:dt);playerCars.sync(travel,dt);const vehicle=travel.sunkCar||travel.car||car;
+   const trafficLamps=vehicleLampsOn(look.name,look.weather);playerCars.setLamps(playerHeadlightsOn(headlightMode,look.name,look.weather));streetLife?.setLamps(trafficLamps,car);refreshStreetLamps();travel.advanceTransition(paused||mapOpen?0:dt);playerCars.sync(travel,dt);const vehicle=travel.sunkCar||travel.car||car;
    treeFocus.value.set(car.x,car.z);
    treeFade.value=chaseCamera&&started?0:1;
    surfaceNow=world?surfaceDetailAt(world,car.x,car.z):surfaceNow;rumbleNow=rumbleFor(travel.mode==='car'&&started&&!paused&&!mapOpen?surfaceNow.surface:'asphalt',travel.mode==='car'?car.speed:0,paused||mapOpen?0:dt,roadRumble,surfaceNow.roughness);

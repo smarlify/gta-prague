@@ -1,9 +1,40 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {createVehicle,animateVehicle,applyPlayerLamps,vehicleLampsOn,streetLampsOn} from '../src/vehicles.js';
+import {createVehicle,animateVehicle,applyPlayerLamps,cycleHeadlights,headlightModeLabel,playerHeadlightsOn,vehicleLampsOn,streetLampsOn} from '../src/vehicles.js';
 import {createTrafficRenderer} from '../src/traffic-renderer.js';
 import {createMappedFurniture} from '../src/mapped-furniture.js';
+
+test('L cycles headlights auto, on, off, and auto follows night versus a clear midday',()=>{
+ let mode='auto';
+ const seen=[mode];
+ mode=cycleHeadlights(mode);seen.push(mode);
+ mode=cycleHeadlights(mode);seen.push(mode);
+ mode=cycleHeadlights(mode);seen.push(mode);
+ assert.deepEqual(seen,['auto','on','off','auto']);
+ assert.equal(headlightModeLabel('auto'),'Auto');
+ assert.equal(headlightModeLabel('on'),'On');
+ assert.equal(headlightModeLabel('off'),'Off');
+ assert.equal(playerHeadlightsOn('auto','night','clear'),true);
+ assert.equal(playerHeadlightsOn('auto','midday','clear'),false);
+ assert.equal(playerHeadlightsOn('auto','midday','rain'),true);
+ assert.equal(playerHeadlightsOn('auto','whitenight','clear'),false);
+ assert.equal(playerHeadlightsOn('on','midday','clear'),true,'on ignores a clear day');
+ assert.equal(playerHeadlightsOn('off','night','clear'),false,'off ignores night');
+ assert.equal(vehicleLampsOn('night','clear'),true,'traffic lamps stay on the time and weather rules');
+ assert.equal(streetLampsOn('midday'),false);
+
+ const model=createVehicle(0,true);
+ const spots=[];
+ model.traverse(o=>{if(o.isSpotLight)spots.push(o);});
+ assert.equal(spots.length,2);
+ applyPlayerLamps(model,playerHeadlightsOn('off','night','clear'));
+ assert.equal(model.userData.beams.visible,false);
+ assert.equal(model.userData.head.color.getHexString(),'24282b');
+ applyPlayerLamps(model,playerHeadlightsOn('on','midday','clear'));
+ assert.equal(model.userData.beams.visible,true);
+ assert.equal(model.userData.head.color.getHexString(),'fff4dc');
+});
 
 test('player lamps are on at night and in snow, off on a clear day and during white night',()=>{
  assert.equal(vehicleLampsOn('night','clear'),true);

@@ -16,6 +16,22 @@ export function vehicleLampsOn(day,weather){
 }
 // Street posts glow only after dark. Bad weather does not switch them on in daylight.
 export function streetLampsOn(day){return day==='night';}
+// Player beams and lenses. Auto keeps the rules above. On and off ignore time and weather.
+const HEADLIGHT_MODES=['auto','on','off'];
+export function cycleHeadlights(mode){
+ const i=HEADLIGHT_MODES.indexOf(mode);
+ return HEADLIGHT_MODES[(i+1+HEADLIGHT_MODES.length)%HEADLIGHT_MODES.length];
+}
+export function headlightModeLabel(mode){
+ if(mode==='on')return 'On';
+ if(mode==='off')return 'Off';
+ return 'Auto';
+}
+export function playerHeadlightsOn(mode,day,weather){
+ if(mode==='on')return true;
+ if(mode==='off')return false;
+ return vehicleLampsOn(day,weather);
+}
 // Head colour, beam visibility and the tail material the brake hook writes. Call this on the
 // occupied car every frame, including after a look swap replaces that material.
 export function applyPlayerLamps(model,on){
