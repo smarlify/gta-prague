@@ -199,3 +199,11 @@ body.tilt-steer #touch-controls>div:first-child{visibility:hidden}
 .player-name input{height:38px;width:7.6rem;border-radius:7px;border:1px solid rgba(41,59,54,.12);background:rgba(249,247,240,.84);padding:0 10px;font:13px/1 'DM Sans',sans-serif;color:#30312e}
 .player-name input:focus{outline:3px solid #d95e3b;outline-offset:2px}
 @media(max-width:700px){.player-name input{height:34px;width:5.6rem;font-size:12px;padding:0 8px}}
+
+/* Players already in the room snapshot. Opens under Online; it does not leave the room. */
+.online-slot{position:relative;display:flex;align-items:center}
+#online-players{position:absolute;top:calc(100% + 8px);right:0;z-index:6;min-width:11rem;max-width:16rem;margin:0;padding:6px 0;list-style:none;background:rgba(249,247,240,.96);border:1px solid rgba(41,59,54,.12);border-radius:8px;box-shadow:0 8px 28px #293b3618;font-size:13px;line-height:1.3}
+#online-players[hidden]{display:none!important}
+#online-players li{padding:6px 14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#online-players li[data-you="1"]{font-weight:650}
+body.clean-capture.driving #online-players{visibility:hidden;pointer-events:none}

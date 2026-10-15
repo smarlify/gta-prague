@@ -105,8 +105,9 @@ export function createMultiplayerSession(scene, {
   const hud = bindOnlineHud(doc, {
     isOnline,
     onlineCount,
+    players: () => (room ? room.players : {}),
+    selfUid: () => (room ? room.uid : ''),
     onGoOnline: join,
-    onGoOffline: leave,
   });
 
   const names = bindPlayerNameField(doc, {
