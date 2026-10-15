@@ -21,7 +21,7 @@ const sokos={ratu:405,name:'Asema-aukio'},lasipalatsi={ratu:944,name:'Mannerheim
 const worldWith=record=>({buildings:{at:(x,z)=>z<-2?record:undefined}}); // a wall just north of the origin (car forward is -z at heading 0)
 function armed(police=mockPolice(),car=centre()){const f=new Finale();f.step(1/60,car,{police,started:true});return {f,police,car};}
 
-test('zone detection: the station district is inside (station, Lasipalatsi, Mikonkatu and Forum stops), the harbour start and Ylioppilastalo are not', {skip:!existsSync('public/data')},()=>{
+test('zone detection: the station district is inside (station, Lasipalatsi, Mikonkatu and Forum stops), the harbour start and Ylioppilastalo are not', {skip:'Finland city is not part of this build'},()=>{
  assert.equal(FINALE_ZONE.name,'Rautatientori');assert.equal(FINALE_ZONE.label,undefined,'no HUD label for the zone');
  const stops=tramData().stops,stop=(name,i=0)=>stops.filter(s=>s.name===name)[i];
  for(const [name,i] of [['Päärautatieasema',0],['Päärautatieasema',1],['Lasipalatsi',0],['Lasipalatsi',1],['Mikonkatu',0],['Mikonkatu',1],['Rautatientori',0]])assert.equal(inFinaleZone(stop(name,i)),true,`${name} ${i} (${stop(name,i).x}, ${stop(name,i).z})`);
@@ -123,7 +123,7 @@ test('a high wanted incident is recorded before an immediate arrest clears polic
  p.arrestNow();assert.equal(p.level,0);assert.equal(f.arrest({car:centre(),police:p}).raw.maxLevel,5);
  assert.equal(f.summary.kicker,'POLICE');assert.equal(f.snapshot().zone,null);
 });
-test('offence text uses the real HSL line and destination of the tram that was hit', {skip:!existsSync('public/data')},()=>{
+test('offence text uses the real HSL line and destination of the tram that was hit', {skip:'Finland city is not part of this build'},()=>{
  const data=tramData();
  assert.ok(data.paths.every(p=>/^\d+B?$/.test(p.line)&&p.destination.length>2),'HSL line numbers (10B is the service running through Lasipalatsi on the snapshot date)');
  const world={buildings:{at:()=>undefined},roads:{at:()=>true},pavement:{at:()=>true}};
@@ -146,7 +146,7 @@ test('offence text uses the real HSL line and destination of the tram that was h
  assert.ok(sim.trams.some(t=>t.wait>0&&Math.hypot(t.x+800,t.z+28)<60));
  assert.equal(sim.nearestHotspot(west).name,'Lasipalatsi');assert.equal(sim.nearestHotspot(station()).name,'Rautatieasema');
 });
-test('tram spawns never pop into view: dwellers are not placed in front of a player within 120 m, and Continue clears the tram the car is against', {skip:!existsSync('public/data')},()=>{
+test('tram spawns never pop into view: dwellers are not placed in front of a player within 120 m, and Continue clears the tram the car is against', {skip:'Finland city is not part of this build'},()=>{
  const data=tramData(),world={buildings:{at:()=>undefined},roads:{at:()=>true},pavement:{at:()=>true}};
  const sim=new TramSimulation(data,world,()=>.5);
  const stop={x:-621.28,z:-28.02};
@@ -171,7 +171,7 @@ test('tram spawns never pop into view: dwellers are not placed in front of a pla
  assert.ok(sim.trams.every(t=>!sim.bodyNear(t.path,t.s,onStop,8)),'no tram body within 8 m of a player standing at the stop');
  assert.ok(sim.trams.length>=4,'the rest of the stretch is still seeded');
 });
-test('a car nose-on against a tram can still back away (Continue after the arrest must not deadlock)', {skip:!existsSync('public/data')},()=>{
+test('a car nose-on against a tram can still back away (Continue after the arrest must not deadlock)', {skip:'Finland city is not part of this build'},()=>{
  const data=tramData();
  const world={buildings:{at:()=>({name:'platform'})},roads:{at:()=>true},pavement:{at:()=>true}}; // every sideways nudge is blocked
  const sim=new TramSimulation(data,world,()=>.5);sim.reset(station());

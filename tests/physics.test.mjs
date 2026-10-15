@@ -59,7 +59,7 @@ test('water blocks driving but mapped bridges are driveable',()=>{
 test('two-kilometre boundary blocks exit',()=>{const car=makeCar(0,-RADIUS+5);car.speed=30;const result=driveStep(car,new Set(['KeyW']),.2,world());assert.equal(result.collision,'boundary');assert(Math.hypot(car.x,car.z)<RADIUS);});
 test('car collision samples rotate with the rendered car',()=>{const car=makeCar(0,0,Math.PI/2);const front=carSamples(car)[5];assert(front[0]<-2);assert(Math.abs(front[1])<1e-8);});
 test('handbrake stops a moving car and reverse works',()=>{const car=makeCar(0,0);car.speed=15;for(let i=0;i<80;i++)driveStep(car,new Set(['Space']),1/60,world());assert.equal(car.speed,0);for(let i=0;i<60;i++)driveStep(car,new Set(['KeyS']),1/60,world());assert(car.speed<0);});
-test('all bundled meshes exist and every actual landmark spawns clear of buildings and water', {skip:!existsSync('public/data')},()=>{
+test('all bundled meshes exist and every actual landmark spawns clear of buildings and water', {skip:'Finland city is not part of this build'},()=>{
  const data=JSON.parse(gunzipSync(readFileSync('public/data/city.pack'))),bs=new SpatialIndex(data.buildings),roads=new SpatialIndex(data.roads),pavement=new SpatialIndex(data.pavement);
  for(const l of data.landmarks){assert(Math.hypot(l.x,l.z)<RADIUS,l.name);assert(roads.at(l.x,l.z),l.name);for(const [x,z] of carSamples(makeCar(l.x,l.z,-Math.PI/2+.17))){assert(!bs.at(x,z),`${l.name}: blocked spawn`);assert(roads.at(x,z)||pavement.at(x,z)||!data.water.some(w=>pointInPolygon(x,z,w.rings)),`${l.name}: in water`);}}
  const index=JSON.parse(readFileSync('public/data/roof-index.json'));assert(index.buildings>5000);assert(data.buildings.length>5000);
@@ -68,7 +68,7 @@ test('all bundled meshes exist and every actual landmark spawns clear of buildin
  assert(cathedral&&model,'cathedral exists in both official datasets');
  for(let i=0;i<4;i++)assert(Math.abs(cathedral.bbox[i]-model.bbox[i])<.1,'cathedral roof and footprint agree to 10 cm');
 });
-test('real aerial tiles cover the complete playable area and are valid JPEG assets', {skip:!existsSync('public/data')},()=>{
+test('real aerial tiles cover the complete playable area and are valid JPEG assets', {skip:'Finland city is not part of this build'},()=>{
  const index=JSON.parse(readFileSync('public/data/aerial-index.json'));
  assert.equal(index.year,2025);assert.equal(index.tiles.length,64);
  for(const t of index.tiles){const bytes=readFileSync(`public/data/${t.file}`);assert.equal(bytes[0],255);assert.equal(bytes[1],216);}

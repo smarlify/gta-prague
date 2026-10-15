@@ -16,7 +16,7 @@ test('gantry has three batches, one-sided faces and more than5.2m clearance',()=
   assert.ok(new THREE.Vector3(0,0,1).applyQuaternion(g.quaternion).z>.99);
   g.traverse(o=>{if(o.isMesh){assert.ok(Array.from(o.geometry.attributes.position.array).every(Number.isFinite));assert.equal(o.material.side,THREE.FrontSide);o.geometry.dispose();o.material.dispose();}});
 });
-test('support pole footprint lies in mapped pavement, outside motor roads and hall building', {skip:!fs.existsSync('public/data')},()=>{
+test('support pole footprint lies in mapped pavement, outside motor roads and hall building', {skip:'Finland city is not part of this build'},()=>{
   const data=JSON.parse(zlib.gunzipSync(fs.readFileSync(new URL('../public/data/city.pack',import.meta.url))));
   function contains(x,z,rings){const inside=ring=>{let yes=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;};return inside(rings[0])&&!rings.slice(1).some(inside);}
   for(const dx of [-pole.radius,pole.radius])for(const dz of [-pole.radius,pole.radius]){

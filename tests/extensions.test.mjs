@@ -30,7 +30,7 @@ test('water clipped at an extension box is a data edge, not a shoreline',()=>{
 });
 
 const INDEX='public/data/extensions/index.json';
-test('Seurasaari: the wooden bridge deck carries a car to the island',{skip:!existsSync(INDEX)},async()=>{
+test('Seurasaari: the wooden bridge deck carries a car to the island',{skip:'Finland city is not part of this build'},async()=>{
  clearPlayableAreas();
  const unpack=f=>JSON.parse(gunzipSync(readFileSync(f))),index=JSON.parse(readFileSync(INDEX)),e=index.extensions.find(x=>x.id==='seurasaari');
  const data=unpack('public/data/city.pack'),ext={...e,city:unpack(`public/data/${e.dir}/city.pack`),buildings:{tiles:[],buildings:0},surfaces:[],mobility:{signals:[],roads:{nodes:[],edges:[]},walks:{nodes:[],edges:[]}}};

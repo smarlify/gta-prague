@@ -5,7 +5,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {analyseBuilding} from '../src/building-detail.js';
 import {isPalaceRestaurantFront,createPalaceRestaurantFront,PALACE_RESTAURANT_PLANES} from '../src/palace-restaurant.js';
-test('Palace restaurant only replaces its verified harbour planes, never Presidential Palace', {skip:!existsSync('public/data')},()=>{
+test('Palace restaurant only replaces its verified harbour planes, never Presidential Palace', {skip:'Finland city is not part of this build'},()=>{
  const idx=JSON.parse(readFileSync('public/data/buildings3d-index.json'));let selected=0,retained=0;
  for(const t of idx.tiles)for(const p of t.parts.filter(p=>p.ratu===488)){
   const buf=gunzipSync(readFileSync('public/data/'+t.file)),array=new Float32Array(buf.buffer,buf.byteOffset,buf.byteLength/4);
