@@ -73,7 +73,8 @@ Marooned. Deploy the open branch with `git push heroku HEAD:main`. The live URL 
 | Q / E (hold) | Look left / right |
 | T | Time of day |
 | Y | Weather |
-| H | Hide the HUD |
+| L | Headlights: Auto, then On, then Off |
+| H | Siren on a stolen police car |
 | V | Capture mode (full resolution, no camera shake) |
 
 On a phone, slide the steering control and hold **Go**; **Brake** slows down, then reverses.
@@ -183,7 +184,8 @@ someone to help.
 
 Day and weather follow Prague’s clock and a live forecast, so an autumn evening is night.
 Snow falls as flakes. The car you are driving lights the road ahead at night, and in rain,
-a thunderstorm, or snow. A white night leaves those headlights off.
+a thunderstorm, or snow. A white night leaves those headlights off. L cycles them through
+Auto, On, and Off. H still toggles the siren on a stolen police car.
 
 The game is not a survey-exact digital twin:
 - Praha uses bundled elevation data. The unshipped Tampere pack also bundles elevation; the
