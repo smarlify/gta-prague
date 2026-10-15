@@ -12,6 +12,7 @@ import {
   displayNameFor,
   bindHighScoreUI,
 } from '../src/high-score.js';
+import { PLAYER_NAME_STORAGE_KEY, writeStoredPlayerName } from '../src/net/player-name.js';
 
 test('high score is distance in whole metres (HUD / BUSTED already track this)', () => {
   assert.equal(GAME_ID, 'gta-praha');
@@ -98,6 +99,7 @@ test('logged-out iframe posts to parent and keeps Google as fallback', async () 
     onEmbedded: postGameOver,
     save: async () => { throw new Error('should not save when embedded and logged out'); },
     authApi: { currentUser: null },
+    getPlayerName: () => '',
   });
 
   const result = ui.offer(3200);
@@ -172,4 +174,101 @@ test('signed-in iframe auto-saves, hides chooser, and still posts GAME_OVER', as
 
   if (prev === undefined) delete globalThis.window;
   else globalThis.window = prev;
+});
+
+test('Continue with Google stays visually hidden', () => {
+  const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  assert.match(css, /\.high-score-google\[hidden\]\{display:none!important\}/);
+});
+
+function standaloneWindow() {
+  const self = {};
+  self.parent = self;
+  return self;
+}
+
+test('busted screen uses the saved HUD name and does not ask again', async () => {
+  const prev = globalThis.window;
+  globalThis.window = standaloneWindow();
+  const saved = [];
+  const doc = mockScoreDoc();
+  const ui = bindHighScoreUI(doc, {
+    getDistance: () => 800,
+    save: async (entry) => { saved.push(entry); return entry; },
+    authApi: { currentUser: { isAnonymous: true, uid: 'anon' } },
+    getPlayerName: () => '  Dave  ',
+  });
+
+  const out = ui.offer(800);
+  assert.equal(out.embedded, false);
+  assert.equal(doc.elements['high-score-google'].hidden, true);
+  assert.equal(doc.elements['high-score-google'].textContent, 'Continue with Google');
+  assert.equal(doc.elements['high-score-guest'].hidden, true);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].name, 'Dave');
+  assert.equal(saved[0].score, 800);
+  assert.equal(saved[0].uid, undefined);
+  assert.match(doc.elements['high-score-status'].textContent, /Saved as Dave/);
+  assert.equal(doc.elements['high-score-guest'].hidden, true);
+  assert.equal(doc.elements['high-score-google'].hidden, true);
+
+  if (prev === undefined) delete globalThis.window;
+  else globalThis.window = prev;
+});
+
+test('busted screen still asks for a name when none is saved', () => {
+  const prev = globalThis.window;
+  globalThis.window = standaloneWindow();
+  const doc = mockScoreDoc();
+  let saved = 0;
+  const ui = bindHighScoreUI(doc, {
+    getDistance: () => 800,
+    save: async () => { saved += 1; },
+    authApi: { currentUser: null },
+    getPlayerName: () => '   ',
+  });
+
+  ui.offer(800);
+  assert.equal(saved, 0);
+  assert.equal(doc.elements['high-score-google'].hidden, true);
+  assert.equal(doc.elements['high-score-guest'].hidden, false);
+  assert.match(doc.elements['high-score-status'].textContent, /guest name/);
+
+  if (prev === undefined) delete globalThis.window;
+  else globalThis.window = prev;
+});
+
+test('busted screen reads the HUD localStorage name without asking', async () => {
+  const prevWindow = globalThis.window;
+  const prevStorage = globalThis.localStorage;
+  globalThis.window = standaloneWindow();
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => { store.set(key, String(value)); },
+    removeItem: (key) => { store.delete(key); },
+  };
+  store.set(PLAYER_NAME_STORAGE_KEY, 'Mira');
+  const saved = [];
+  const doc = mockScoreDoc();
+  try {
+    const ui = bindHighScoreUI(doc, {
+      getDistance: () => 420,
+      save: async (entry) => { saved.push(entry); return entry; },
+      authApi: { currentUser: null },
+    });
+    ui.offer(420);
+    assert.equal(doc.elements['high-score-guest'].hidden, true);
+    assert.equal(doc.elements['high-score-google'].hidden, true);
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(saved[0]?.name, 'Mira');
+    assert.equal(PLAYER_NAME_STORAGE_KEY, 'gta-praha-player-name');
+  } finally {
+    writeStoredPlayerName('');
+    if (prevStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = prevStorage;
+    if (prevWindow === undefined) delete globalThis.window;
+    else globalThis.window = prevWindow;
+  }
 });

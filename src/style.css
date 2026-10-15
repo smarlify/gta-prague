@@ -97,6 +97,7 @@ body.arrest-cinematic .vignette{background:radial-gradient(ellipse at center,tra
 .high-score-status[data-kind=error]{color:#f0a090}
 .high-score-status[data-kind=info]{color:#aebebc}
 .high-score-google{margin:12px auto 0;max-width:360px;width:100%}
+.high-score-google[hidden]{display:none!important}
 .high-score-guest{margin-top:12px;text-align:left}
 .high-score-guest label{display:block;margin-bottom:6px;font-size:11px;letter-spacing:1px;color:#aebebc}
 .high-score-guest-row{display:flex;gap:8px;flex-wrap:wrap}

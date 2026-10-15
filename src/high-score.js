@@ -10,6 +10,7 @@ import { signInWithPopup } from 'firebase/auth';
 import { addDoc, collection, Timestamp } from 'firebase/firestore';
 import { auth, getFirebaseAuth, getFirebaseFirestore, getGoogleProvider } from './firebase.js';
 import { formatDistance } from './finale.js';
+import { cleanPlayerName, readStoredPlayerName } from './net/player-name.js';
 
 export const GAME_ID = 'gta-praha';
 export const GAME_NAME = 'GTA Praha';
@@ -93,6 +94,7 @@ export function bindHighScoreUI(root = document, {
   save = saveHighScore,
   authApi = auth,
   onGoogleSignedIn = null,
+  getPlayerName = () => readStoredPlayerName(),
 } = {}) {
   const panel = root.getElementById?.('high-score-panel') || root.querySelector?.('#high-score-panel');
   const scoreEl = root.getElementById?.('high-score-value');
@@ -181,6 +183,23 @@ export function bindHighScoreUI(root = document, {
       showSaveRetry();
     });
   };
+
+  /** HUD name already stored: save it and do not ask again. */
+  const saveWithStoredName = (name) => {
+    hideChooser();
+    setStatus(`Saving as ${name}…`);
+    setBusy(true);
+    persist(null, name).catch((err) => {
+      console.error('High score saved-name save failed:', err);
+      setBusy(false);
+      setStatus('Could not save score. Try again.', 'error');
+      if (guestName) guestName.value = name;
+      if (googleBtn) googleBtn.hidden = true;
+      showGuestFallback(true);
+    });
+  };
+
+  const storedHudName = () => cleanPlayerName(getPlayerName());
 
   const onGoogleClick = async () => {
     if (busy || saved || offeredScore <= 0) return;
@@ -277,13 +296,16 @@ export function bindHighScoreUI(root = document, {
     }
 
     const signedIn = isGoogleUser(authApi.currentUser);
+    const hudName = storedHudName();
 
-    // Hub path: always notify Playful. If already signed in here, auto-save and
-    // skip the Google/guest chooser. Logged-out embeds keep Google as fallback.
+    // Hub path: always notify Playful. Signed-in or already-named players
+    // auto-save. Otherwise the guest field is the fallback.
     if (isEmbedded()) {
       onEmbedded(score);
       if (signedIn) {
         autoSaveSignedIn(authApi.currentUser);
+      } else if (hudName) {
+        saveWithStoredName(hudName);
       } else {
         showLoggedOutChooser(true);
         setStatus(
@@ -296,9 +318,11 @@ export function bindHighScoreUI(root = document, {
       return { embedded: true, score };
     }
 
-    // Standalone: auto-save when already signed in; otherwise Google / guest.
+    // Standalone: auto-save when already signed in or the HUD name is saved.
     if (signedIn) {
       autoSaveSignedIn(authApi.currentUser);
+    } else if (hudName) {
+      saveWithStoredName(hudName);
     } else {
       showLoggedOutChooser(true);
       setStatus(
