@@ -4,8 +4,9 @@
 
 A Prague-first fork of [Worldhood](https://worldhood.org): an open-source city playground in your
 browser. Explore Prague by car, on foot, by bicycle or on an e-scooter. Greet people, try another
-car, or help recreate a place you know. Helsinki and Tampere remain in the build. The streets and
-buildings come from open map and city data, with local details added by contributors.
+car, or help recreate a place you know. The playable city is Praha. Helsinki and Tampere packs can
+remain on disk but are not shipped. The streets and buildings come from open map and city data,
+with local details added by contributors.
 
 **Play:** [gta-prague on Heroku](https://gta-prague-c9dc1d12a959.herokuapp.com/) (app `gta-prague`).
 Custom domains `gtapraha.online` / `gtapraha.cz` are reserved; point their DNS at Heroku before using them as the play URL.
@@ -89,12 +90,13 @@ npm run build     # static build in dist/, deployable to any static host
 <!-- CITIES:START -->
 | City | Play | Status | Data | Maintainers |
 | --- | --- | --- | --- | --- |
-| Praha, Česko (default) | [`?city=prague`](/?city=prague) | draft | OpenStreetMap + IPR Praha 3D model | wanted |
-| Helsinki, Finland | [`?city=helsinki`](https://worldhood.org/?city=helsinki) | playable | City of Helsinki 3D city model + open data, HSL | wanted |
-| Tampere, Finland | [`?city=tampere`](https://worldhood.org/?city=tampere) | draft | OpenStreetMap | wanted |
+| Praha, Česko | [`?city=prague`](/?city=prague) | draft | OpenStreetMap + IPR Praha 3D model | wanted |
 <!-- CITIES:END -->
 
-Running it locally? Use `http://localhost:5173/` (Prague) or `http://localhost:5173/?city=<id>`.
+Praha is the only city this build ships. Helsinki and Tampere packs can remain on disk but are not
+shipped, so they are not offered here.
+
+Running it locally? Use `http://localhost:5173/` or `http://localhost:5173/?city=prague`.
 
 ## Improve the game engine
 
@@ -164,20 +166,20 @@ someone to help.
 
 ## The map
 
-- **Default city:** Prague. The playable core is a 2 km circle around Staroměstské náměstí.
+- **Playable city:** Praha. The playable core is a 2 km circle around Staroměstské náměstí.
   Starts are the river and New Town driving loop; the castle and Charles Bridge stay places you
   see, not spawn points. Building shells use IPR Praha’s photogrammetric LOD2 model where packed.
-- Helsinki’s core remains a 2 km circle around Helsinki Cathedral, with optional Helsinki/Espoo
-  extension corridors in that city’s data.
-- **Pick a city and start point** in the URL: `?city=prague`, `?city=helsinki&start=seurasaari-bridge`,
-  or `?city=tampere`. Omit `?city=` to load Prague.
-- Coordinates are local metres (X east, Z south) from each city’s configured origin. Prague uses
-  14.42125 E, 50.08747 N. Helsinki uses 24.9522 E, 60.1701 N and the municipal ETRS-GK25
-  projection (EPSG:3879).
+- Helsinki and Tampere packs can remain on disk but are not shipped. Helsinki’s pack still
+  describes a 2 km circle around Helsinki Cathedral, with optional Helsinki/Espoo extension
+  corridors in that city’s data.
+- Load Praha with `?city=prague`, or omit `?city=`.
+- Coordinates are local metres (X east, Z south) from each city’s configured origin. Praha uses
+  14.42125 E, 50.08747 N. The unshipped Helsinki pack uses 24.9522 E, 60.1701 N and the municipal
+  ETRS-GK25 projection (EPSG:3879).
 
 The game is not a survey-exact digital twin:
-- Terrain depends on the city: Prague and Tampere use bundled elevation data; Helsinki and the
-  Espoo extension currently use flattened ground.
+- Praha uses bundled elevation data. The unshipped Tampere pack also bundles elevation; the
+  unshipped Helsinki pack and its Espoo extension use flattened ground.
 - Some façades and landmark details are approximations.
 - Traffic, pedestrians and police are simulated.
 
