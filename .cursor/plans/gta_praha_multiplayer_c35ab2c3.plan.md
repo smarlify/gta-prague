@@ -4,23 +4,25 @@ overview: "Add Marooned-style presence multiplayer to GTA Praha: anonymous stays
 todos:
   - id: firebase-rtdb
     content: Enable RTDB on smarlify-api, add env URL, publish rules for gta-praha/rooms/demo/players/$uid
-    status: pending
+    status: completed
   - id: presence-protocol
     content: Add net protocol + room join/leave/publish with onDisconnect; Google-only gate
-    status: pending
+    status: completed
   - id: remote-render
     content: Render remote players (pose + vehicle/mode) and remote police units from published snapshots
-    status: pending
+    status: completed
   - id: main-wire
     content: Wire publish/listen into main loop + HUD online control; anonymous stays offline
-    status: pending
+    status: completed
   - id: tests-docs-ship
     content: Protocol tests, README note, feature branch PR and Heroku review deploy
-    status: pending
+    status: completed
 isProject: false
 ---
 
 # GTA Praha multiplayer (demo room)
+
+Shipped: demo-room presence is on origin/main (https://github.com/smarlify/gta-prague/pull/12).
 
 Target repo: [`PragueGTA`](PragueGTA) (`smarlify/gta-prague`). Do this on a **new feature branch from `origin/main`**, not on the current `city/prague-expand` district work.
 

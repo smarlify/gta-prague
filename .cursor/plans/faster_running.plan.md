@@ -4,17 +4,19 @@ overview: Double on-foot running from 4.8 m/s to 9.6 m/s. Walk, cars, bikes, sco
 todos:
   - id: raise-run-cap
     content: In PragueGTA/src/player-travel.js, change TRAVEL_MODES.walk.run from 4.8 to 9.6. Leave speed, acceleration, braking, and the body size alone.
-    status: in_progress
+    status: completed
   - id: assert-cap
     content: In tests/player-travel.test.mjs, assert that Shift on flat ground reaches about 9.6 m/s and that W without Shift still tops out at 2 m/s.
-    status: pending
+    status: completed
   - id: check-in-browser
     content: On flat ground, walk reads about 7 km/h and Shift-run reads about 35 km/h. A wall still stops you. The car dial is unchanged.
-    status: pending
+    status: completed
 isProject: false
 ---
 
 # Faster running
+
+Shipped: on-foot run is 9.6 m/s on origin/main (https://github.com/smarlify/gta-prague/pull/4).
 
 On foot, running is too slow. Double it. One number changes.
 

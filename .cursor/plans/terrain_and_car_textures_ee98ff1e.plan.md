@@ -4,20 +4,22 @@ overview: Add licensed CC0 albedo (and light normal/roughness) maps for ground a
 todos:
   - id: fetch-cc0-maps
     content: Download Poly Haven CC0 asphalt + ground (+ small paint flake), write public/textures/ and sources.json, credit in NOTICE.
-    status: pending
+    status: completed
   - id: wire-terrain-roads
     content: Apply ground map to the terrain plane; sample asphalt in surfaceMaterial asphalt branch with world XZ UVs; keep wetness.
-    status: pending
+    status: completed
   - id: wire-car-paint
     content: Add subtle flake/noise to vehicle paint materials; keep SKODA_PAINT and Praha police colours.
-    status: pending
+    status: completed
   - id: ship-textures
     content: Commit on city/prague-wide, push, update PR, deploy to gta-prague Heroku.
-    status: pending
+    status: completed
 isProject: false
 ---
 
 # Terrain and car textures
+
+Shipped: ground, road, and car-paint textures are on origin/main (https://github.com/smarlify/gta-prague/pull/5).
 
 The 2 km Praha city is playable. Roads and the ground plane still look flat: [PragueGTA/src/main.js](PragueGTA/src/main.js) uses a solid `#94988b` ground mesh and a vertex-coloured `surfaceMaterial` whose asphalt and setts are **procedural** GLSL (lines ~192–226). Cars in [PragueGTA/src/vehicle-models.js](PragueGTA/src/vehicle-models.js) are clearcoated solid colours; Prague already picks Škoda paints via [PragueGTA/src/czech-fleet.js](PragueGTA/src/czech-fleet.js).
 
