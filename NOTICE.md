@@ -46,6 +46,7 @@ city's data under its licence, and update this file and the in-game Sources pane
 ## Sound recordings
 
 - **City beds** from [BigSoundBank](https://bigsoundbank.com) (La Sonothèque), dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). The game ships short excerpts, trimmed and faded so they can loop: a street (`s0608`, Joseph SARDIN), a pedestrian street (`s2676`, Pierre SIBANARCO), a car interior at 50 km/h (`s3099`, Joseph SARDIN & Axeline T.), a tram passing (`s3372`, Joseph SARDIN & Axeline T.), a tram leaving a stop (`s3538`, Joseph SARDIN) and a French two-tone siren (`s0886`, Joseph SARDIN). CC0 does not require this credit. Page URLs are in `public/sounds/sources.json`.
+- **Rain loops** `rain.ogg` and `rainSoft.ogg` by Ylmir, [CC0](https://creativecommons.org/publicdomain/zero/1.0/), from [OpenGameArt](https://opengameart.org/content/rain-loopable). The louder loop plays while rain or snow is on. CC0 does not require this credit.
 
 ## Map and city data
 

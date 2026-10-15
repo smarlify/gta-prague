@@ -8,7 +8,7 @@ import {GRADE_DEFAULTS} from '../src/post.js';
 const hex=/^#[0-9a-f]{6}$/i;
 
 test('every look is complete, with valid colours and a sun above the horizon',()=>{
- assert.deepEqual(LOOK_ORDER,['midday','golden','whitenight','overcast','rain']);
+ assert.deepEqual(LOOK_ORDER,['morning','midday','golden','night','whitenight','overcast','rain','snow']);
  for(const name of LOOK_ORDER){
   const l=LOOKS[name];assert.ok(l,name);assert.ok(l.label);
   for(const k of ['zenith','mid','horizon','sunGlow','cloudLit','cloudShade'])assert.match(l.sky[k],hex,`${name}.sky.${k}`);
@@ -25,7 +25,12 @@ test('every look is complete, with valid colours and a sun above the horizon',()
  }
  assert.deepEqual(LOOKS.midday.sunOffset,[...SUN_OFFSET],'midday keeps the shadow light direction');
  assert.ok(LOOKS.golden.sunOffset[1]/Math.hypot(...LOOKS.golden.sunOffset)<Math.sin(25*Math.PI/180),'golden evening sun is low');
+ assert.ok(LOOKS.morning.sunOffset[0]>0,'morning sun is in the east');
+ assert.ok(LOOKS.morning.sunOffset[1]/Math.hypot(...LOOKS.morning.sunOffset)<Math.sin(28*Math.PI/180),'morning sun is low');
+ assert.equal(LOOKS.night.fog.near,LOOKS.rain.fog.near);assert.equal(LOOKS.night.fog.far,LOOKS.rain.fog.far);
  assert.equal(LOOKS.overcast.sky.sunDisc,0);assert.equal(LOOKS.rain.wetness,1);assert.equal(LOOKS.rain.rain,1);
+ assert.equal(LOOKS.snow.wetness,0);assert.equal(LOOKS.snow.rain,1);assert.equal(LOOKS.snow.snow,1);
+ assert.equal(LOOKS.whitenight.label,'White night');
 });
 
 test('look blends toward the target and drives sky, lights, fog and weather uniforms',()=>{
@@ -49,9 +54,12 @@ test('look blends toward the target and drives sky, lights, fog and weather unif
  const dir=sun.position.clone().sub(sun.target.position).normalize();
  assert.ok(dir.distanceTo(new THREE.Vector3(...LOOKS.golden.sunOffset).normalize())<1e-6,'light follows the preset sun');
  assert.ok(sky.uniforms.uSunDir.value.distanceTo(dir)<1e-6,'sky dome sun follows the light');
- assert.equal(look.cycle().name,'whitenight');
- let changed=null;look.onChange((n,label)=>{changed=[n,label];});look.cycle();assert.deepEqual(changed,['overcast','Overcast']);
- assert.throws(()=>look.set('snow'));
+ assert.equal(look.cycle().name,'night');
+ let changed=null;look.onChange((n,label)=>{changed=[n,label];});look.cycle();assert.deepEqual(changed,['whitenight','White night']);
+ look.set('snow',{instant:true});
+ assert.equal(look.label,'Snow');assert.equal(WEATHER_UNIFORMS.snow.value,1);assert.equal(WEATHER_UNIFORMS.wetness.value,0);
+ assert.ok(look.rain.visible);assert.equal(look.rain.material.uniforms.uSnow,WEATHER_UNIFORMS.snow);
+ assert.ok(surface.roughness>.9,'snow does not gloss the road');
  look.dispose();assert.ok(!scene.children.includes(look.rain));
 });
 

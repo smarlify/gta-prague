@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {Tree} from '@dgreenheck/ez-tree';
+import {attachSnow} from './weather.js';
 import {mannerheimintieTree,treeVariant,treeHeight,crownWidthRatio,STREET_VARIANTS,detailedTreeArea,detailedTreeCell} from './street-trees.js';
 
 export {detailedTreeArea,detailedTreeCell} from './street-trees.js';
@@ -44,6 +45,7 @@ function template(kind,seed,far=false){
    // Backlit street canopies read as black cut-outs without a touch of leaf translucency.
    emissive:index&&street?'#35521f':'#000000',emissiveIntensity:index&&street?.42:0});
   material.forceSinglePass=true;old.dispose();
+  if(index)attachSnow(material);
   return {geometry,material};
  });
  return parts;

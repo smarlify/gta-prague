@@ -66,6 +66,22 @@
       "page": "https://bigsoundbank.com/siren-french-gendarmerie-s0886.html",
       "author": "Joseph SARDIN",
       "licence": "CC0 1.0"
+    },
+    {
+      "file": "rain.ogg",
+      "role": "Rain and snow, the louder loop",
+      "title": "Rain loopable",
+      "page": "https://opengameart.org/content/rain-loopable",
+      "author": "Ylmir",
+      "licence": "CC0 1.0"
+    },
+    {
+      "file": "rainSoft.ogg",
+      "role": "Quieter rain loop, kept beside the louder bed and not played",
+      "title": "Rain loopable",
+      "page": "https://opengameart.org/content/rain-loopable",
+      "author": "Ylmir",
+      "licence": "CC0 1.0"
     }
   ]
 }
