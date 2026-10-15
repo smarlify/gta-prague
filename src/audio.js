@@ -10,8 +10,11 @@ const FILES={
  depart:'/sounds/tram-depart.mp3',
  water:'/sounds/water.mp3',
  // Louder of the two CC0 rain loops (Ylmir, OpenGameArt). rainSoft.ogg is kept beside it and not played.
+ // Snow does not use this loop. Thunder is synthesized in playThunder, not a file.
  rain:'/sounds/rain.ogg',
 };
+// The strike is seen, then the clap. One shot, never a loop.
+export const THUNDER_DELAY=.4;
 const TRAM_SLOTS=3,TRAM_RANGE=90;
 
 // Drop encoder silence, then blend the end back into the start so a loop
@@ -55,6 +58,34 @@ function makeLoop(ctx,buffer,destination){
  source.buffer=buffer;source.loop=true;
  source.connect(gain);gain.connect(pan);pan.connect(destination);source.start();
  return {gain,pan,rate:source.playbackRate};
+}
+
+// Snow must not start the rain bed, even while the streak uniform is up.
+// Thunder is one clap per flash cue, and only while sound is on.
+export function weatherBeds({enabled=false,precipitation=false,snow=false,thunder=0}={}){
+ return {
+  rain:enabled&&precipitation&&!snow?0.5:0,
+  claps:enabled&&thunder>0?Math.trunc(thunder):0,
+ };
+}
+
+// Short clap: noise burst, lowpass, decaying gain. No recording, so nothing to license.
+export function playThunder(ctx,destination,when=0){
+ const start=(Number.isFinite(when)?when:0)+THUNDER_DELAY,duration=1.35,rate=ctx.sampleRate||44100;
+ const frames=Math.max(1,Math.floor(rate*duration));
+ const buffer=ctx.createBuffer(1,frames,rate),data=buffer.getChannelData(0);
+ for(let i=0;i<frames;i++)data[i]=Math.random()*2-1;
+ const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+ source.buffer=buffer;source.loop=false;
+ filter.type='lowpass';
+ filter.frequency.setValueAtTime(420,start);
+ filter.frequency.exponentialRampToValueAtTime(70,start+duration);
+ gain.gain.setValueAtTime(.001,start);
+ gain.gain.exponentialRampToValueAtTime(.85,start+.02);
+ gain.gain.exponentialRampToValueAtTime(.001,start+duration);
+ source.connect(filter);filter.connect(gain);gain.connect(destination);
+ source.start(start);source.stop(start+duration+.02);
+ return source;
 }
 
 export function createCityAudio(){
@@ -112,10 +143,18 @@ export function createCityAudio(){
  return {
   attach:ensure,
   snapshot:()=>({...levels,rms:rms()}),
+  // Cues arrive after look.update, so this is separate from the bed mix above.
+  clap(ctx,{enabled=false,cues=0}={}){
+   const {claps}=weatherBeds({enabled,thunder:cues});
+   if(!ready||ctx!==context||claps<=0)return 0;
+   const now=ctx.currentTime;
+   for(let i=0;i<claps;i++)playThunder(ctx,buses.ambience,now);
+   return claps;
+  },
   update(ctx,state={}){
    if(ctx)ensure(ctx);
    if(!ready||ctx!==context)return;
-   const {enabled=false,active=false,driving=false,car=null,surface=null,people=[],trams=[],heading=0,throttle=false,reverse=false,brake=false,waterDistance=Infinity,precipitation=false}=state;
+   const {enabled=false,active=false,driving=false,car=null,surface=null,people=[],trams=[],heading=0,throttle=false,reverse=false,brake=false,waterDistance=Infinity,precipitation=false,snow=false}=state;
    const mix=mixerGains({enabled,active}),now=ctx.currentTime;
    listener=car||listener;
    master.gain.setTargetAtTime(mix.master,now,.08);
@@ -128,8 +167,8 @@ export function createCityAudio(){
    loops.crowd.gain.gain.setTargetAtTime(crowd,now,.15);levels.crowd=crowd;
    const river=waterGain(waterDistance)*.4;
    loops.water.gain.gain.setTargetAtTime(river,now,.25);levels.water=river;
-   const rainGain=enabled&&precipitation?0.5:0;
-   loops.rain.gain.gain.setTargetAtTime(rainGain,now,.25);levels.rain=rainGain;
+   const beds=weatherBeds({enabled,precipitation,snow});
+   loops.rain.gain.gain.setTargetAtTime(beds.rain,now,.25);levels.rain=beds.rain;
    const sample=carSample(car?.speed||0,surface,{throttle,reverse,brake});
    const carGain=driving&&car?sample.gain:0;
    loops.car.gain.gain.setTargetAtTime(carGain,now,.12);
