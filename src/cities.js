@@ -1,12 +1,9 @@
-// Cities this build can load, and URL selection of city and starting point:
-//   ?city=helsinki&start=seurasaari-bridge
-// A city entry names its data root (all runtime files under it) and its
-// geographic origin. Helsinki-specific scenery modules only run for Helsinki;
-// see docs/ADDING_A_CITY.md for what a new city needs.
-export const CITIES={
- helsinki:{id:'helsinki',name:'Helsinki',dataRoot:'/data',origin:[24.9522,60.1701],projection:'EPSG:3879',radius:2000,defaultStart:'olympia-terminal',scenery:'helsinki',
-  attribution:'City of Helsinki and HSL open data, CC BY 4.0'}
-};
+// Cities this build can load, and URL selection of city and starting point.
+// Praha is registered from public/cities/index.json. Helsinki and Tampere are
+// not selectable here; ?city=helsinki and ?city=tampere say the city is missing.
+// A city entry names its data root and its geographic origin.
+// See docs/ADDING_A_CITY.md for what a new city needs.
+export const CITIES={};
 export const DEFAULT_CITY='prague';
 
 // Cities built with `npm run city:build` are listed in public/cities/index.json.

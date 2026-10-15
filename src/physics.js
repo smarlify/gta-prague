@@ -1,5 +1,5 @@
 import { insidePlayable, pointInPolygon, segmentDistance } from './geo.js';
-import { passageAt } from './passage.js';
+import { passageAt, isBridgeSurface, isApproachStreet, nearFeaturedDistance, APPROACH_REACH } from './passage.js';
 import {consumeBattery} from './battery.js';
 import {groundPose,lakeAt} from './terrain.js';
 export const GRAVITY=9.81;
@@ -58,6 +58,19 @@ export function blocksDriveSample(x,z,world){
  return true;
 }
 
+// Open water stops the car. A bridge deck, its named approach, and the few
+// metres of shoulder beside a featured bridge do not. Driving into the river does.
+export function sampleStopsForWater(x,z,world){
+ if(passageAt(world.roads,x,z))return false;
+ const surface=world.roads.at(x,z)||world.pavement.at(x,z);
+ if(surface&&isBridgeSurface(surface))return false;
+ if(surface&&isApproachStreet(surface)&&nearFeaturedDistance(x,z,world.featuredBridges)<=APPROACH_REACH)return false;
+ if(surface)return false;
+ const wet=world.water.some(w=>pointInPolygon(x,z,w.rings))||lakeAt(x,z)!==null;
+ if(!wet)return false;
+ return nearFeaturedDistance(x,z,world.featuredBridges)>4;
+}
+
 export function driveStep(car,keys,dt,world) {
  const collisionBuildings=world.collisionBuildings||world.buildings;
  const powered=(car.battery??1)>0,distanceBefore=car.distance;
@@ -93,7 +106,7 @@ export function driveStep(car,keys,dt,world) {
    const samples=carSamples(car,nx,nz);
    const from={...car,heading:i?car.heading:oldHeading},next={...car,x:nx,z:nz};
    if(world.objects?.blocksStep(from,next)||samples.some(([x,z])=>blocksDriveSample(x,z,world))&&!canExitBuildings(from,next,collisionBuildings)){collision='building';break;}
-   if(samples.some(([x,z])=>!world.roads.at(x,z)&&!world.pavement.at(x,z)&&!passageAt(world.roads,x,z)&&(world.water.some(w=>pointInPolygon(x,z,w.rings))||lakeAt(x,z)!==null))){collision='water';break;}
+   if(samples.some(([x,z])=>sampleStopsForWater(x,z,world))){collision='water';break;}
    car.distance+=Math.hypot(nx-car.x,nz-car.z);car.x=nx;car.z=nz;
  }
  car.battery=consumeBattery(car.battery??1,car.distance-distanceBefore,car.speed);

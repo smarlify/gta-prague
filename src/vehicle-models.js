@@ -31,15 +31,15 @@ function attachPaintFlake(paint){
   shader.vertexShader='varying vec3 vPaintPos;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvPaintPos=position;');
   shader.fragmentShader='varying vec3 vPaintPos;uniform sampler2D uFlake;uniform float uFlakeScale;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
    float flake=texture2D(uFlake,vPaintPos.xz*uFlakeScale+vec2(vPaintPos.y*uFlakeScale*0.37)).r;
-   diffuseColor.rgb*=1.0+(flake-0.5)*0.14;
+   diffuseColor.rgb*=1.0+(flake-0.5)*0.22;
   `).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
-   roughnessFactor*=mix(1.0,0.88+flake*0.22,0.4);
-  `).replace('material.clearcoatRoughness = clearcoatRoughness;','material.clearcoatRoughness = clamp(clearcoatRoughness+(flake-0.5)*0.1,0.0,1.0);');
+   roughnessFactor*=mix(1.0,0.8+flake*0.3,0.55);
+  `).replace('material.clearcoatRoughness = clearcoatRoughness;','material.clearcoatRoughness = clamp(clearcoatRoughness+(flake-0.5)*0.18,0.02,1.0);');
  };
  paint.customProgramCacheKey=()=>'paint-flake';
 }
 export function createVehicleMaterials(){
- const paint=new THREE.MeshPhysicalMaterial({color:'#ffffff',metalness:.28,roughness:.34,clearcoat:1,clearcoatRoughness:.1});
+ const paint=new THREE.MeshPhysicalMaterial({color:'#ffffff',metalness:.32,roughness:.26,clearcoat:1,clearcoatRoughness:.055});
  attachPaintFlake(paint);
  const glass=new THREE.MeshPhysicalMaterial({color:'#101d24',metalness:.62,roughness:.06});
  const rubber=new THREE.MeshStandardMaterial({color:'#1b1e22',metalness:0,roughness:.74});

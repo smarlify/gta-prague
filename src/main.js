@@ -22,9 +22,9 @@ import {nearestWaterDistance} from './water-proximity.js';
 import {createWaterfowl} from './waterfowl.js';
 import {stepPavlova} from './pavlova.js';
 import {createPavlovaAmbulance} from './pavlova-scene.js';
-import {passageDeck,liftedBridgeHeight,stripBoredTunnels} from './passage.js';
-import {pragueSceneryTrees} from './prague-scenery.js';
-import {createPassageDeck} from './passage-deck.js';
+import {passageDeck,stripBoredTunnels,bridgeDeckHeight,bridgeDriveHeight,isBridgeSurface,isFeaturedBridge} from './passage.js';
+import {pragueSceneryTrees,pragueParkPlanting,createParkFlowers,createCharlesStatues} from './prague-scenery.js';
+import {createPassageDeck,createPragueBridgeDecks} from './passage-deck.js';
 import {buildTileInWorker,materialiseBuilding,createSourceShell} from './building-loader.js';
 import {attachFacades,applyFacadeHeights} from './facade-data.js';
 import {tileLevel,applyTileLod,createMergedShells,freezeTileGroup,freezeMesh,applyTreeLod,createStaticShadowCuller} from './tile-lod.js';
@@ -54,7 +54,7 @@ import {createStationStreetLife} from './station-street-life.js';
 import {createStationStatues} from './station-statues.js';
 import {createStationBuildingDetails} from './station-building.js';
 import {createLocationReadout,describeLocation,useProjection} from './location-readout.js';
-import {areaCaption,HELSINKI_AREAS,PRAGUE_AREAS} from './area-caption.js';
+import {areaCaption,pragueDistrictNumber,HELSINKI_AREAS,PRAGUE_AREAS} from './area-caption.js';
 import {createWaterfrontLandmarks} from './waterfront-landmarks.js';
 import {createStreetNameSigns} from './street-name-signs.js';
 import {createPalaceLife} from './palace-life.js';
@@ -123,8 +123,8 @@ import {createMobileControls} from './mobile-controls.js';
 import {locationPageTitle,updateWorldhoodBrand} from './worldhood-brand.js';
 import {installMapillaryAttribution} from './mapillary-attribution.js';
 import './worldhood-brand.css';
-import {decodeTerrain,setTerrain,hasTerrain,groundAt,groundPose,liftBuildings,footprintBase,setCorridorHeights,setDriveHeight} from './terrain.js';
-import {drapeGeometry,settleObject,createTerrainGround,drawLakeMap,setRiverChannel,setDryPassages} from './terrain-mesh.js';
+import {decodeTerrain,setTerrain,hasTerrain,groundAt,groundPose,liftBuildings,footprintBase,setCorridorHeights,setDriveHeight,waterAt} from './terrain.js';
+import {drapeGeometry,settleObject,createTerrainGround,drawLakeMap,setRiverChannel,setDryPassages,setBridgeSpans,pointInRiverChannel} from './terrain-mesh.js';
 import {loadSurfaceTextures,applyGroundTexture,setWorldMetreUVs,ASPHALT_UNIFORM,ASPHALT_SCALE_UNIFORM} from './surface-textures.js';
 const remoteHitAt=new Map();
 const impacts=new ImpactSystem();impacts.onVehicleHit=(from,hitCar,a)=>{
@@ -263,9 +263,10 @@ buildingMaterial.onBeforeCompile=shader=>{
  shader.vertexShader='varying vec3 vWall;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWall=position;');
  shader.fragmentShader='varying vec3 vWall;uniform float uPlaster;\nfloat wallHash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
   if(uPlaster>0.5){
-   float course=smoothstep(.04,.07,abs(fract(vWall.y/.32)-.5));
-   float grain=wallHash(floor(vWall.xz*2.5))*.08;
-   diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.79,.74,.66)+grain,.55)*(1.-course*.06);
+   float course=smoothstep(.03,.08,abs(fract(vWall.y/.28)-.5));
+   float grain=wallHash(floor(vWall.xz*3.1))*.12;
+   float mott=wallHash(floor(vWall.xz*.42)+7.)*.06;
+   diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.84,.78,.69)+grain+mott,.72)*(1.-course*.1);
   }
  `);
 };
@@ -770,7 +771,7 @@ function updateHUD(now){
  const driving=travel?.mode==='car';
  const speed=displayedSpeedKmh(car.speed);$('speed').title='Game-style indicated speed: 70% of world speed';$('gear').textContent=car.speed<-.2?'REVERSE':speed>1?'DRIVING':'PARKED & READY';$('distance').textContent=(car.distance/1000).toFixed(2);
  const road=world.roads.at(car.x,car.z),pave=world.pavement.at(car.x,car.z),streetName=road?.name||pave?.name||'';$('street').textContent=streetName||'Off the beaten path';
- const placeName=areaLabel?areaLabel(car.x,car.z,now):'';const nextTitle=locationPageTitle({street:streetName,place:placeName});if(document.title!==nextTitle)document.title=nextTitle;
+ const district=pragueDistrictNumber(city?.id==='prague'?PRAGUE_AREAS:[],car.x,car.z);const nextTitle=locationPageTitle({street:streetName,district});if(document.title!==nextTitle)document.title=nextTitle;
  if(car.damage>.02)$('gear').textContent=`DAMAGE ${Math.round(car.damage*100)}% · R TO RESET`;
  if(car.battery===0)$('gear').textContent='R TO RECHARGE';else if(car.battery<=.2)$('gear').textContent='LOW BATTERY · R TO RECHARGE';
  if(!driving){$('gear').textContent=TRAVEL_MODES[travel.mode].label.toUpperCase();$('speed').title='Speed in kilometres per hour';}
@@ -923,8 +924,14 @@ async function boot(){
    const surfaceTexturesP=loadSurfaceTextures({anisotropy:Math.min(8,renderer.capabilities.getMaxAnisotropy())}).catch(e=>{console.warn('Surface textures unavailable:',e);return null;});
    let mobilityData,landcoverData,tramData,surfaceTextures;[data,roofIndex,surfaceIndex,mobilityData,landcoverData,tramData,extensions,surfaceTextures]=await Promise.all([d,json(dataUrl('buildings3d-index.json')),json(dataUrl('surface-index.json')),json(dataUrl('mobility.json')),json(dataUrl('landcover.json')),json(dataUrl('trams.json')),loadExtensionIndex(json),surfaceTexturesP]);
    // Prague bored tunnels are unplayable (invisible collisions). Strip them at
-   // load; short building passages and covered ways stay. Bridges untouched.
-   if(city.id==='prague'){const stripped=stripBoredTunnels(data,mobilityData);data=stripped.city;mobilityData=stripped.mobility;data.trees=[...data.trees,...pragueSceneryTrees()];}
+   // load, including named Tunel roads; short building passages and covered ways stay.
+   let pragueFlowers=[];
+   if(city.id==='prague'){
+    const stripped=stripBoredTunnels(data,mobilityData);data=stripped.city;mobilityData=stripped.mobility;
+    const planting=pragueParkPlanting(data.parks,data.trees,data.buildings,data.water);
+    pragueFlowers=planting.flowers;
+    data.trees=[...data.trees,...pragueSceneryTrees(),...planting.trees];
+   }
    if(surfaceTextures?.ground)applyGroundTexture(ground.material,surfaceTextures.ground);
    for(const e of extensions)if(e.heights?.length)setCorridorHeights(e.heights);
    if(city.facades)attachFacades(roofIndex,await json(dataUrl(city.facades)).catch(()=>null)); // photo-described street fronts (optional, any city)
@@ -965,10 +972,17 @@ async function boot(){
    // ~0.375 px per metre, as before, whatever the map frame size.
    mapCache.width=mapCache.height=Math.min(4096,Math.round(mapView.size*.375));
    // Hilly cities: everything below samples the shared height field; the flat ground plane gives way to a terrain mesh.
-   if(city.id==='prague'){setRiverChannel(data.water);setDryPassages(data.roads);}
+   const pragueDry={dry:(x,z)=>waterAt(x,z)===null&&!pointInRiverChannel(x,z),inChannel:(x,z)=>waterAt(x,z)!==null||pointInRiverChannel(x,z)};
+   if(city.id==='prague'){setRiverChannel(data.water);setDryPassages(data.roads);setBridgeSpans([...data.roads,...data.pavement].filter(isBridgeSurface));}
    if(setTerrain(await terrainData)){surfaceMaterial.defines={...surfaceMaterial.defines,TERRAIN:''};surfaceMaterial.needsUpdate=true;ground.visible=false;cityModel.add(createTerrainGround(ground.material));}
    if((landcoverData.polygons||landcoverData.runs||[]).length)cityModel.add(settleObject(createLandcover(landcoverData)));
    sea=createSea(data.water,data,{helsinkiHarbour:helsinki,riverDrop:city.id==='prague'?.85:0,quayStone:city.id==='prague'});cityModel.add(sea.group);ground.geometry.dispose();ground.geometry=sea.groundGeometry;setWorldMetreUVs(ground.geometry,{plane:true});
+   if(city.id==='prague'){
+    const deckHeight=(x,z)=>bridgeDeckHeight(groundAt,x,z,pragueDry);
+    cityModel.add(createPragueBridgeDecks([...data.roads,...data.pavement],deckHeight));
+    cityModel.add(createCharlesStatues(data.pavement,deckHeight));
+    const flowers=createParkFlowers(pragueFlowers);if(flowers)cityModel.add(flowers);
+   }
    // Helsinki's hand-built scenery (landmarks, harbour, street life, signs). Other cities get the generic engine only.
    async function buildHelsinkiScenery(){
    progress(30,'Loading roads and waterfront');
@@ -1034,7 +1048,8 @@ async function boot(){
    world={buildings:new SpatialIndex([...data.buildings,...streetObstacles.filter(o=>!o.breakable),...ads.obstacles]),roads:new SpatialIndex(data.roads.filter(r=>!/Koroke/.test(r.kind))),pavement:new SpatialIndex(data.pavement),trafficForbidden:new SpatialIndex(helsinki?[...data.pavement.filter(inHarbour),...data.roads.filter(r=>/Koroke/.test(r.kind)),...olympiaTramOnlySurfaces(data)]:data.roads.filter(r=>/Koroke/.test(r.kind))),water:data.water};
    if(city.id==='prague'){
     world.roadClearsBuildings=true; // OSM footprints spilled onto asphalt are not solid mid-road walls
-    setDriveHeight((x,z)=>{const deck=passageDeck(world.roads,x,z);if(deck!==null)return deck;const road=world.roads.at(x,z);return road&&/Silta|\bmost\b/i.test(`${road.kind} ${road.name}`)?liftedBridgeHeight(groundAt,x,z):groundAt(x,z);});
+    world.featuredBridges=[...data.roads,...data.pavement].filter(isFeaturedBridge);
+    setDriveHeight((x,z)=>{const deck=passageDeck(world.roads,x,z);if(deck!==null)return deck;const surface=world.roads.at(x,z)||world.pavement.at(x,z);return bridgeDriveHeight(x,z,{groundAt,surface,featured:world.featuredBridges,...pragueDry});});
     const passageMesh=createPassageDeck(data.roads);if(passageMesh.children.length)cityModel.add(passageMesh);
    }
    world.cameraBuildings=new SpatialIndex(data.buildings);world.sightBuildings=world.cameraBuildings; // mapped buildings only: the camera boom and the police surge's line of sight ignore street furniture

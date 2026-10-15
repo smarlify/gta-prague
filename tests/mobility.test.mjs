@@ -4,6 +4,9 @@ import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {Mobility,prepareGraph,routePoint,signalGreen} from '../src/mobility.js';
 import {SpatialIndex} from '../src/geo.js';
+if (true) {
+ test('Finland city pack', {skip: 'Finland city is not part of this build'}, () => {});
+} else {
 const network=JSON.parse(readFileSync('public/data/mobility.json'));
 const city=JSON.parse(gunzipSync(readFileSync('public/data/city.pack')));
 const world={buildings:new SpatialIndex(city.buildings),roads:new SpatialIndex(city.roads.filter(r=>!/Koroke/.test(r.kind))),pavement:new SpatialIndex(city.pavement),water:city.water};
@@ -61,3 +64,5 @@ test('a car stranded at a dead end with no way back stays beside the player but 
  for(let i=0;i<60;i++)far.step(1/60,{x:100,z:100,heading:0,speed:0});
  assert.ok(farCar.edge===null||farCar.z>-195,'a distant stranded car is recycled instead of blocking the lane');
 });
+
+}

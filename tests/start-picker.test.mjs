@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {cycleIndex,cycleStart,pickerStep,swipeStep,startPosition,createStartPicker,districtGroup,districtGroups,startsInDistrict} from '../src/start-picker.js';
-import {startUrl,pickStart,CITIES} from '../src/cities.js';
+import {startUrl,pickStart} from '../src/cities.js';
 
 const starts=['Senate Square','Market Square','Kamppi','Olympia Terminal','Seurasaari bridge','Tapiola centre'].map(name=>({name,district:name,x:0,z:0}));
 const pragueStarts=[
@@ -29,7 +29,7 @@ test('cycling wraps around in both directions',()=>{
 test('a picked start is written to ?start= and found again on reload',()=>{
  const location={href:'https://worldhood.org/?city=helsinki&start=olympia-terminal#x'};
  const next=cycleStart(starts,starts[3],1);
- const url=startUrl(location,CITIES.helsinki,next);
+ const url=startUrl(location,{id:'helsinki',name:'Helsinki',dataRoot:'/data'},next);
  assert.equal(url,'/?city=helsinki&start=seurasaari-bridge#x');
  assert.equal(pickStart(starts,new URLSearchParams(url.split('?')[1].split('#')[0]).get('start')),next);
 });

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import {pointInPolygon} from './geo.js';
-import {pointInPassage} from './passage.js';
+import {pointInPolygon,SpatialIndex} from './geo.js';
+import {pointInPassage,openRiverSample} from './passage.js';
 import {groundAt,waterAt,hasTerrain,terrain,footprintBase,driveAt} from './terrain.js';
 
 // Geometry that follows the ground (src/terrain.js). Flat cities skip all of this.
@@ -37,7 +37,14 @@ export function subdivideGeometry(source,maxEdge=4,{height=null,tolerance=.03}={
 export function drapeGeometry(geometry,{maxEdge=4,lift=0,water=false,mark=false,lines=false}={}){
  if(!hasTerrain())return geometry;
  if(lines)geometry.userData.lines=true;
- const surface=(x,z,y0=0)=>{if(water){const w=waterAt(x,z);if(w!==null)return w;}if(y0>0.06&&y0<0.09)return driveAt(x,z);return groundAt(x,z);};
+ const surface=(x,z,y0=0)=>{
+  if(water){
+   const open=openRiverSample(x,z,{onBridge:bridgeSpanAt,inChannel:channelAt,levelAt:(sx,sz)=>waterAt(sx,sz)??groundAt(sx,sz)});
+   if(open!==null)return open;
+   const w=waterAt(x,z);if(w!==null)return w;
+  }
+  if(y0>0.06&&y0<0.09)return driveAt(x,z);return groundAt(x,z);
+ };
  const g=maxEdge?subdivideGeometry(geometry,maxEdge,{height:lines?null:(x,z)=>surface(x,z,0.07)}):geometry,p=g.attributes.position,added=mark?new Float32Array(p.count):null;
  for(let i=0;i<p.count;i++){const x=p.getX(i),y0=p.getY(i),z=p.getZ(i),h=surface(x,z,y0)+lift;p.setY(i,y0+h);if(added)added[i]=h;}
  if(added)g.setAttribute('terrainY',new THREE.BufferAttribute(added,1));
@@ -81,11 +88,15 @@ export function settleObject(root,{maxEdge=4,skip=null}={}){
 }
 
 // River polygons the elevation grid never marked. The Vltava in the 2 km pack is one of them.
-let riverPolys=[],dryPassages=[];
+let riverPolys=[],dryPassages=[],bridgeSpans=null;
 export function setRiverChannel(water){
  riverPolys=(water||[]).filter(w=>/river|riverbank/i.test(`${w.kind||''} ${w.name||''}`)&&w.rings?.[0]?.length>3);
 }
 export function setDryPassages(roads){dryPassages=(roads||[]).filter(r=>r.passage&&r.rings);}
+export function setBridgeSpans(items){bridgeSpans=items?.length?new SpatialIndex(items):null;}
+export function bridgeSpanAt(x,z){return !!bridgeSpans?.at(x,z);}
+export function pointInRiverChannel(x,z){return inRiver(x,z);}
+function channelAt(x,z){return waterAt(x,z)!==null||inRiver(x,z);}
 function inRiver(x,z){
  for(const w of riverPolys){
   const b=w.bbox;if(b&&(x<b[0]||x>b[2]||z<b[1]||z>b[3]))continue;

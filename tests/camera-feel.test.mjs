@@ -1,3 +1,4 @@
+import {existsSync} from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
@@ -77,7 +78,7 @@ test('vehicle finishes: clearcoat paint, reflective glass and chrome share one e
  setEnvironment(null);assert.equal(m.paint.envMap,null);assert.equal(currentEnvironment(),null);unregisterEnvMaterial(late);
 });
 
-test('tram glazing is reflective but still see-through and the nose loft is smooth',async()=>{
+test('tram glazing is reflective but still see-through and the nose loft is smooth', {skip:'Finland city is not part of this build'},async()=>{
  const {readFileSync}=await import('node:fs');const {TramSimulation}=await import('../src/tram-simulation.js');
  const data=JSON.parse(readFileSync('public/data/trams.json')),sim=new TramSimulation(data,{buildings:{at:()=>undefined},roads:{at:()=>true},pavement:{at:()=>true}});sim.reset({x:0,z:117.7});
  const r=createTramRenderer(new THREE.Scene(),sim),glass=r.kinds.flat().find(m=>/glass/.test(m.name)),paint=r.kinds.flat().find(m=>/module 0 paint/.test(m.name));

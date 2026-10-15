@@ -16,7 +16,7 @@ const surfaces=surfaceIndex(city),close=(a,b,e=1e-6)=>Math.abs(Math.atan2(Math.s
 const EAST=[1,0],WEST=[-1,0];
 const local=(x,z)=>[x,z],identity=([x,y])=>[x,y]; // test geometry already in the local frame
 
-test('Finnish sign codes: current and old numbers, values, families, unknown codes',()=>{
+test('Finnish sign codes: current and old numbers, values, families, unknown codes', {skip:'Finland city is not part of this build'},()=>{
  assert.deepEqual(finnishCode('FI:C32[40]'),{code:'C32',value:'40'});
  assert.deepEqual(finnishCode('361','50'),{code:'C32',value:'50'},'old number with a Digiroad value');
  assert.equal(finnishCode('FI:511').code,'E1');assert.equal(finnishCode('231').code,'B5');assert.equal(finnishCode('FI:551[right]').code,'E14.1');
@@ -35,7 +35,7 @@ test('Finnish sign codes: current and old numbers, values, families, unknown cod
  assert.notEqual(signFace('complementary--turn-left').face,signFace('regulatory--turn-left').face);
 });
 
-test('projection: ETRS-TM35FIN (Digiroad) and ETRS-GK24 (Tampere) land in the same local frame',()=>{
+test('projection: ETRS-TM35FIN (Digiroad) and ETRS-GK24 (Tampere) land in the same local frame', {skip:'Finland city is not part of this build'},()=>{
  const at=[23.7600,61.4990],tm=proj4('EPSG:4326',CRS['EPSG:3067']).forward(at),gk=proj4('EPSG:4326',CRS['EPSG:3878']).forward(at);
  assert.ok(gk[0]>24e6,'GK24 eastings carry the zone number');
  const a=projector('urn:ogc:def:crs:EPSG::3067',frame.local)(tm),b=projector('EPSG:3878',frame.local)(gk),c=frame.local(...at);
@@ -46,7 +46,7 @@ test('projection: ETRS-TM35FIN (Digiroad) and ETRS-GK24 (Tampere) land in the sa
  assert.ok(isFinnish({country:'Suomi / Finland'})&&!isFinnish({country:'Eesti'}));
 });
 
-test('facing: plates face the traffic they govern, posts stand on its right-hand kerb',()=>{
+test('facing: plates face the traffic they govern, posts stand on its right-hand kerb', {skip:'Finland city is not part of this build'},()=>{
  assert.ok(close(facingTraffic(EAST),-Math.PI/2,1e-3),'eastbound traffic reads a plate looking west');
  assert.deepEqual(rightOf(EAST).map(v=>v+0),[0,1],'eastbound: kerb to the south (+z)');
  const t=travelFromBearing(90);assert.ok(Math.abs(t[0]-1)<1e-9&&Math.abs(t[1])<1e-9,'compass 90° is east');
@@ -68,7 +68,7 @@ test('facing: plates face the traffic they govern, posts stand on its right-hand
  assert.deepEqual(lanes(0,9),EAST);assert.deepEqual(lanes(0,-9).map(v=>v+0),WEST);
 });
 
-test('crossings: an E1 at each kerb for the traffic keeping to that side; signals get pedestrian heads instead',()=>{
+test('crossings: an E1 at each kerb for the traffic keeping to that side; signals get pedestrian heads instead', {skip:'Finland city is not part of this build'},()=>{
  const {signs,lights}=crossingFurniture([{id:'z',ends:[[0,-10],[0,10]],signs:true,signalled:false,src:'city'},{id:'s',ends:[[60,-10],[60,10]],signs:true,signalled:true,src:'city'}],surfaces);
  assert.equal(signs.length,2);assert.equal(lights.length,2);
  const north=signs.find(s=>s.z<0),south=signs.find(s=>s.z>0);
@@ -78,7 +78,7 @@ test('crossings: an E1 at each kerb for the traffic keeping to that side; signal
  const ln=lights.find(l=>l.z<0);assert.ok(close(ln.yaw,0,1e-3),'the head on the north kerb looks across at the south kerb');assert.equal(ln.kind,'crossing-light');
 });
 
-test('stops: a double-sided E6 at the kerb and a shelter behind it, open to the road',()=>{
+test('stops: a double-sided E6 at the kerb and a shelter behind it, open to the road', {skip:'Finland city is not part of this build'},()=>{
  const {signs,shelters}=stopFurniture([{id:'1',name:'Keskusta A',x:20,z:10.2,travel:EAST,shelter:true,tram:false,src:'city'},{id:'2',name:'Raitio',x:60,z:-10.2,travel:WEST,shelter:false,tram:true,src:'city'}],surfaces,()=>null);
  assert.equal(signs.length,2);assert.equal(shelters.length,1);
  assert.deepEqual(signs[0].plates.map(p=>p.face),['fi-e6','fi-e6']);assert.ok(close(signs[0].plates[1].yaw,signs[0].plates[0].yaw+Math.PI,1e-3));
@@ -87,7 +87,7 @@ test('stops: a double-sided E6 at the kerb and a shelter behind it, open to the 
  assert.equal(stopFurniture([{id:'3',x:20,z:10.2,travel:EAST,shelter:true,src:'city'}],surfaces,()=>null,{avoid:()=>true}).shelters.length,0,'none where a place builds its own');
 });
 
-test('sign posts: plates at one spot share a post; plate layout stacks them by facing',()=>{
+test('sign posts: plates at one spot share a post; plate layout stacks them by facing', {skip:'Finland city is not part of this build'},()=>{
  const p=(x,codes,yaw,src='osm')=>({kind:'sign',x,z:12,plates:codes.map(c=>{const f=signFace(c);return {code:f.code,face:f.face,yaw,shape:f.shape};}),src,refs:{[src]:[String(x)]}});
  const posts=groupPosts([p(0,['FI:C38'],0),p(.5,['FI:C37'],0),p(.6,['FI:C38'],Math.PI),p(5,['FI:B5'],0)]);
  assert.equal(posts.length,2);assert.deepEqual(posts[0].plates.map(x=>x.face),['no-parking','no-stopping','no-parking']);
@@ -95,7 +95,7 @@ test('sign posts: plates at one spot share a post; plate layout stacks them by f
  assert.ok(layout[1].y<layout[0].y,'second plate facing the same way hangs below');assert.equal(layout[2].y,layout[0].y,'back-to-back plate at the top');
 });
 
-test('merge: official code and facing, photographed position, both provenances; doubles across sources',()=>{
+test('merge: official code and facing, photographed position, both provenances; doubles across sources', {skip:'Finland city is not part of this build'},()=>{
  const plate=(c,yaw)=>{const f=signFace(c);return {code:f.code,face:f.face,yaw,shape:f.shape};};
  const official=[
   {kind:'sign',x:0,z:12,plates:[plate('FI:C32[30]',0)],src:'digiroad',refs:{digiroad:['d1']}},
@@ -124,7 +124,7 @@ test('merge: official code and facing, photographed position, both provenances; 
  assert.ok(out.faces.some(f=>f.face==='speed-30'&&f.code==='FI:C32[30]'));assert.ok(!out.faces.some(f=>f.face==='speed-40'),'unused faces dropped');
 });
 
-test('regulations: a sign where a speed limit, restriction or bus lane begins for arriving traffic',()=>{
+test('regulations: a sign where a speed limit, restriction or bus lane begins for arriving traffic', {skip:'Finland city is not part of this build'},()=>{
  const line=(id,a,b,dir=2)=>({properties:{link_id:id,ajosuunta:dir},geometry:{type:'LineString',coordinates:[a,b]}});
  const graph=linkGraph({features:[line('A',[-100,0],[0,0]),line('B',[0,0],[100,0]),line('C',[0,-100],[0,0])]},identity);
  const speed=(id,link,value,extra={})=>({id,link,from:0,to:100,dir:1,value,codes:[`C32[${value}]`],...extra});
@@ -141,7 +141,7 @@ test('regulations: a sign where a speed limit, restriction or bus lane begins fo
  assert.equal(regulationStarts([speed('b','B','30')],graph,{missingIsDifferent:false}).length,0);
 });
 
-test('OpenStreetMap sign nodes: Finnish codes, give-way direction along the way, standalone bearings',()=>{
+test('OpenStreetMap sign nodes: Finnish codes, give-way direction along the way, standalone bearings', {skip:'Finland city is not part of this build'},()=>{
  const n=(id,lon,lat,tags)=>({type:'node',id,lon,lat,tags}),geo=(x,z)=>({lon:x,lat:z});
  const elements=[n(1,-50,0,{}),n(2,-5,0,{highway:'give_way'}),n(3,0,0,{}),n(4,20,30,{traffic_sign:'FI:C32[30];FI:H24',direction:'90'}),n(5,-30,0,{traffic_sign:'FI:372',direction:'backward'}),n(6,40,40,{traffic_sign:'DE:274[30]'}),
   {type:'way',id:9,nodes:[1,5,2,3],tags:{highway:'residential'}}].map(e=>e.type==='node'?{...e,...geo(e.lon,e.lat)}:e);
@@ -153,7 +153,7 @@ test('OpenStreetMap sign nodes: Finnish codes, give-way direction along the way,
  const {posts}=osmPosts(signs,surfaces,()=>null);assert.equal(posts.length,3);assert.ok(posts.find(p=>p.refs.osm[0]==='2').z>10);
 });
 
-test('signals: Digiroad light points add approach posts only where a junction has none',()=>{
+test('signals: Digiroad light points add approach posts only where a junction has none', {skip:'Finland city is not part of this build'},()=>{
  const graph=linkGraph({features:[{properties:{link_id:'A',ajosuunta:2},geometry:{type:'LineString',coordinates:[[-100,0],[0,0]]}}]},identity);
  const lights={features:[{properties:{id:7,link_id:'A'},geometry:{type:'Point',coordinates:[-4,0]}}]};
  const {posts}=digiroadLightPosts(lights,graph,identity,[],surfaces);

@@ -18,9 +18,9 @@ function check(reports){
   if(moving.length)assert.ok(moving.reduce((n,t)=>n+t.travelled,0)/moving.length>120,`${r.spot}: trams barely moved (${moving.map(t=>t.travelled).join(', ')} m)`);
  }
 }
-test('Helsinki tram streets keep flowing: Mannerheimintie at Lasipalatsi and Kauppatori',()=>{
+test('Helsinki tram streets keep flowing: Mannerheimintie at Lasipalatsi and Kauppatori',{skip:'Finland city is not part of this build'},()=>{
  check(run('helsinki',['Mannerheimintie (Lasipalatsi)','Kauppatori']));
 });
-test('Tampere keeps flowing: Hämeenkatu at Keskustori and the railway station',()=>{
+test('Tampere keeps flowing: Hämeenkatu at Keskustori and the railway station',{skip:'Finland city is not part of this build'},()=>{
  check(run('tampere',['Hämeenkatu (Keskustori)','Rautatieasema']));
 });

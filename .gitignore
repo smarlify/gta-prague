@@ -23,5 +23,9 @@ docs/RELEASE_REVIEW.md
 __manifest
 __git-hooks
 
+# Finland city packs stay on disk for local checks. They are not part of a deploy.
+/public/data/
+/public/cities/tampere/
+
 firebase-debug.log
 firebase-debug.*.log

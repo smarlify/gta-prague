@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {TramSimulation,JOKERI_DIMENSIONS,TRAM_DIMENSIONS,tramDims} from '../src/tram-simulation.js';
 import {createJokeriModules,JOKERI_COLOURS} from '../src/tram-model.js';
 import {createTramRenderer} from '../src/trams.js';
@@ -38,7 +38,7 @@ test('an extension light rail line joins the network, roams near the player and 
  // Left far behind, the line's trams are retired.
  const far={...player,x:0,z:0};for(let i=0;i<30*5;i++)trams.step(1/30,far);assert.equal(trams.trams.filter(t=>t.path===jokeri).length,0);
 });
-test('Länsiväylä and Espoo ship HSL buses with their stops, and Espoo the Raide-Jokeri',()=>{
+test('Länsiväylä and Espoo ship HSL buses with their stops, and Espoo the Raide-Jokeri', {skip:'Finland city is not part of this build'},()=>{
  const index=JSON.parse(readFileSync('public/data/extensions/index.json'));
  for(const id of ['lansivayla','espoo']){const e=index.extensions.find(e=>e.id===id);assert.equal(e.transit,'transit.json');
   const t=JSON.parse(readFileSync(`public/data/${e.dir}/transit.json`));assert.equal(t.license,'CC BY 4.0');

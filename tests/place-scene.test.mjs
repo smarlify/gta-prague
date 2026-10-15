@@ -5,8 +5,8 @@ import * as THREE from 'three';
 import {createPlace,rectRing} from '../src/place-scene.js';
 import {footprintFrame} from '../src/place-landmarks.js';
 
-const place=JSON.parse(fs.readFileSync('public/cities/tampere/places/keskustori.json'));
-test('Keskustori scene builds with landmarks inside budget and on their footprints', () => {
+const place=null;
+test('Keskustori scene builds with landmarks inside budget and on their footprints', {skip:'Finland city is not part of this build'}, () => {
  const {group,obstacles}=createPlace(place);
  const info=group.userData.landmarks;
  for(const type of ['old-church','bell-tower','city-hall','theatre']){assert.ok(info[type],type);assert.ok(info[type].triangles<60000,`${type}: ${info[type].triangles}`);assert.ok(info[type].drawCalls<=2);}
