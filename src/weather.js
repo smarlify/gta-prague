@@ -3,7 +3,7 @@ import {SUN_OFFSET,SKY_PALETTE,LIGHTING,FOG_COLOR} from './sky.js';
 import {GRADE_DEFAULTS} from './post.js';
 
 // Daytime and weather compose. A daytime preset owns the sun, the sky and the clear grade.
-// Weather only adds wetness, rain or snow streaks, the snow tint, tighter fog and lightning.
+// Weather only adds wetness, rain streaks or snow flakes, the snow tint, tighter fog and lightning.
 // It does not move the sun: a rainy morning stays a morning sky with rain on top.
 // Switching either one blends every value over a couple of seconds.
 //
@@ -84,37 +84,39 @@ export const WEATHERS=Object.freeze({
 });
 export const WEATHER_ORDER=Object.freeze(['clear','overcast','rain','thunder','snow']);
 
+// How far roads and the ground move toward white. Grass and leaves keep a fuller mix.
+// A dusting only: no cover, tracks or piles.
+export const SNOW_DUST=.32;
 // Grass and leaf materials mix toward white from WEATHER_UNIFORMS.snow. Bark is a separate
 // material, or a foliage attribute of 0 on the shared species mesh.
-export function attachSnow(material,{leaves=false}={}){
+export function attachSnow(material,{leaves=false,amount=1}={}){
  const previous=material.onBeforeCompile,previousKey=material.customProgramCacheKey;
+ const cover=leaves?'vLeaf':String(amount);
  material.onBeforeCompile=function(shader){
   previous?.call(this,shader);
   shader.uniforms.uSnow=WEATHER_UNIFORMS.snow;
-  const mix=leaves
-   ?'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.94),clamp(uSnow,0.0,1.0)*vLeaf);'
-   :'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.94),clamp(uSnow,0.0,1.0));';
+  const mix=`diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.94),clamp(uSnow,0.0,1.0)*${cover});`;
   if(leaves)shader.vertexShader='attribute float aFoliage;\nvarying float vLeaf;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLeaf=aFoliage;');
   const lead=leaves?'uniform float uSnow;\nvarying float vLeaf;\n':'uniform float uSnow;\n';
   shader.fragmentShader=lead+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>\n${mix}`);
  };
- material.customProgramCacheKey=function(){return `${previousKey?.call(this)??''}|snow${leaves?'-leaf':''}`;};
+ material.customProgramCacheKey=function(){return `${previousKey?.call(this)??''}|snow${leaves?'-leaf':amount===1?'':'-dust'}`;};
 }
 
 // Rain: one draw call of short line segments falling through a box that wraps around the camera.
-// Snow reuses the same streaks: white, and a slower fall, from the shared snow uniform.
-const RAIN_COUNT=2600,RAIN_BOX=new THREE.Vector3(44,26,44);
+// Snow is a second draw of soft round flakes in that same box. Only one of the two is visible.
+const RAIN_COUNT=2600,SNOW_COUNT=1600,RAIN_BOX=new THREE.Vector3(44,26,44);
+const rndStream=start=>{let s=start;return ()=>((s=(s*1664525+1013904223)>>>0)/4294967296);};
 const RAIN_VERTEX=/* glsl */`
 attribute vec3 aSeed;
 uniform float uTime;
-uniform float uSnow;
 uniform vec3 uBox;
 varying float vAlpha;
 void main(){
  vec3 origin=cameraPosition-uBox*.5;
  vec3 p=aSeed*uBox;
- float fall=mix(8.5+4.5*aSeed.x,1.4+0.9*aSeed.x,uSnow);
- p.y-=uTime*fall;p.x+=uTime*mix(1.1,0.2,uSnow);
+ float fall=8.5+4.5*aSeed.x;
+ p.y-=uTime*fall;p.x+=uTime*1.1;
  p=origin+mod(p-origin,uBox);
  float len=.45+.5*aSeed.y;
  vec3 q=p+vec3(-.1*len,len,0.0)*position.x; // tail above the drop head
@@ -124,24 +126,57 @@ void main(){
 }`;
 const RAIN_FRAGMENT=/* glsl */`
 uniform float uRain;
-uniform float uSnow;
 uniform vec3 uColor;
 varying float vAlpha;
-void main(){gl_FragColor=vec4(mix(uColor,vec3(0.96,0.97,0.99),uSnow),vAlpha*uRain);}`;
-export function createRain(){
- const geometry=new THREE.BufferGeometry();
- const position=new Float32Array(RAIN_COUNT*2*3),seed=new Float32Array(RAIN_COUNT*2*3);
- let s=12345;const rnd=()=>((s=(s*1664525+1013904223)>>>0)/4294967296);
- for(let i=0;i<RAIN_COUNT;i++){const a=rnd(),b=rnd(),c=rnd();for(let k=0;k<2;k++){const j=(i*2+k)*3;position[j]=k;seed[j]=a;seed[j+1]=b;seed[j+2]=c;}}
+void main(){gl_FragColor=vec4(uColor,vAlpha*uRain);}`;
+const SNOW_VERTEX=/* glsl */`
+attribute vec3 aSeed;
+uniform float uTime;
+uniform vec3 uBox;
+varying float vAlpha;
+void main(){
+ vec3 origin=cameraPosition-uBox*.5;
+ vec3 p=aSeed*uBox;
+ float fall=.55+.75*aSeed.y;
+ p.y-=uTime*fall;
+ p.x+=sin(uTime*(.4+aSeed.z)+aSeed.x*6.28318)*(.4+.6*aSeed.z);
+ p.z+=cos(uTime*.33+aSeed.y*6.28318)*.3;
+ p=origin+mod(p-origin,uBox);
+ vec4 mv=viewMatrix*vec4(p,1.0);
+ gl_Position=projectionMatrix*mv;
+ float depth=max(.8,-mv.z);
+ gl_PointSize=mix(5.0,14.0,aSeed.x)*(10.0/depth);
+ float d=distance(p,cameraPosition);
+ vAlpha=smoothstep(.8,2.4,d)*(1.0-smoothstep(uBox.x*.32,uBox.x*.5,d))*mix(.35,.85,aSeed.y);
+}`;
+const SNOW_FRAGMENT=/* glsl */`
+uniform float uSnow;
+varying float vAlpha;
+void main(){
+ vec2 q=gl_PointCoord-vec2(.5);
+ float r=dot(q,q);
+ if(r>.25)discard;
+ float soft=smoothstep(.25,.02,r);
+ gl_FragColor=vec4(vec3(.97,.98,1.0),soft*vAlpha*uSnow);
+}`;
+function precipitation(name,count,vertexShader,fragmentShader,uniforms,kind){
+ const geometry=new THREE.BufferGeometry(),rnd=rndStream(name==='snow'?67891:12345);
+ const position=new Float32Array(count*(kind==='lines'?2:1)*3),seed=new Float32Array(position.length);
+ for(let i=0;i<count;i++){const a=rnd(),b=rnd(),c=rnd(),n=kind==='lines'?2:1;
+  for(let k=0;k<n;k++){const j=(i*n+k)*3;position[j]=kind==='lines'?k:0;seed[j]=a;seed[j+1]=b;seed[j+2]=c;}}
  geometry.setAttribute('position',new THREE.BufferAttribute(position,3));
  geometry.setAttribute('aSeed',new THREE.BufferAttribute(seed,3));
  geometry.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1e6);
- const material=new THREE.ShaderMaterial({name:'Rain streaks',vertexShader:RAIN_VERTEX,fragmentShader:RAIN_FRAGMENT,
-  uniforms:{uTime:{value:0},uRain:WEATHER_UNIFORMS.rain,uSnow:WEATHER_UNIFORMS.snow,uBox:{value:RAIN_BOX.clone()},uColor:{value:new THREE.Color('#b4bcc4')}},
-  transparent:true,depthWrite:false,fog:false,toneMapped:false});
- const lines=new THREE.LineSegments(geometry,material);lines.name='rain';lines.frustumCulled=false;lines.renderOrder=50;lines.visible=false;
- lines.raycast=()=>{};lines.castShadow=lines.receiveShadow=false;
- return lines;
+ const material=new THREE.ShaderMaterial({name,vertexShader,fragmentShader,uniforms,transparent:true,depthWrite:false,fog:false,toneMapped:false});
+ const mesh=kind==='lines'?new THREE.LineSegments(geometry,material):new THREE.Points(geometry,material);
+ mesh.name=name==='Snow flakes'?'snow':'rain';mesh.frustumCulled=false;mesh.renderOrder=50;mesh.visible=false;
+ mesh.raycast=()=>{};mesh.castShadow=mesh.receiveShadow=false;return mesh;
+}
+export function createRain(){
+ return precipitation('Rain streaks',RAIN_COUNT,RAIN_VERTEX,RAIN_FRAGMENT,{uTime:{value:0},uRain:WEATHER_UNIFORMS.rain,uBox:{value:RAIN_BOX.clone()},uColor:{value:new THREE.Color('#b4bcc4')}},'lines');
+}
+export function createSnow(){
+ return precipitation('Snow flakes',SNOW_COUNT,SNOW_VERTEX,SNOW_FRAGMENT,{uTime:{value:0},uSnow:WEATHER_UNIFORMS.snow,uBox:{value:RAIN_BOX.clone()}},'points');
 }
 
 const color=hex=>new THREE.Color(hex);
@@ -194,7 +229,7 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
   if(typeof x==='number')return Math.abs(x-y)<.01;
   return x&&typeof x==='object'?settledEnough(x,y):true;});
  const current=compose(day,wx);
- const rainLines=createRain();if(scene)scene.add(rainLines);
+ const rainLines=createRain(),snowFlakes=createSnow();if(scene)scene.add(rainLines,snowFlakes);
  const baseColors=new Map(surfaces.map(m=>[m,m.color.clone()]));
  const listeners=new Set();
  function daytimeLabel(){const base=LOOKS[day].label;return dayAuto?`${base} (auto)`:base;}
@@ -210,7 +245,8 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
   const sea=getSea();if(sea?.material?.uniforms){const u=sea.material.uniforms;u.uDeep.value.copy(c.sea.deep);u.uShore.value.copy(c.sea.shore);u.uSunColor.value.copy(c.sea.sunColor);}
   if(post){post.setGrade(c.grade);post.setGrade({wetness:c.wetness,wetSky:[c.fog.color.r*.9,c.fog.color.g*.9,c.fog.color.b*.9]});}
   WEATHER_UNIFORMS.wetness.value=c.wetness;WEATHER_UNIFORMS.rain.value=c.rain;WEATHER_UNIFORMS.snow.value=c.snow;
-  rainLines.visible=c.rain>.01;
+  const snowing=c.snow>.02&&c.snow>=c.rain*.5;
+  rainLines.visible=c.rain>.01&&!snowing;snowFlakes.visible=snowing;
   for(const [m,base] of baseColors){m.roughness=1-c.wetness*.72;m.color.copy(base).multiplyScalar(1-c.wetness*.3);}
  }
  // Lightning is a short flash on the thunderstorm weather only. The daytime sun stays put between flashes.
@@ -242,6 +278,7 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
   get current(){return current;},
   uniforms:WEATHER_UNIFORMS,
   rain:rainLines,
+  snow:snowFlakes,
   set(next,{instant=false,keepAutomatic=false}={}){
    if(!LOOKS[next])throw Error(`Unknown daytime "${next}"`);
    if(!keepAutomatic)dayAuto=false;
@@ -285,7 +322,7 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
   update(dt,seconds){
    const k=Number.isFinite(dt)&&dt>0?1-Math.exp(-dt/transition):0;
    if(k>0)blend(current,target,k);
-   if(Number.isFinite(seconds))rainLines.material.uniforms.uTime.value=seconds%1000;
+   if(Number.isFinite(seconds)){const t=seconds%1000;rainLines.material.uniforms.uTime.value=t;snowFlakes.material.uniforms.uTime.value=t;}
    apply();
    stepFlash(Number.isFinite(dt)&&dt>0?dt:0);
    // Reflective materials share one sky environment map (environment.js); refresh it while a look transition
@@ -293,7 +330,7 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
    if(typeof window!=='undefined'&&target!==settled){const now=Number.isFinite(seconds)?seconds:0;const done=k>0&&settledEnough(current,target);
     if(done||now-lastSkyEvent>.5){lastSkyEvent=now;window.dispatchEvent(new Event('skychange'));if(done)settled=target;}}
   },
-  dispose(){rainLines.removeFromParent();rainLines.geometry.dispose();rainLines.material.dispose();},
+  dispose(){for(const mesh of [rainLines,snowFlakes]){mesh.removeFromParent();mesh.geometry.dispose();mesh.material.dispose();}},
  };
  return api;
 }

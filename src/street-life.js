@@ -72,8 +72,9 @@ export function createStreetLife(scene,mobility,{paintColors=null}={}){
  initial=false;
  }
  append();
- return {group,traffic,append,staticCounts:()=>({...counts,signals:signalObjects.length}),update(dt,player){
-  traffic.update(dt,player);for(const kerbs of kerbGroups)kerbs.userData.update(player);
+ let lit=false,litKnown=false;
+ return {group,traffic,append,staticCounts:()=>({...counts,signals:signalObjects.length}),setLamps(on,player){on=!!on;if(litKnown&&on===lit)return;lit=on;litKnown=true;traffic.update(0,player,on);},update(dt,player,lampsOn=lit){
+  lit=!!lampsOn;litKnown=true;traffic.update(dt,player,lit);for(const kerbs of kerbGroups)kerbs.userData.update(player);
   people.begin(player); // distance levels: full body near the player, simplified beyond, none past the batch's hide range
   for(let i=0;i<count;i++){const a=mobility.people[i],v=views[i];advanceGait(a,gaits[i],dt,looks[i]);
    if(!a.edge||Math.hypot(a.x-player.x,a.z-player.z)>=300){gaits[i].yaw=undefined;continue;}
