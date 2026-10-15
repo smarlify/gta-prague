@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {createBreakableSigns,breakableSigns,SIGN_SNAP_SPEED,SIGN_BEND_SPEED} from '../src/breakable-signs.js';
 import {makeCar} from '../src/physics.js';
@@ -74,7 +74,9 @@ test('pose texture and attached meshes follow the post; an upright post renders 
  const car=makeCar(0,0,0);car.speed=6;drive(set,car,1);assert.ok(!plaque.matrix.equals(rest),'plaque moved with the bent post');
  set.resetAll();assert.ok(plaque.matrix.equals(rest));
 });
-
+if (!existsSync('public/data')) {
+ test('local city pack', {skip: 'local Helsinki or Tampere fixture is not in this checkout'}, () => {});
+} else {
 const city=JSON.parse(gunzipSync(readFileSync(new URL('../public/data/city.pack',import.meta.url))));
 test('converted sign modules register breakable posts and keep their footprints out of car collision',()=>{
  const before=breakableSigns.snapshot().count;
@@ -84,3 +86,5 @@ test('converted sign modules register breakable posts and keep their footprints 
  assert.equal(breakableSigns.snapshot().count,before+5,'both sets join the combined knockables entry');
  for(const mesh of [...kit.children,...group.children].filter(m=>m.isMesh&&m.geometry.attributes.signIndex))assert.ok(mesh.customDepthMaterial,'broken signs cast correct shadows');
 });
+
+}

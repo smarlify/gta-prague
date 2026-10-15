@@ -16,7 +16,7 @@ test('gantry is three batches, faces south-east and leaves driveable clearance',
   const endpoint=new THREE.Vector3(placement.span,0,0).applyMatrix4(g.matrixWorld);assert.ok(Math.hypot(endpoint.x+793.329,endpoint.z+57)<.02);
   g.traverse(o=>{if(o.isMesh){assert.ok(Array.from(o.geometry.attributes.position.array).every(Number.isFinite));o.geometry.dispose();o.material.dispose();}});
 });
-test('single support stays within tram-platform pavement, outside roads, buildings and cycleway',()=>{
+test('single support stays within tram-platform pavement, outside roads, buildings and cycleway', {skip:!fs.existsSync('public/data')},()=>{
   const city=JSON.parse(zlib.gunzipSync(fs.readFileSync(new URL('../public/data/city.pack',import.meta.url))));
   const walk=new SpatialIndex(city.pavement.filter(p=>p.kind==='Jalankulkualue')),blocked=new SpatialIndex([...city.roads,...city.buildings,...city.water,...city.pavement.filter(p=>/pyör|cycle/i.test(p.kind))]);
   for(const dx of [-pole.radius,pole.radius])for(const dz of [-pole.radius,pole.radius]){assert.ok(walk.at(pole.x+dx,pole.z+dz));assert.ok(!blocked.at(pole.x+dx,pole.z+dz));}

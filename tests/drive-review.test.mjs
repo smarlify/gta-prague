@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import * as THREE from 'three';
 import {Mobility,prepareGraph,routePoint} from '../src/mobility.js';
 import {correctHarbourLanes} from '../src/road-safety.js';
@@ -17,7 +17,7 @@ test('a blocked right lane cannot fall back to the middle of a two-way road',()=
  const sim=new Mobility({roads:graph,walks:{nodes:[],edges:[]},signals:[]},{roads:{at:x=>Math.abs(x)<1},buildings:{at:()=>false}},{cars:0,people:0});
  assert.equal(sim.position({edge:sim.roads.edges[0],s:20,walking:false}).x,1.45);
 });
-test('Olympia separate carriageways only route north on east, south on west',()=>{
+test('Olympia separate carriageways only route north on east, south on west', {skip:!existsSync('public/data')},()=>{
  const original=JSON.parse(readFileSync('public/data/mobility.json')),corrected=correctHarbourLanes(original),ids=new Set(corrected.roads.edges.map(e=>`${e.from}:${e.to}`));
  for(const id of ['1057:1058','1058:1056','1056:1055','1055:785'])assert.ok(!ids.has(id));
  for(const id of ['1058:1057','1056:1058','1055:1056','785:1055']){assert.ok(ids.has(id));assert.equal(corrected.roads.edges.find(e=>`${e.from}:${e.to}`===id).lane,0);}
@@ -28,7 +28,7 @@ test('player crossover proportions, steering and wheels differ from traffic body
  animateVehicle(player,-3,.5,.5);assert.ok(player.userData.wheels[0].spin.rotation.x>0);assert.ok(player.userData.wheels[0].pivot.rotation.y>0);
  const sizes=VEHICLE_TYPES.map(type=>{const m=createVehicle(2,false,type),b=new THREE.Box3().setFromObject(m),s=b.getSize(new THREE.Vector3());assert.ok(s.x<2.2&&s.z<4.7);m.traverse(o=>{if(o.isMesh)assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));});return s.toArray().map(n=>n.toFixed(2)).join(',');});assert.ok(new Set(sizes).size>=6);
 });
-test('terminal roundabout is a closed counter-clockwise ring with a connected southern entrance',()=>{
+test('terminal roundabout is a closed counter-clockwise ring with a connected southern entrance', {skip:!existsSync('public/data')},()=>{
  const original=JSON.parse(readFileSync('public/data/mobility.json')),graph=prepareGraph(correctHarbourLanes(original).roads),ring=graph.edges.filter(e=>e.roundabout);
  assert.equal(ring.length,11);
  for(const e of ring){

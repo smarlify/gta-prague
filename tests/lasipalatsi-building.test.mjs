@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import * as THREE from 'three';
 import {analyseBuilding} from '../src/building-detail.js';
 import {pointInPolygon} from '../src/geo.js';
 import {isLasipalatsiFront,createLasipalatsiFront,LASIPALATSI_STREET_PROFILE,LASIPALATSI_PLANES} from '../src/lasipalatsi-building.js';
 
-test('Lasipalatsi replacement selects measured street planes, not roof/courtyard shells',()=>{
+test('Lasipalatsi replacement selects measured street planes, not roof/courtyard shells', {skip:!existsSync('public/data')},()=>{
  const index=JSON.parse(readFileSync('public/data/buildings3d-index.json'));
  let selected=0,retained=0;
  for(const t of index.tiles)for(const p of t.parts.filter(p=>p.ratu===944)){

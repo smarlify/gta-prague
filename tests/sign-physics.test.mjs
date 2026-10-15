@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {Vector3} from 'three';
 import {WorldObjects,OBJECT_MODES} from '../src/world-objects.js';
@@ -59,7 +59,7 @@ test('shared sign sets expose live breakable records for scene-wide classificati
  assert.equal(world.overlap({x:0,z:0}),null,'the breakable simulation, not a second permanent wall, owns these posts');
 });
 
-test('terminal crossing signs break on impact and suspension masts have narrow solid footprints',()=>{
+test('terminal crossing signs break on impact and suspension masts have narrow solid footprints', {skip:!existsSync('public/data')},()=>{
  const city=JSON.parse(gunzipSync(readFileSync('public/data/city.pack'))),harbour=createHarbour(city),signs=harbour.group.breakable;
  const posts=signs.bodies.filter(p=>p.id.startsWith('harbour-crossing-'));
  assert.equal(posts.length,2);assert.ok(posts.every(p=>p.collisionMode==='breakable'));

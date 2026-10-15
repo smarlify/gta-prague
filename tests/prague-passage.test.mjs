@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {keptPassage,skipHighwayWay,pointInPassage,stripBoredTunnels,isBoredTunnelRoad} from '../src/passage.js';
+import {keptPassage,skipHighwayWay,pointInPassage,stripBoredTunnels,isBoredTunnelRoad,isNamedTunnelRoad} from '../src/passage.js';
 
 test('building_passage and covered ways are kept; bored tunnels are not',()=>{
  assert.equal(keptPassage({tunnel:'yes'}),null);
@@ -49,4 +49,23 @@ test('stripBoredTunnels removes bored road polygons and edges that run through t
  assert.equal(out.mobility.roads.edges.length,1);
  assert.deepEqual(out.mobility.roads.edges[0].points,[[100,3],[120,3]]);
  assert.equal(out.mobility.walks.edges.length,0);
+});
+
+test('named Tunel roads drop unless they are a building passage or a short covered way',()=>{
+ assert.equal(isNamedTunnelRoad({kind:'Ajorata',name:'Letenský tunel',bbox:[0,0,80,10]}),true);
+ assert.equal(isNamedTunnelRoad({kind:'Ajorata (Tunel)',name:'',passage:'yes',bbox:[0,0,40,8]}),true);
+ assert.equal(isNamedTunnelRoad({kind:'Ajorata (Tunel)',passage:'building_passage',bbox:[0,0,40,6]}),false);
+ assert.equal(isNamedTunnelRoad({kind:'Ajorata (Tunel)',passage:'covered',bbox:[0,0,18,4]}),false);
+ assert.equal(isNamedTunnelRoad({kind:'Ajorata (Tunel)',name:'Strahovský tunel',passage:'covered',bbox:[0,0,120,8]}),true);
+ assert.equal(isNamedTunnelRoad({kind:'Ajorata',name:'Mostecká',bbox:[0,0,30,6]}),false);
+ const city={roads:[
+  {id:'letna',kind:'Ajorata',name:'Letenský tunel',rings:[[[0,0],[90,0],[90,8],[0,8],[0,0]]],bbox:[0,0,90,8]},
+  {id:'porch',kind:'Ajorata (Tunel)',passage:'covered',rings:[[[100,0],[118,0],[118,4],[100,4],[100,0]]],bbox:[100,0,118,4]},
+  {id:'gate',kind:'Ajorata (Tunel)',passage:'building_passage',rings:[[[200,0],[230,0],[230,5],[200,5],[200,0]]],bbox:[200,0,230,5]},
+  {id:'street',kind:'Ajorata',name:'Karlova',rings:[[[300,0],[340,0],[340,6],[300,6],[300,0]]],bbox:[300,0,340,6]},
+ ]};
+ const out=stripBoredTunnels(city,{roads:{edges:[{points:[[10,4],[80,4]]},{points:[[300,3],[330,3]]}]},walks:{edges:[]}});
+ assert.deepEqual(out.city.roads.map(r=>r.id),['porch','gate','street']);
+ assert.equal(out.removed,1);
+ assert.equal(out.mobility.roads.edges.length,1);
 });

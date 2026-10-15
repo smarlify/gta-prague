@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {pointInPolygon} from '../src/geo.js';
 import {createMarketStreetSurface} from '../src/market-street-surface.js';
-test('market granite follows municipal carriageway and leaves island holes intact',()=>{
+test('market granite follows municipal carriageway and leaves island holes intact', {skip:!existsSync('public/data')},()=>{
  const data=JSON.parse(gunzipSync(readFileSync('public/data/city.pack'))),group=createMarketStreetSurface(data);
  assert.equal(group.children.length,1);assert.ok(group.userData.sourceRoadIds.length>0);
  const roads=data.roads.filter(p=>group.userData.sourceRoadIds.includes(p.id));

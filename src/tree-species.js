@@ -31,6 +31,8 @@ export const FAMILY={
  blossom:  {width:.95,base:.32,shape:'dome',lumps:16,size:.25,leaf:'#506938',tip:'#7d9e50',bark:'#4a3f38',open:.2},
  // Prague sakura / cherry: soft pink canopy on a short dark stem (Petřín, Letná).
  cherry:   {width:.9,base:.3,shape:'dome',lumps:18,size:.24,leaf:'#e8a0b8',tip:'#f5d0dc',bark:'#4a3f38',open:.22},
+ // Short wide park bush: the same crown lumps, pulled down onto a low stem.
+ bush:     {width:1.45,base:.42,shape:'dome',lumps:12,size:.32,leaf:'#4a6832',tip:'#7ea24c',bark:'#5a4e42',open:.08},
  willow:   {width:.95,base:.25,shape:'weeping',lumps:24,size:.2,leaf:'#6d7d59',tip:'#a2b385',bark:'#5f584d',open:.2},
  poplar:   {width:.6,base:.3,shape:'ovoid',lumps:26,size:.19,leaf:'#466135',tip:'#6f9650',bark:'#6d6a62',open:.25},
  columnar: {width:.22,base:.12,shape:'column',lumps:18,size:.15,leaf:'#466434',tip:'#6f9a4c',bark:'#77746b',open:.1},
@@ -126,7 +128,7 @@ export function treeTemplate(family,level='near',seed=1){
 // Which template, scale and tint a registered tree gets. Pure, so the tests can check every family.
 export function treeInstance(t,i=0){
  const family=t.family||speciesFamily(t.species,t.conifer),F=FAMILY[family]||FAMILY.broadleaf;
- const h=Math.max(2.5,t.height||10),young=h<6.5&&!/spruce|fir|larch|pine/.test(family);
+ const h=Math.max(family==='bush'?1.4:2.5,t.height||10),young=h<6.5&&!/spruce|fir|larch|pine|bush/.test(family);
  const hash=Math.abs(Math.round(t.p[0]*13+t.p[1]*31+i));
  // Young street trees: narrower than their mature form, as in the photos (slim stems, upright crowns).
  const width=h*(young?.68:1)*(.9+(hash%23)/100); // the template already carries the family's width

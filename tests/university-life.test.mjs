@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 import {universityLifePlacements,createUniversityLife,universityPlacementValidator} from '../src/university-life.js';
+if (!fs.existsSync('public/data')) {
+ test('local city pack', {skip: 'local Helsinki or Tampere fixture is not in this checkout'}, () => {});
+} else {
 const city=JSON.parse(zlib.gunzipSync(fs.readFileSync(new URL('../public/data/city.pack',import.meta.url))));
 test('university bikes, scooters and crowd stay on pavement with central route clear',()=>{
   const p=universityLifePlacements(city);assert.equal(p.bicycles.length,25);assert.equal(p.scooters.length,20);assert.equal(p.people.length,40);
@@ -16,3 +19,5 @@ test('university kit uses shared instanced builders; people cannot wander into c
   for(let i=0;i<100;i++)u.update(.08,{x:-200+i*.1,z:25,speed:8});for(const p of u.people)assert.ok(safe(p.x,p.z,.38));
   u.reset();assert.deepEqual(u.people.map(p=>[p.x,p.z]),start);
 });
+
+}

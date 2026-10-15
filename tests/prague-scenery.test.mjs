@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {pragueSceneryTrees,kruhacTrees,cherryBlossomTrees,KRUHAC,PETRIN,LETNA} from '../src/prague-scenery.js';
+import {pragueSceneryTrees,kruhacTrees,cherryBlossomTrees,KRUHAC,PETRIN,LETNA,pragueParkPlanting,PARK_TREE_CAP,PARK_FLOWER_CAP,createParkFlowers} from '../src/prague-scenery.js';
 import {speciesFamily} from '../src/place-data.js';
 import {FAMILY,treeInstance} from '../src/tree-species.js';
 import {blocksDriveSample} from '../src/physics.js';
@@ -28,6 +28,22 @@ test('Petřín and Letná get pink cherry blossom clusters',()=>{
  assert.ok(near(LETNA,LETNA.radius).length>=20);
  assert.ok(trees.every(t=>t.family==='cherry'));
  assert.ok(pragueSceneryTrees().length===kruhacTrees().length+cherryBlossomTrees().length);
+});
+
+test('park planting skips occupied lawns and stays inside the caps',()=>{
+ const park=(id,x,z,w,h)=>({id,rings:[[[x,z],[x+w,z],[x+w,z+h],[x,z+h],[x,z]]],bbox:[x,z,x+w,z+h],kind:'Nurmikko'});
+ const open=park('open',0,0,80,80);
+ const taken=park('taken',200,0,80,80);
+ const tiny=park('tiny',400,0,10,10);
+ const planted=pragueParkPlanting([open,taken,tiny],[{p:[220,20]}],[],[]);
+ assert.ok(planted.trees.length>0&&planted.trees.length<=PARK_TREE_CAP);
+ assert.ok(planted.flowers.length>0&&planted.flowers.length<=PARK_FLOWER_CAP);
+ assert.ok(planted.trees.every(t=>t.p[0]<80&&['lime','maple','birch','cherry','bush'].includes(t.family)));
+ const bush=treeInstance({p:[0,0],family:'bush',height:2});
+ assert.ok(FAMILY.bush.width>1&&bush.width>=bush.height*.8,'a bush stays short and wide');
+ const flowers=createParkFlowers(planted.flowers);
+ assert.equal(flowers.isInstancedMesh,true);
+ assert.equal(flowers.count,planted.flowers.length);
 });
 
 test('building footprints on asphalt do not block driving; off-road buildings still do',()=>{

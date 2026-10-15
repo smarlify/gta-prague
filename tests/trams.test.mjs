@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {TramSimulation,TRAM_DIMENSIONS,TRAM_FLEET_CAPACITY,TRAM_HOTSPOTS} from '../src/tram-simulation.js';
 import {Mobility,routePoint} from '../src/mobility.js';
 import {createTrafficRenderer} from '../src/traffic-renderer.js';
 import {createGovernmentFront,isGovernmentFront} from '../src/government-palace.js';
+if (!existsSync('public/data')) {
+ test('local city pack', {skip: 'local Helsinki or Tampere fixture is not in this checkout'}, () => {});
+} else {
 const data=JSON.parse(readFileSync('public/data/trams.json'));
 const world=()=>({buildings:{at:()=>undefined},roads:{at:()=>true},pavement:{at:()=>true}});
 test('HSL tram data includes the real Olympia and Senate Square route corridors',()=>{
@@ -62,3 +65,5 @@ test('Lasipalatsi keeps trams in both directions almost continuously, within the
  assert.ok(before>=4&&sim.trams.filter(t=>t.hotspot).length<before/2,'hotspot trams retire once they have left the stretch and the camera is far');
  sim.reset(far);assert.ok(sim.trams.length<=6);assert.ok(sim.trams.every(t=>!t.hotspot));
 });
+
+}

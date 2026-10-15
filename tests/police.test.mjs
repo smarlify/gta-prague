@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {PoliceSimulation,sweptContact,wantedLevel,incidentHeat,escapeTime,closingSpeed,CRASH_MIN_SPEED,RECKLESS,INCIDENT_WINDOW,CONTACT_COOLDOWN,recklessDriving,TRAFFIC_HEAT_CAP,isLethalPedestrian} from '../src/police.js';
 import {prepareGraph} from '../src/mobility.js';
@@ -128,7 +128,7 @@ test('police stop before blocked road geometry',()=>{
  p.units=[{id:'unit',edge:p.graph.edges[0],s:70,x:0,z:30,heading:0,speed:12,stuck:0}];p.dispatch=100;
  for(let i=0;i<120;i++)p.step(1/30,car);assert.ok(p.units[0].z>=20);
 });
-test('Helsinki harbour dispatch has mapped drivable units and no building crossings',()=>{
+test('Helsinki harbour dispatch has mapped drivable units and no building crossings', {skip:!existsSync('public/data')},()=>{
  const network=correctHarbourLanes(JSON.parse(readFileSync('public/data/mobility.json'))),city=JSON.parse(gunzipSync(readFileSync('public/data/city.pack')));
  const w={roads:new SpatialIndex(city.roads.filter(r=>!/Koroke/.test(r.kind))),buildings:new SpatialIndex(city.buildings),trafficForbidden:new SpatialIndex(city.roads.filter(r=>/Koroke/.test(r.kind)))};
  const p=new PoliceSimulation(prepareGraph(network.roads),w),car={...HARBOUR_START,speed:0};p.report('pedestrian',1);

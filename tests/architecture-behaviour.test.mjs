@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {findWindowRegions,createModelledBuilding} from '../src/building-detail.js';
 import {CATHEDRAL,createCathedral,createSenateSquare} from '../src/cathedral.js';
@@ -33,7 +33,7 @@ test('window interpretation rejects blank walls, oversized shadows and edge frag
  assert.equal(findWindowRegions(values,w,h,.25,.4).length,1);
  values.fill(.1);assert.equal(findWindowRegions(values,w,h,.25,.4).length,0);
 });
-test('cathedral is physical geometry with columns and measured roof, and stairs have collisions',()=>{
+test('cathedral is physical geometry with columns and measured roof, and stairs have collisions', {skip:!existsSync('public/data')},()=>{
  const index=JSON.parse(readFileSync('public/data/buildings3d-index.json')),tile=index.tiles.find(t=>t.parts.some(p=>p.ratu===211)),part=tile.parts.find(p=>p.ratu===211),buf=gunzipSync(readFileSync('public/data/'+tile.file)),a=new Float32Array(buf.buffer,buf.byteOffset,buf.byteLength/4),model=createCathedral(a,part);
  assert.equal(model.userData.columns,24);assert.ok(model.children.reduce((n,m)=>n+m.geometry.attributes.position.count,0)>20000);assert.ok(model.children.every(m=>!m.material.map));
  const square=createSenateSquare(),index2=new SpatialIndex(square.obstacles);assert.equal(CATHEDRAL.steps,46);assert.ok(index2.at(0,15));assert.equal(index2.at(0,115),undefined);

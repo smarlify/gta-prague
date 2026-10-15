@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {analyseBuilding,createModelledBuilding} from '../src/building-detail.js';
 import {ALEKSANTERINKATU_BUILDINGS,corridorBuilding,corridorFront,buildFacadePiece,createCorridorFacade} from '../src/aleksanterinkatu-facades.js';

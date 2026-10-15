@@ -28,7 +28,7 @@ test('visible photo range clips gable slopes and rejects invalid ranges',()=>{
  }
 });
 
-test('Sumelius wall excludes the taxis, people and canopy roofs in its source photo',()=>{
+test('Sumelius wall excludes the taxis, people and canopy roofs in its source photo', {skip:!fs.existsSync('public/cities/tampere')},()=>{
  const ref=JSON.parse(fs.readFileSync('cities/tampere/keskustori-reference.json'));
  const place=JSON.parse(fs.readFileSync('public/cities/tampere/places/keskustori.json'));
  const source=ref.photoPanels.find(p=>p.name==='sumelius-north');

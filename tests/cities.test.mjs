@@ -21,18 +21,22 @@ test('?city= defaults to Prague and rejects cities not in the build',()=>{
  registerCities(registry.cities);
  assert.equal(selectCity('').id,'prague');
  assert.equal(selectCity('?city=').id,'prague');
- assert.equal(selectCity('?city=helsinki').id,'helsinki');
- assert.equal(selectCity('?city=Helsinki').id,'helsinki');
- assert.equal(selectCity('?city=tampere').id,'tampere');
+ assert.throws(()=>selectCity('?city=helsinki'),/not in this build yet/);
+ assert.throws(()=>selectCity('?city=Helsinki'),/not in this build yet/);
+ assert.throws(()=>selectCity('?city=tampere'),/not in this build yet/);
  assert.throws(()=>selectCity('?city=oulu'),/not in this build yet/);
+ assert.equal(registry.cities.some(c=>c.id==='tampere'),false);
+ assert.equal(CITIES.helsinki,undefined);
 });
 test('the address bar keeps city and start shareable; data stays under the city root',()=>{
- assert.equal(startUrl(new URL('http://x/?foo=1'),CITIES.helsinki,starts[2]),'/?foo=1&city=helsinki&start=seurasaari-bridge');
- useCity(CITIES.helsinki);assert.equal(dataUrl('city.pack'),'/data/city.pack');
+ const helsinkiFixture={id:'helsinki',name:'Helsinki',dataRoot:'/data'};
+ assert.equal(startUrl(new URL('http://x/?foo=1'),helsinkiFixture,starts[2]),'/?foo=1&city=helsinki&start=seurasaari-bridge');
+ useCity(helsinkiFixture);assert.equal(dataUrl('city.pack'),'/data/city.pack');
+ useCity({id:'prague',dataRoot:'/cities/prague'});
 });
 test('every shipped city includes a JSON extension catalog even when it has no regions',()=>{
  const registry=JSON.parse(readFileSync('public/cities/index.json','utf8'));
- for(const city of [CITIES.helsinki,...registry.cities]){
+ for(const city of registry.cities){
   const file=path.join('public',city.dataRoot,'extensions/index.json');
   const catalog=JSON.parse(readFileSync(file,'utf8'));
   assert.ok(Array.isArray(catalog.extensions),`${city.id} needs an extension catalog; missing files can return the host's HTML fallback`);

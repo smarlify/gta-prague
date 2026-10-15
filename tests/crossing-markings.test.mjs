@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {SpatialIndex,pointInPolygon} from '../src/geo.js';
 import {crossingChains,crossingPolygons,kerbSegments,REVIEWED_CROSSINGS} from '../src/crossing-markings.js';
@@ -20,7 +20,7 @@ test('kerbs drop only near crossing corridor and preserve the rest of the survey
  assert.deepEqual(pieces[0].a,[-8,0]);assert.deepEqual(pieces.at(-1).b,[8,0]);
  const low=pieces.filter(p=>p.lowered);assert.ok(low.every(p=>Math.abs(p.a[0])<2&&Math.abs(p.b[0])<2));
 });
-test('reviewed crossings retain the refuge gap, separate cycleway and finite road-clipped paint',()=>{
+test('reviewed crossings retain the refuge gap, separate cycleway and finite road-clipped paint', {skip:!existsSync('public/data')},()=>{
  const city=JSON.parse(gunzipSync(readFileSync('public/data/city.pack'))),network=JSON.parse(readFileSync('public/data/mobility.json'));
  const world={roads:new SpatialIndex(city.roads.filter(r=>!/Koroke/.test(r.kind))),pavement:new SpatialIndex(city.pavement)};
  const {polygons,chains}=crossingPolygons(network.walks.edges,world);

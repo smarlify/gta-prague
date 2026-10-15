@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import * as THREE from 'three';
 import {SpatialIndex} from '../src/geo.js';
@@ -17,7 +17,7 @@ const empty=()=>new SpatialIndex([]);
 const synthetic=()=>({graph:{nodes:[[0,0],[140,0]],edges:[{from:0,to:1,points:[[0,0],[140,0]],crossing:false}]},
  world:{pavement:new SpatialIndex([box(-5,-4,145,4)]),roads:empty(),buildings:empty(),water:[]},player:{x:15,z:20,heading:0,speed:0}});
 
-for(const [name,root] of [['Helsinki','public/data'],['Tampere','public/cities/tampere']])test(`${name} scooter riders follow the city's mapped paths and stay out of roads and buildings`,()=>{
+for(const [name,root] of [['Helsinki','public/data'],['Tampere','public/cities/tampere']])test(`${name} scooter riders follow the city's mapped paths and stay out of roads and buildings`,{skip:!existsSync(`${root}/city.pack`)},()=>{
  const city=JSON.parse(gunzipSync(readFileSync(`${root}/city.pack`))),mobility=JSON.parse(readFileSync(`${root}/mobility.json`));
  const world={buildings:new SpatialIndex(city.buildings),pavement:new SpatialIndex(city.pavement),roads:new SpatialIndex(city.roads.filter(r=>!/Koroke/.test(r.kind))),water:city.water};
  const player=name==='Helsinki'?HARBOUR_START:city.landmarks[0],sim=new ScooterRiders(mobility.walks,world,{count:6});sim.reset(player);

@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {SpatialIndex,segmentDistance} from '../src/geo.js';
 import {prepareGraph,routePoint} from '../src/mobility.js';
 import {correctHarbourLanes,vehicleFitsRoad,safeVehicleSegment,olympiaTramOnlySurfaces} from '../src/road-safety.js';
 import {createTerminalDetails,TERMINAL_POSTS} from '../src/terminal-details.js';
+if (!existsSync('public/data')) {
+ test('local city pack', {skip: 'local Helsinki or Tampere fixture is not in this checkout'}, () => {});
+} else {
 const city=JSON.parse(gunzipSync(readFileSync('public/data/city.pack')));
 const data=JSON.parse(readFileSync('public/data/mobility.json'));
 const graph=prepareGraph(correctHarbourLanes(data).roads);
@@ -37,3 +40,5 @@ test('the whole Olympia destination board stays over its island and outside the 
   for(const path of paths)for(let i=1;i<path.points.length;i++)assert.ok(segmentDistance(x,z,path.points[i-1],path.points[i])>1.8,'full tram body plus margin clears sign');
  }
 });
+
+}

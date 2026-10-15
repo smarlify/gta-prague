@@ -11,9 +11,13 @@ export function createPavlovaAmbulance(scene){
    mesh.material.color.set('#f7f7f4');
   }
  });
- const stripe=new THREE.Mesh(new THREE.BoxGeometry(1.72,.1,3.6),new THREE.MeshStandardMaterial({color:'#c1121f',roughness:.45}));
- stripe.position.set(0,1.2,.2);
- model.add(stripe);
+ const red=new THREE.MeshStandardMaterial({color:'#d0121c',roughness:.42});
+ const mark=(w,h,d,x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),red);m.position.set(x,y,z);model.add(m);return m;};
+ for(const side of [-1,1]){
+  mark(.05,.14,3.05,side*.95,1.16,.12);
+  mark(.045,.46,.1,side*.97,1.52,-.2);
+  mark(.045,.1,.46,side*.97,1.52,-.2);
+ }
  model.visible=false;
  scene.add(model);
  return {model,update(state,dt){
