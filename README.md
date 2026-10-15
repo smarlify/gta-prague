@@ -45,7 +45,10 @@ npm run dev
 ```
 
 Use Node.js 24 (`engines.node` is `24.x`). Open the URL Vite prints in a modern browser with WebGL2.
-With no `?city=` in the URL, the default city is Prague (`prague`).
+With no `?city=` in the URL, the default city is Prague (`prague`). A shared link can also
+choose the start, the hour, and the weather, for example
+`/?city=prague&start=petrin&time=white-night&weather=thunderstorm`. If `time` or `weather`
+is missing or not a known name, that half keeps following Prague.
 
 This checkout uses the shared git hooks: `core.hooksPath` → `/Users/dave/Development/__git-hooks`
 (the Plexima kit). The Plexima manifest is the local `__manifest` link.
@@ -68,7 +71,8 @@ Marooned. Deploy the open branch with `git push heroku HEAD:main`. The live URL 
 | M | City map and starting points |
 | C | Drive / Follow / High camera |
 | Q / E (hold) | Look left / right |
-| T | Time of day / weather |
+| T | Time of day |
+| Y | Weather |
 | H | Hide the HUD |
 | V | Capture mode (full resolution, no camera shake) |
 
@@ -167,8 +171,8 @@ someone to help.
 ## The map
 
 - **Playable city:** Praha. The playable core is a 2 km circle around Staroměstské náměstí.
-  Starts are the river and New Town driving loop; the castle and Charles Bridge stay places you
-  see, not spawn points. Building shells use IPR Praha’s photogrammetric LOD2 model where packed.
+  The default start is Petřín, in the sakura grove. Jelení příkop, and the Újezd and Anděl
+  tram stops, are on the list too. Building shells use IPR Praha’s photogrammetric LOD2 model where packed.
 - Helsinki and Tampere packs can remain on disk but are not shipped. Helsinki’s pack still
   describes a 2 km circle around Helsinki Cathedral, with optional Helsinki/Espoo extension
   corridors in that city’s data.
@@ -176,6 +180,10 @@ someone to help.
 - Coordinates are local metres (X east, Z south) from each city’s configured origin. Praha uses
   14.42125 E, 50.08747 N. The unshipped Helsinki pack uses 24.9522 E, 60.1701 N and the municipal
   ETRS-GK25 projection (EPSG:3879).
+
+Day and weather follow Prague’s clock and a live forecast, so an autumn evening is night.
+Snow falls as flakes. The car you are driving lights the road ahead at night, and in rain,
+a thunderstorm, or snow. A white night leaves those headlights off.
 
 The game is not a survey-exact digital twin:
 - Praha uses bundled elevation data. The unshipped Tampere pack also bundles elevation; the
