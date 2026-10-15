@@ -14,6 +14,8 @@ test('every species family builds finite templates within the triangle budget pe
   const near=treeTemplate(f,'near',1);near.computeBoundingBox();const nw=near.boundingBox.max.x-near.boundingBox.min.x;
   assert.ok(nw<=FAMILY[f].width*1.45+.12,`${f} near crown width ${nw}`);assert.ok(b.max.x-b.min.x<=nw*1.3+.06,`${f} ${level} crown width`);
   assert.ok(g.attributes.color,'vertex colours');
+  assert.ok(g.attributes.aFoliage,'foliage mask');
+  assert.ok(g.attributes.aFoliage.array.includes(0)&&g.attributes.aFoliage.array.includes(1),`${f} keeps bark separate from leaves`);
  }
 });
 test('silhouettes differ by family: spruce narrow to the ground, maple broad, columnar thin', () => {

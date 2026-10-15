@@ -9,6 +9,8 @@ const FILES={
  tram:'/sounds/tram.mp3',
  depart:'/sounds/tram-depart.mp3',
  water:'/sounds/water.mp3',
+ // Louder of the two CC0 rain loops (Ylmir, OpenGameArt). rainSoft.ogg is kept beside it and not played.
+ rain:'/sounds/rain.ogg',
 };
 const TRAM_SLOTS=3,TRAM_RANGE=90;
 
@@ -57,7 +59,7 @@ function makeLoop(ctx,buffer,destination){
 
 export function createCityAudio(){
  let context=null,master,buses,loops,tramVoices,departBuffer,waiting=new Map(),ready=false,loading=null;
- const levels={ready:false,city:0,crowd:0,car:0,carRate:1,tram:0,water:0};
+ const levels={ready:false,city:0,crowd:0,car:0,carRate:1,tram:0,water:0,rain:0};
  let analyser=null,listener={x:0,z:0};
 
  function ensure(ctx){
@@ -73,9 +75,10 @@ export function createCityAudio(){
   loading=Promise.all([
    loadOptional(ctx,FILES.city,true),loadOptional(ctx,FILES.crowd,true),loadOptional(ctx,FILES.car,true),
    loadOptional(ctx,FILES.tram,true),loadOptional(ctx,FILES.depart,false),loadOptional(ctx,FILES.water,true),
-  ]).then(([city,crowd,car,tram,depart,water])=>{
+   loadOptional(ctx,FILES.rain,true),
+  ]).then(([city,crowd,car,tram,depart,water,rain])=>{
    if(ctx!==context)return;
-   if(!city&&!crowd&&!car&&!tram&&!depart&&!water){loading=null;context=null;return;}
+   if(!city&&!crowd&&!car&&!tram&&!depart&&!water&&!rain){loading=null;context=null;return;}
    const param=()=>({value:0,setTargetAtTime(){}});
    const silent=(bus)=>{const g=ctx.createGain();g.gain.value=0;g.connect(bus);return {gain:g,pan:{pan:param()},rate:param()};};
    loops={
@@ -83,6 +86,7 @@ export function createCityAudio(){
     crowd:crowd?makeLoop(ctx,crowd,buses.ambience):silent(buses.ambience),
     car:car?makeLoop(ctx,car,buses.engine):silent(buses.engine),
     water:water?makeLoop(ctx,water,buses.ambience):silent(buses.ambience),
+    rain:rain?makeLoop(ctx,rain,buses.ambience):silent(buses.ambience),
    };
    tramVoices=Array.from({length:TRAM_SLOTS},()=>tram?makeLoop(ctx,tram,buses.vehicles):silent(buses.vehicles));
    departBuffer=depart;ready=true;levels.ready=true;
@@ -111,7 +115,7 @@ export function createCityAudio(){
   update(ctx,state={}){
    if(ctx)ensure(ctx);
    if(!ready||ctx!==context)return;
-   const {enabled=false,active=false,driving=false,car=null,surface=null,people=[],trams=[],heading=0,throttle=false,reverse=false,brake=false,waterDistance=Infinity}=state;
+   const {enabled=false,active=false,driving=false,car=null,surface=null,people=[],trams=[],heading=0,throttle=false,reverse=false,brake=false,waterDistance=Infinity,precipitation=false}=state;
    const mix=mixerGains({enabled,active}),now=ctx.currentTime;
    listener=car||listener;
    master.gain.setTargetAtTime(mix.master,now,.08);
@@ -124,6 +128,8 @@ export function createCityAudio(){
    loops.crowd.gain.gain.setTargetAtTime(crowd,now,.15);levels.crowd=crowd;
    const river=waterGain(waterDistance)*.4;
    loops.water.gain.gain.setTargetAtTime(river,now,.25);levels.water=river;
+   const rainGain=enabled&&precipitation?0.5:0;
+   loops.rain.gain.gain.setTargetAtTime(rainGain,now,.25);levels.rain=rainGain;
    const sample=carSample(car?.speed||0,surface,{throttle,reverse,brake});
    const carGain=driving&&car?sample.gain:0;
    loops.car.gain.gain.setTargetAtTime(carGain,now,.12);

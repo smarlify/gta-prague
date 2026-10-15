@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {groundAt} from './terrain.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {speciesFamily} from './place-data.js';
+import {attachSnow} from './weather.js';
 
 // Species-shaped trees for cities with a tree register (any city whose trees carry a species name).
 // Each family's silhouette, colours and proportions were read from current photos of Tampere's
@@ -61,10 +62,12 @@ export function crownProfile(shape,t){
 }
 const color=hex=>new THREE.Color(hex);
 // Colours a geometry by height inside the crown: darker and cooler low and inside, lighter at the top.
-function paint(g,base,tip,y0,y1,shade=0,gain=1){
- const p=g.attributes.position,c=new Float32Array(p.count*3),a=color(base),b=color(tip),t=new THREE.Color();
- for(let i=0;i<p.count;i++){const k=Math.max(0,Math.min(1,(p.getY(i)-y0)/Math.max(.001,y1-y0)));t.copy(a).lerp(b,k*.85).multiplyScalar((1-shade*(1-k))*gain);c.set([t.r,t.g,t.b],i*3);}
- g.setAttribute('color',new THREE.BufferAttribute(c,3));return g;
+function paint(g,base,tip,y0,y1,shade=0,gain=1,foliage=0){
+ const p=g.attributes.position,c=new Float32Array(p.count*3),leaf=new Float32Array(p.count),a=color(base),b=color(tip),t=new THREE.Color();
+ for(let i=0;i<p.count;i++){const k=Math.max(0,Math.min(1,(p.getY(i)-y0)/Math.max(.001,y1-y0)));t.copy(a).lerp(b,k*.85).multiplyScalar((1-shade*(1-k))*gain);c.set([t.r,t.g,t.b],i*3);leaf[i]=foliage;}
+ g.setAttribute('color',new THREE.BufferAttribute(c,3));
+ g.setAttribute('aFoliage',new THREE.BufferAttribute(leaf,1));
+ return g;
 }
 function cylinder(r0,r1,y0,y1,seg,hex,x=0,z=0,tilt=null){
  const g=new THREE.CylinderGeometry(r1,r0,y1-y0,seg,1,true);g.translate(0,(y0+y1)/2,0);
@@ -80,7 +83,7 @@ function lump(cx,cy,cz,r,detail,centre,blend=.5,aspect=1){
  g.setAttribute('normal',new THREE.BufferAttribute(n,3));return g;
 }
 function finish(parts){
- for(const g of parts){for(const k of Object.keys(g.attributes))if(!['position','normal','color'].includes(k))g.deleteAttribute(k);if(!g.attributes.normal)g.computeVertexNormals();}
+ for(const g of parts){for(const k of Object.keys(g.attributes))if(!['position','normal','color','aFoliage'].includes(k))g.deleteAttribute(k);if(!g.attributes.normal)g.computeVertexNormals();}
  const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());g.computeBoundingSphere();g.computeBoundingBox();return g;
 }
 
@@ -97,10 +100,10 @@ export function treeTemplate(family,level='near',seed=1){
    const g=new THREE.ConeGeometry(r,y1-y0,sides,1,true);g.translate(0,(y0+y1)/2,0);
    // Drooping, ragged whorl edges: pull every other rim vertex down and in.
    const p=g.attributes.position;for(let k=0;k<p.count;k++){if(p.getY(k)<(y0+y1)/2-.001){const odd=k%2;p.setY(k,p.getY(k)-(odd?.02:0));p.setX(k,p.getX(k)*(odd?.82:1));p.setZ(k,p.getZ(k)*(odd?.82:1));}}
-   g.rotateY(R()*6.28);parts.push(paint(g.toNonIndexed(),F.leaf,F.tip,F.base,1,F.shape==='larch'?.1:.25));
+   g.rotateY(R()*6.28);parts.push(paint(g.toNonIndexed(),F.leaf,F.tip,F.base,1,F.shape==='larch'?.1:.25,1,1));
    if(F.shape==='larch'&&L===0)i+=.0;
   }
-  if(L===0&&F.shape==='spruce'){const g=new THREE.ConeGeometry(W*.12,.08,6,1,true);g.translate(0,.97,0);parts.push(paint(g.toNonIndexed(),F.tip,F.tip,0,1));}
+  if(L===0&&F.shape==='spruce'){const g=new THREE.ConeGeometry(W*.12,.08,6,1,true);g.translate(0,.97,0);parts.push(paint(g.toNonIndexed(),F.tip,F.tip,0,1,0,1,1));}
   return finish(parts);
  }
  // Broadleaf and pine: trunk, limbs into the crown, then the lumps.
@@ -121,7 +124,7 @@ export function treeTemplate(family,level='near',seed=1){
   lumps.push(lump(Math.cos(a)*r,y-(F.shape==='weeping'?sz*.25*Math.abs(Math.cos(a)):0),Math.sin(a)*r,sz,detail,centre,.5,1));
  }
  // Each leaf clump a little lighter or darker than its neighbours, as sunlit and shaded clumps are.
- for(const [i,g] of lumps.entries())paint(g,F.leaf,F.tip,yb,yt,.3,i<cores?.78:.86+.28*R());
+ for(const [i,g] of lumps.entries())paint(g,F.leaf,F.tip,yb,yt,.3,i<cores?.78:.86+.28*R(),1);
  return finish([...parts,...lumps]);
 }
 
@@ -142,6 +145,7 @@ export function treeLevel(d,b=SPECIES_LOD){return d<b.near?'near':d<b.mid?'mid':
 export function createSpeciesTrees(trees){
  const group=new THREE.Group();group.name='Species trees';
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.95,metalness:0,emissive:'#3a4a28',emissiveIntensity:.45});
+ attachSnow(material,{leaves:true});
  const items=trees.map((t,i)=>({t,inst:treeInstance(t,i)})),used=new Set(items.map(o=>`${o.inst.family}|${o.inst.variant}`));
  const meshes={},ids={},triangles={};const m=new THREE.Object3D(),tint=new THREE.Color();
  for(const level of LEVELS){
