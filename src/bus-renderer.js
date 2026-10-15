@@ -8,24 +8,36 @@ export {THREE}; // Also lets the isolated preview use the exact same engine inst
 // Original lightweight mesh, referencing the blue electric HSL fleet's proportions
 // and fittings. Not an exact licensed Yutong/VDL body or a copied HSL logotype.
 // A city can repaint its city buses (cities/<id>/city.json → liveries.bus), e.g. Tampere's Nysse.
+// Named liveries are original colour schemes only: no wordmark, fox, or photographed wrap.
+// A model with no livery stays the Helsinki body.
 let BUS_LIVERY={};
 export function setBusLivery(livery={}){BUS_LIVERY=livery;}
-export function createBusModel(kind='city',{line='',destination='HELSINKI'}={}){
+const LIVERY_NAMES={dpp:'Original red and cream city bus',flixbus:'Original green coach',regiojet:'Original yellow coach'};
+export function createBusModel(kind='city',{line='',destination='HELSINKI',livery=null}={}){
  const d=BUS_DIMENSIONS[kind],tourist=kind==='tourist',trunk=kind==='trunk',group=new THREE.Group(),parts=new Map();
  const mats={paint:new THREE.MeshStandardMaterial({color:tourist?'#b5242b':trunk?'#ed6b21':'#098bd0',roughness:.4,metalness:.18}),white:new THREE.MeshStandardMaterial({color:'#e5ebe7',roughness:.5}),glass:new THREE.MeshStandardMaterial({color:'#13272f',roughness:.17,metalness:.4}),black:new THREE.MeshStandardMaterial({color:'#151c20',roughness:.85}),alloy:new THREE.MeshStandardMaterial({color:'#aab2b4',roughness:.35,metalness:.75}),roof:new THREE.MeshStandardMaterial({color:'#c0c8c7',roughness:.7}),head:new THREE.MeshStandardMaterial({color:'#f9f4da',emissive:'#fff2c8',emissiveIntensity:.7}),tail:new THREE.MeshStandardMaterial({color:'#dc1832',emissive:'#cb1222',emissiveIntensity:.5}),amber:new THREE.MeshStandardMaterial({color:'#e7ac24',emissive:'#cd830b',emissiveIntensity:.35})};
- if(kind==='coach'){mats.paint.color.set('#d7c796');mats.white.color.set('#315c79');}
- if(kind==='city')for(const [k,v] of Object.entries(BUS_LIVERY))mats[k]?.color.set(v);
+ if(kind==='coach'&&!livery){mats.paint.color.set('#d7c796');mats.white.color.set('#315c79');}
+ if(kind==='city'&&!livery)for(const [k,v] of Object.entries(BUS_LIVERY))mats[k]?.color.set(v);
+ // DPP centre scheme: red body, wide cream flank, red roof. FlixBus: vivid green coach.
+ // RegioJet: yellow body, charcoal roof and window band. Estimated colours, not a brand manual.
+ if(livery==='dpp'){mats.paint.color.set('#c8102e');mats.roof.color.set('#c8102e');mats.belt=new THREE.MeshStandardMaterial({color:'#f3eee4',roughness:.5});}
+ if(livery==='flixbus'){mats.paint.color.set('#73d700');mats.white.color.set('#e4f2c4');mats.glass.color.set('#121a16');}
+ if(livery==='regiojet'){mats.paint.color.set('#ffd100');mats.roof.color.set('#2b3036');mats.glass.color.set('#161a1e');mats.band=new THREE.MeshStandardMaterial({color:'#2b3036',roughness:.45,metalness:.15});}
  const add=(g,m,x=0,y=0,z=0,rotZ=0)=>{g.rotateZ(rotZ);g.translate(x,y,z);if(g.index)g=g.toNonIndexed();g.deleteAttribute('uv');if(!parts.has(m))parts.set(m,[]);parts.get(m).push(g);};
  const box=(w,h,l,m,x,y,z)=>add(new THREE.BoxGeometry(w,h,l),m,x,y,z);
  const round=(w,h,l,r,m,x,y,z)=>add(new RoundedBoxGeometry(w,h,l,2,r),m,x,y,z);
  round(2.52,1.05,d.length,.12,'paint',0,.95,0);
  round(2.47,1.38,d.length-.14,.12,'glass',0,2.09,0);
  box(2.55,.12,d.length-.1,'paint',0,1.45,0);
- round(2.48,.27,d.length-.18,.12,'paint',0,2.88,0);
+ round(2.48,.27,d.length-.18,.12,livery==='regiojet'?'roof':'paint',0,2.88,0);
  box(2.50,.12,d.length-.16,'black',0,.41,0);
- // HSL-family white lower flank accent (not a pasted photo texture).
- for(const x of [-1.27,1.27]){box(.025,.2,d.length*.7,'white',x,.70,1.05);for(let z=-d.length/2+.5;z<d.length/2-.2;z+=1.25)box(.05,1.34,.065,'black',x,2.11,z);for(const z of [-4.5,0,4.8])box(.03,.10,.23,'amber',x,.91,z);}
- if(!tourist&&kind!=='coach')for(const side of [-1,1])for(const z of [-1.25,0,1.25]){const g=new THREE.TorusGeometry(.55,.032,5,32);g.scale(1,1.35,1);g.rotateY(Math.PI/2);add(g,'white',side*1.302,1.69,z+.25);}
+ // HSL-family white lower flank accent (not a pasted photo texture). Named Prague liveries replace it.
+ const swoosh=!tourist&&kind!=='coach'&&livery!=='dpp';
+ if(livery==='dpp')for(const x of [-1.275,1.275])box(.05,.48,d.length*.9,'belt',x,1.16,.1);
+ if(livery==='flixbus')for(const x of [-1.275,1.275])box(.04,.34,d.length*.9,'white',x,.62,0);
+ if(livery==='regiojet')for(const x of [-1.255,1.255])box(.045,.5,d.length*.84,'band',x,2.15,.05);
+ for(const x of [-1.27,1.27]){if(livery!=='dpp'&&livery!=='flixbus'&&livery!=='regiojet')box(.025,.2,d.length*.7,'white',x,.70,1.05);for(let z=-d.length/2+.5;z<d.length/2-.2;z+=1.25)box(.05,1.34,.065,'black',x,2.11,z);for(const z of [-4.5,0,4.8])box(.03,.10,.23,'amber',x,.91,z);}
+ if(swoosh)for(const side of [-1,1])for(const z of [-1.25,0,1.25]){const g=new THREE.TorusGeometry(.55,.032,5,32);g.scale(1,1.35,1);g.rotateY(Math.PI/2);add(g,'white',side*1.302,1.69,z+.25);}
  // Right-side front/middle/rear double doors and step edge, lime grab poles.
  // The glazed door leaves are their own two batches (forward and rear leaf of each door) so they can open at stops.
  const doorZ=tourist||kind==='coach'?[-4.9,1.5]:trunk?[-6.3,.05,5.3]:[-4.8,.05,3.95],leaves=[[],[]];
@@ -63,13 +75,13 @@ export function createBusModel(kind='city',{line='',destination='HELSINKI'}={}){
  const doors=leaves.map((gs,k)=>{const mesh=new THREE.Mesh(mergeGeometries(gs.map(g=>g.toNonIndexed())),mats.glass);mesh.name=`Door leaves ${k?'rear':'forward'}`;gs.forEach(g=>g.dispose());group.add(mesh);return mesh;});
  // Doors open outward and slide apart (0 closed … 1 open).
  const setDoors=open=>{doors[0].position.set(.14*open,0,-.45*open);doors[1].position.set(.14*open,0,.45*open);};
- group.name=tourist?'Original Helsinki sightseeing double decker':kind==='coach'?'Original harbour charter coach':trunk?'Original Helsinki orange trunk bus':'Original Helsinki blue electric city bus';group.userData={kind,dimensions:d,originalModel:true,doors:0,setDoors};return group;
+ group.name=LIVERY_NAMES[livery]||(tourist?'Original Helsinki sightseeing double decker':kind==='coach'?'Original harbour charter coach':trunk?'Original Helsinki orange trunk bus':'Original Helsinki blue electric city bus');group.userData={kind,livery,swoosh,dimensions:d,originalModel:true,doors:0,setDoors};return group;
 }
 
 const slope={y:0,pitch:0,roll:0};
 export function createBusRenderer(sim){
  const group=new THREE.Group();group.name='Helsinki bus fleet';const models=new Map();
- const key=b=>`${b.kind}:${b.path.segmentId}:${b.path.line}:${b.path.destination}`;
+ const key=b=>`${b.kind}:${b.path.livery||''}:${b.path.segmentId}:${b.path.line}:${b.path.destination}`;
  return {group,update(player){
   const wanted=new Set(sim.buses.map(key));
   for(const [id,m]of models)if(!wanted.has(id)){group.remove(m);m.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.map?.dispose();o.material.dispose();}});models.delete(id);}

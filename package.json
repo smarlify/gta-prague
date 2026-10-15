@@ -43,6 +43,7 @@
     "area:review": "node scripts/review-area.mjs",
     "traffic:check": "node scripts/traffic-check.mjs",
     "bus:lanes": "node scripts/bus-lanes.mjs",
+    "bus:coaches": "node scripts/fetch-regiojet-coaches.mjs",
     "bus:stops": "node scripts/bus-stops.mjs",
     "test": "node --test tests/*.test.mjs"
   },
