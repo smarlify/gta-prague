@@ -6,6 +6,7 @@ import {gunzipSync} from 'node:zlib';
 import {SpatialIndex} from '../src/geo.js';
 import {BUS_DIMENSIONS,busSamples,busOverlaps,busFitsRoad,busPose,safeBusSweep,BusSimulation} from '../src/bus-simulation.js';
 import {createBusModel,createBusRenderer} from '../src/bus-renderer.js';
+import {applyPragueBusLiveries,busFleetOptions,PRAGUE_COACH_CAP} from '../src/bus-system.js';
 import {terminalAnchors} from '../src/bus-terminal.js';
 import {HARBOUR_START} from '../src/demo-route.js';
 const world={roads:{at:()=>true},buildings:{at:()=>false}};
@@ -96,4 +97,57 @@ test('Kauppatori: sightseeing circuits close on themselves and three or more dou
  let jump=0,stopped=0;for(let i=0;i<120;i++){const {x,z}=bus;sim.step(1/30,{x:-400,z:380,heading:0,speed:0});jump=Math.max(jump,Math.hypot(bus.x-x,bus.z-z));if(bus.speed<.5)stopped++;}
  assert.ok(bus.s<bus.path.end-20,'wrapped to loopTo');assert.ok(jump<.6,`teleported ${jump.toFixed(2)} m`);assert.equal(stopped,0);
  assert.ok(sim.buses.every(b=>busFitsRoad(b,w)));
+});
+
+const meshOf=hex=>m=>m.children.find(o=>o.isMesh&&o.material?.color?.getHexString()===hex);
+test('a model with no livery is still Helsinki blue and inside the mesh budget',()=>{
+ const m=createBusModel('city');
+ assert.equal(m.userData.livery,null);assert.equal(m.userData.swoosh,true);
+ assert.ok(meshOf('098bd0')(m),'Helsinki blue body');
+ assert.ok(m.children.length<=12);
+});
+test('dpp is red with a wide cream flank and no swoosh',()=>{
+ const m=createBusModel('city',{livery:'dpp',line:'131',destination:'Bořislavka'});
+ assert.equal(m.userData.swoosh,false);assert.equal(m.userData.livery,'dpp');
+ assert.ok(meshOf('c8102e')(m),'red body');
+ const belt=meshOf('f3eee4')(m);assert.ok(belt,'cream flank');
+ const size=new THREE.Box3().setFromObject(belt).getSize(new THREE.Vector3());
+ assert.ok(size.y>=.4,'cream belt is wider than the thin Helsinki accent');
+ assert.ok(size.z>8,'cream belt runs along the flank');
+ assert.ok(m.children.length<=12);
+ assert.equal(m.name,'Original red and cream city bus');
+});
+test('a Flixbus route name resolves to a green coach and is not painted yellow',()=>{
+ const tagged=applyPragueBusLiveries({paths:[{id:'fx',kind:'city',routeName:'Flixbus 853: Praha ⇒ Berlin',line:'853',destination:'Berlin'}]},{paths:[{id:'not-yellow',kind:'coach',routeName:'Flixbus 100: Praha ⇒ Wien'}]});
+ assert.equal(tagged.paths.length,1);
+ assert.equal(tagged.paths[0].kind,'coach');assert.equal(tagged.paths[0].livery,'flixbus');
+ assert.ok(tagged.paths.every(p=>p.livery!=='regiojet'));
+ const m=createBusModel(tagged.paths[0].kind,{livery:tagged.paths[0].livery,line:'853',destination:'Berlin'});
+ assert.equal(m.userData.kind,'coach');assert.equal(m.name,'Original green coach');
+ assert.ok(meshOf('73d700')(m),'vivid green body');
+ assert.equal(meshOf('ffd100')(m),undefined);
+});
+test('regiojet is yellow and a plain city route stays the red dpp bus',()=>{
+ const tagged=applyPragueBusLiveries({paths:[{id:'city',kind:'city',routeName:'Bus 131: Hradčanská ⇒ Bořislavka',line:'131',destination:'Bořislavka'}]},{paths:[{id:'rj',kind:'coach',routeName:'RegioJet Praha — Brno',line:'',destination:'Brno'}]});
+ assert.equal(tagged.paths[0].kind,'city');assert.equal(tagged.paths[0].livery,'dpp');
+ assert.equal(tagged.paths[1].kind,'coach');assert.equal(tagged.paths[1].livery,'regiojet');
+ const yellow=createBusModel('coach',{livery:'regiojet',destination:'Brno'});
+ assert.ok(meshOf('ffd100')(yellow),'yellow body');
+ assert.ok(meshOf('2b3036')(yellow),'charcoal roof and window band');
+ assert.equal(yellow.userData.kind,'coach');
+ assert.equal(yellow.name,'Original yellow coach');
+});
+test('with both coach liveries near the player, the simulation spawns one of each before a duplicate',()=>{
+ const path=(id,livery,x)=>({id,kind:'coach',livery,line:id,destination:'PRAHA',routeName:livery,points:[[x,0],[x,-400]],start:10,end:380,length:400});
+ const data={clearancePrecomputed:true,paths:[path('f1','flixbus',0),path('f2','flixbus',70),path('r1','regiojet',140)]};
+ const sim=new BusSimulation(data,world,{cityCount:0,trunkCount:0,touristCount:0,coachCount:2});
+ sim.reset({x:0,z:-100,heading:0,speed:0});
+ const liveries=sim.buses.map(b=>b.path.livery);
+ assert.equal(liveries.filter(l=>l==='flixbus').length,1);
+ assert.equal(liveries.filter(l=>l==='regiojet').length,1);
+ assert.equal(new BusSimulation({paths:[],clearancePrecomputed:true},world).coachCount,2);
+ assert.equal(new BusSimulation({paths:[],clearancePrecomputed:true},world,{coachCount:PRAGUE_COACH_CAP}).coachCount,4);
+ assert.equal(new BusSimulation({paths:[],clearancePrecomputed:true},world,{coachCount:PRAGUE_COACH_CAP}).cityCount,6);
+ assert.deepEqual(busFleetOptions('prague'),{coachCount:4});
+ assert.deepEqual(busFleetOptions('helsinki'),{});
 });

@@ -1071,7 +1071,7 @@ async function boot(){
    // Bystanders react to a pedestrian hit: graph walkers through mobility, free crowds directly (crowd-reaction.js).
    {const walkers=new Set(mobility.people);crowd=createCrowdReaction({sight:world.sightBuildings,scare:(a,from,s)=>walkers.has(a)?mobility.scare(a,from,s):a.scared={x:from.x,z:from.z,left:s},hold:(a,s)=>walkers.has(a)?mobility.hold(a,s):a.heldFor=s});
     impacts.onHit=e=>crowd.alarm(e,[mobility.people,detailPeople]);}
-   progress(94,'Preparing buses');buses=await createBusSystem(scene,world,car);
+   progress(94,'Preparing buses');buses=await createBusSystem(scene,world,car,{cityId:city.id});
    // Lanes know the tram tracks and buses the junction signals; respawn traffic clear of trams and buses.
    transitQueue.splice(0).forEach(addTransit);mobility.attachTrams(tramSim);mobility.attachBuses(buses.simulation);buses.reset(car,tramSim.obstacles);mobility.externalBodies=transitBodies();mobility.reset(car);
    progress(100,'Ready');
