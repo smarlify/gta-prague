@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {extensionCredit, extensionSourcesText} from '../src/extensions.js';
-import {CORRIDOR_PROVENANCE, CORRIDOR_SPECS, NORTH_LAYER_IDS, NORTH_LAYER_NOTE} from '../src/prague-corridors.js';
+import {pointInPolygon} from '../src/geo.js';
+import {startClear, startSurfaces} from '../src/start-placement.js';
+import {CORRIDOR_PROVENANCE, CORRIDOR_SPECS, CORRIDOR_STARTS, NORTH_LAYER_IDS, NORTH_LAYER_NOTE} from '../src/prague-corridors.js';
 
 const index = JSON.parse(fs.readFileSync('public/cities/prague/extensions/index.json', 'utf8'));
 const KEPT = ['zlute-lazne', 'barrandov', 'troja', 'palmovka', 'bohnice', 'kobylisy', 'severni-spojka'];
@@ -36,6 +38,20 @@ test('the view distance stops short of the whole city disk and the HUD names the
  assert.match(main, /fps-readout/);
  assert.match(html, /id="fps-readout"/);
  assert.match(html, /id="district-label"[\s\S]{0,80}id="fps-readout"/);
+});
+
+test('built corridor starts are on a clear lane inside that pack', () => {
+ const listed = index.extensions.flatMap(entry => entry.starts || []);
+ assert.deepEqual(listed.map(start => start.name), CORRIDOR_STARTS.map(start => start.name));
+ for (const start of CORRIDOR_STARTS) {
+  const entry = index.extensions.find(item => item.id === start.extension);
+  const published = entry.starts.find(item => item.name === start.name);
+  assert.deepEqual(published, {...start});
+  assert.ok(entry.playable.some(poly => pointInPolygon(start.x, start.z, poly)), `${start.name} is inside ${start.extension}`);
+  const city = JSON.parse(gunzipSync(fs.readFileSync(`public/cities/prague/extensions/${start.extension}/city.pack`)));
+  assert.ok(startClear(start, startSurfaces(city.roads, city.pavement || [])), `${start.name} is not on a clear lane`);
+ }
+ for (const id of ['zlute-lazne', 'kobylisy']) assert.equal(index.extensions.find(entry => entry.id === id).starts, undefined);
 });
 
 test('Troja and Bohnice keep centre layers instead of a thinned outline', () => {

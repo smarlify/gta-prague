@@ -36,6 +36,17 @@ export const CORRIDOR_SPECS = Object.freeze([
   test: text => /jižní spojka|jizni spojka/i.test(text)},
 ]);
 
+// Starts parked in a clear lane of a corridor that actually has a carriageway.
+// Žluté lázně and Kobylisy have no such lane. Jižní spojka has no pack.
+export const CORRIDOR_STARTS = Object.freeze([
+ {extension: 'barrandov', name: 'Barrandovský most', district: 'Praha 5 - Hlubočepy', street: 'Strakonická', x: -1065.34, z: 5252.32, heading: -2.9229},
+ {extension: 'troja', name: 'Troja', district: 'Praha 7 - Troja', street: 'Trojská', x: -682.48, z: -3347.94, heading: 0.1902},
+ {extension: 'troja', name: 'Stromovka', district: 'Praha 7 - Bubeneč', street: 'Za Elektrárnou', x: 71.35, z: -2585.91, heading: -1.5745},
+ {extension: 'palmovka', name: 'Palmovka', district: 'Praha 8 - Libeň', street: 'Zenklova', x: 3730.54, z: -1727.92, heading: 0.0843},
+ {extension: 'bohnice', name: 'Bohnice', district: 'Praha 8 - Bohnice', street: 'Bohnická', x: -783.9, z: -5371.15, heading: -1.4877},
+ {extension: 'severni-spojka', name: 'Černý Most', district: 'Praha 14 - Černý Most', street: 'Chlumecká', x: 11047.4, z: -2424.48, heading: 1.7748},
+]);
+
 export function corridorIdFor(name = '') {
  const text = String(name);
  if (!text.trim()) return null;

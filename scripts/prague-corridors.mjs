@@ -11,7 +11,7 @@ import proj4 from 'proj4';
 import polygonClipping from 'polygon-clipping';
 import {decodeTerrain} from '../src/terrain.js';
 import {readPng} from './city-terrain.mjs';
-import {CORRIDOR_SPECS, CORRIDOR_PROVENANCE, corridorIdFor, circleRing, simplifyRing, multiBBox, heightSamples} from '../src/prague-corridors.js';
+import {CORRIDOR_SPECS, CORRIDOR_PROVENANCE, CORRIDOR_STARTS, corridorIdFor, circleRing, simplifyRing, multiBBox, heightSamples} from '../src/prague-corridors.js';
 
 const ROOT = 'public/cities/prague';
 const RAW = 'data/raw/cities/prague';
@@ -283,7 +283,8 @@ for (const spec of CORRIDOR_SPECS) {
  fs.writeFileSync(path.join(dir, 'buildings3d-index.json'), JSON.stringify({source: 'Corridor buildings stay on the main city build.', tiles: [], buildings: 0}));
  fs.writeFileSync(path.join(dir, 'surface-index.json'), '[]');
  fs.writeFileSync(path.join(dir, 'mobility.json'), JSON.stringify({signals: [], roads: {nodes, edges}, walks: {nodes: [], edges: []}}));
- catalog.push({id: spec.id, dir: `extensions/${spec.id}`, title: spec.title, mapBounds: bounds.map(v => Math.round(v)), playable, heights, provenance: CORRIDOR_PROVENANCE});
+ const starts = CORRIDOR_STARTS.filter(start => start.extension === spec.id);
+ catalog.push({id: spec.id, dir: `extensions/${spec.id}`, title: spec.title, mapBounds: bounds.map(v => Math.round(v)), playable, heights, provenance: CORRIDOR_PROVENANCE, ...(starts.length ? {starts} : {})});
 }
 fs.writeFileSync(path.join(extensionRoot, 'index.json'), JSON.stringify({schemaVersion: 1, extensions: catalog}));
 const big = [];
