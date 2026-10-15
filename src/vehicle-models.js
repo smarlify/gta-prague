@@ -45,12 +45,13 @@ export function createVehicleMaterials(){
  const rubber=new THREE.MeshStandardMaterial({color:'#1b1e22',metalness:0,roughness:.74});
  const black=new THREE.MeshStandardMaterial({color:'#15191c',metalness:.35,roughness:.42});
  const chrome=new THREE.MeshStandardMaterial({color:'#dfe4e6',metalness:1,roughness:.16});
- const head=new THREE.MeshStandardMaterial({color:'#edf3ec',metalness:.2,roughness:.3,emissive:'#dceafa',emissiveIntensity:.35});
+ // Unlit lens: night exposure and fog must not wash the lamp out. Traffic tints a clone per car.
+ const head=new THREE.MeshBasicMaterial({color:'#24282b',toneMapped:false,fog:false});
  const tail=new THREE.MeshStandardMaterial({color:'#ae1522',metalness:.2,roughness:.3,emissive:'#ff2817',emissiveIntensity:.35});
  const plate=new THREE.MeshStandardMaterial({color:'#eff2e8',metalness:0,roughness:.6});
  const mats={paint,glass,rubber,black,chrome,head,tail,plate};
  for(const [name,m] of Object.entries(mats))m.name=name;
- registerEnvMaterial(paint,1);registerEnvMaterial(glass,1.5);registerEnvMaterial(chrome,1.1);registerEnvMaterial(black,.7);registerEnvMaterial(rubber,.35);registerEnvMaterial(head,.6);registerEnvMaterial(tail,.6);
+ registerEnvMaterial(paint,1);registerEnvMaterial(glass,1.5);registerEnvMaterial(chrome,1.1);registerEnvMaterial(black,.7);registerEnvMaterial(rubber,.35);registerEnvMaterial(tail,.6);
  return mats;
 }
 function loft(sections){
@@ -59,6 +60,19 @@ function loft(sections){
  for(let i=0;i<sections.length-1;i++)for(let j=0;j<n;j++){const a=i*n+j,b=i*n+(j+1)%n;indices.push(a,b,a+n,b,b+n,a+n);}
  for(let j=1;j<n-1;j++){indices.push(0,j+1,j);const k=(sections.length-1)*n;indices.push(k,k+j,k+j+1);}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return g.toNonIndexed();
+}
+// Soft dipped beams in the car's own frame. The nose points along -Z. These are meshes, not scene lights:
+// a spotlight would light the merged city tiles.
+function headBeams(spec){
+ const L=spec.l/2,W=spec.w/2,B=spec.belt,length=15;
+ const geo=new THREE.ConeGeometry(2,length,18,1,true);geo.translate(0,-length/2,0);geo.rotateX(Math.PI/2);
+ const mat=new THREE.MeshBasicMaterial({name:'head-beam',color:'#ffe3b8',transparent:true,opacity:.16,depthWrite:false,toneMapped:false,fog:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
+ const group=new THREE.Group();group.name='head-beams';group.visible=false;
+ for(const side of [-1,1]){
+  const mesh=new THREE.Mesh(geo,mat);mesh.name='head-beam';mesh.position.set(side*W*.66,B-.11,-L+.02);mesh.rotation.x=-.07;
+  mesh.castShadow=mesh.receiveShadow=false;mesh.raycast=()=>{};group.add(mesh);
+ }
+ return group;
 }
 function build(type,detailed){
  const s=specs[type],L=s.l/2,W=s.w/2,B=s.belt,H=s.h,group=new THREE.Group(),batches=new Map();
@@ -110,6 +124,7 @@ function build(type,detailed){
  // dive, acceleration squat and roll can tilt the shell without the wheels.
  const body=new THREE.Group();body.name='body';group.add(body);
  for(const [name,gs]of batches){const mesh=new THREE.Mesh(mergeGeometries(gs),mats[name]);mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;body.add(mesh);gs.forEach(g=>g.dispose());}
+ if(detailed)body.add(headBeams(s));
  return group;
 }
 export function createDetailedVehicle(colour=0,detailed=false,type=detailed?'crossover':'sedan'){
@@ -118,7 +133,7 @@ export function createDetailedVehicle(colour=0,detailed=false,type=detailed?'cro
  const model=detailed?build(type,true):templates.get(type).clone(true);
  model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(palette[colour%palette.length]);}});
  model.name=type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
- model.userData={type,spec:{...specs[type]},wheels:model.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:specs[type].r})),body:model.getObjectByName('body'),tail:detailed?model.getObjectByName('tail').material:null};
+ model.userData={type,spec:{...specs[type]},wheels:model.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:specs[type].r})),body:model.getObjectByName('body'),head:detailed?model.getObjectByName('head').material:null,tail:detailed?model.getObjectByName('tail').material:null,beams:detailed?model.getObjectByName('head-beams'):null};
  return model;
 }
 export const PAINT_PALETTE=palette;

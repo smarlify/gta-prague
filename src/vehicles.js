@@ -8,9 +8,30 @@ export function bodyPoseTargets(speed,previousSpeed,steer,dt,braking=false){
  const roll=clamp(-steer*speed*.0032,-.045,.045);
  return {pitch,roll};
 }
+// Night, and also rain, thunder or snow. A clear day stays dark, and so does a white night.
+export function vehicleLampsOn(day,weather){
+ if(day==='whitenight')return false;
+ if(day==='night')return true;
+ return weather==='rain'||weather==='thunder'||weather==='snow';
+}
+// Street posts glow only after dark. Bad weather does not switch them on in daylight.
+export function streetLampsOn(day){return day==='night';}
+// Head colour, beam visibility and the tail material the brake hook writes. Call this on the
+// occupied car every frame, including after a look swap replaces that material.
+export function applyPlayerLamps(model,on){
+ const u=model?.userData;if(!u)return;
+ const lit=!!on;u.lampsOn=lit;
+ if(u.head)u.head.color.set(lit?'#fff4dc':'#24282b');
+ if(u.beams)u.beams.visible=lit;
+ if(u.tail){u.tail.toneMapped=!lit;u.tail.fog=!lit;u.tail.emissiveIntensity=lit?Math.max(u.tail.emissiveIntensity||0,.7):0;}
+}
 export function animateVehicle(model,speed,steer,dt,braking=false){
  for(const w of model.userData.wheels){if(w.front)w.pivot.rotation.y=steer*.48;w.spin.rotation.x-=speed*dt/w.radius;}
- if(model.userData.tail)model.userData.tail.emissiveIntensity=braking?1.6:.35;
+ if(model.userData.tail){
+  // lampsOn is set for the player car. Police and any other caller keep the plain brake hook.
+  const lit=model.userData.lampsOn;
+  model.userData.tail.emissiveIntensity=lit===undefined?(braking?1.6:.35):lit?(braking?1.6:.7):0;
+ }
  const u=model.userData,body=u.body;
  if(!body)return;
  if(dt>0){
