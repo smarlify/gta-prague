@@ -10,7 +10,7 @@ import {SpatialIndex,RADIUS,pointInPolygon,insidePlayable,setPlayableRadius} fro
 import {loadExtensionIndex,loadExtension,applyExtensions,mapViewFor,activateExtension,createExtensionStreamer} from './extensions.js';
 import {setTramLivery} from './tram-model.js';
 import {setBusLivery} from './bus-renderer.js';
-import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities} from './cities.js';
+import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,sceneQuery,applySceneQuery} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
@@ -275,7 +275,9 @@ buildingMaterial.onBeforeCompile=shader=>{
   }
  `);
 };
-look=createLook({scene,sky,hemi,sun,post,surfaces:[surfaceMaterial],getSea:()=>sea,initial:clockLook(pragueHour()),automatic:true}); // live Prague clock and forecast; T cycles daytime, Y cycles weather
+const launchLook=sceneQuery(location.search);
+look=createLook({scene,sky,hemi,sun,post,surfaces:[surfaceMaterial],getSea:()=>sea,initial:launchLook.time||clockLook(pragueHour()),weather:launchLook.weather||'clear',automatic:true}); // ?time= and ?weather= pin a look before the first paint; anything else follows the live Prague clock and forecast. T cycles daytime, Y cycles weather
+applySceneQuery(look,launchLook);
 function paintLook(){$('look-label').textContent=look.label;$('weather-label').textContent=look.weatherLabel;}
 paintLook();look.onChange(paintLook);
 $('look-btn').addEventListener('click',()=>{look.cycle();toast(look.label);$('world').focus();});
