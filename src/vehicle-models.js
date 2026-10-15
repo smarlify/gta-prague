@@ -61,16 +61,21 @@ function loft(sections){
  for(let j=1;j<n-1;j++){indices.push(0,j+1,j);const k=(sections.length-1)*n;indices.push(k,k+j,k+j+1);}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return g.toNonIndexed();
 }
-// Soft dipped beams in the car's own frame. The nose points along -Z. These are meshes, not scene lights:
-// a spotlight would light the merged city tiles.
+// Dipped beams in the car's own frame. The nose points along -Z. Two spot lights, not cones:
+// the road and the walls ahead are MeshStandardMaterial, so they pick up the pool.
+// Intensity is candela. Decay is inverse-square, and the cone is narrow, so the near
+// road reads clearly and the pool is gone by the end of the range. No shadow map.
 function headBeams(spec){
- const L=spec.l/2,W=spec.w/2,B=spec.belt,length=15;
- const geo=new THREE.ConeGeometry(2,length,18,1,true);geo.translate(0,-length/2,0);geo.rotateX(Math.PI/2);
- const mat=new THREE.MeshBasicMaterial({name:'head-beam',color:'#ffe3b8',transparent:true,opacity:.16,depthWrite:false,toneMapped:false,fog:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
+ const L=spec.l/2,W=spec.w/2,B=spec.belt;
  const group=new THREE.Group();group.name='head-beams';group.visible=false;
+ const distance=40,angle=.28,penumbra=.55,decay=2,intensity=7000,dip=.1,aim=24;
  for(const side of [-1,1]){
-  const mesh=new THREE.Mesh(geo,mat);mesh.name='head-beam';mesh.position.set(side*W*.66,B-.11,-L+.02);mesh.rotation.x=-.07;
-  mesh.castShadow=mesh.receiveShadow=false;mesh.raycast=()=>{};group.add(mesh);
+  const x=side*W*.66,y=B-.11,z=-L+.02;
+  const spot=new THREE.SpotLight('#ffe6c2',intensity,distance,angle,penumbra,decay);
+  spot.name='head-beam';spot.castShadow=false;spot.position.set(x,y,z);
+  const target=new THREE.Object3D();target.name='head-beam-target';
+  target.position.set(x,y-Math.sin(dip)*aim,z-Math.cos(dip)*aim);
+  spot.target=target;group.add(spot,target);
  }
  return group;
 }
