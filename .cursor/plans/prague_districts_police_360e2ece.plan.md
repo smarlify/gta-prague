@@ -4,20 +4,22 @@ overview: Replace the PRAHA CENTRE location label with nearest Prague district n
 todos:
   - id: prague-areas
     content: Add PRAGUE_AREAS + wire minimap/HUD; set start districts in city.json / city-build
-    status: pending
+    status: completed
   - id: police-agency
     content: Policie (0-2) vs Městská policie (3+) on cars + uniforms via policeAgencyFor
-    status: pending
+    status: completed
   - id: plan-assets
     content: Copy reference photos to .cursor/plans/assets and write prague_districts_and_police.plan.md
-    status: pending
+    status: completed
   - id: ship
     content: "Commit on city/prague-wide, push, update PR #6, Heroku deploy"
-    status: pending
+    status: completed
 isProject: false
 ---
 
 # Prague districts and Czech police labels
+
+Shipped: district names and Czech police lettering are on origin/main (https://github.com/smarlify/gta-prague/pull/6).
 
 ## Context
 
