@@ -20,17 +20,30 @@ test('player lamps are on at night and in snow, off on a clear day and during wh
  assert.equal(streetLampsOn('whitenight'),false);
 
  const model=createVehicle(0,true);
- assert.equal(model.userData.beams.children.length,2);
- model.traverse(o=>{assert.equal(!!(o.isSpotLight||o.isPointLight),false);});
- for(const beam of model.userData.beams.children){
-  assert.equal(beam.isMesh,true);
-  assert.equal(beam.material.transparent,true);
-  assert.equal(beam.material.depthWrite,false);
-  assert.equal(beam.material.toneMapped,false);
- }
+ const spots=[];
+ model.traverse(o=>{
+  assert.equal(!!o.isPointLight,false);
+  assert.equal(!!(o.isMesh&&o.name==='head-beam'),false);
+  if(o.isSpotLight)spots.push(o);
+ });
+ assert.equal(spots.length,2);
+ assert.equal(model.userData.beams.parent,model.userData.body);
+ const plain=createVehicle(0,false);
+ plain.traverse(o=>{assert.equal(!!o.isSpotLight,false);assert.equal(!!o.isPointLight,false);});
  model.updateMatrixWorld(true);
- const box=new THREE.Box3().setFromObject(model.userData.beams);
- assert.ok(box.min.z<-8,'the cones point down the road, along -Z');
+ for(const spot of spots){
+  assert.equal(spot.castShadow,false);
+  assert.equal(spot.shadow.map,null);
+  assert.ok(spot.distance>=30&&spot.distance<=45,`range ${spot.distance}`);
+  assert.ok(spot.angle>0&&spot.angle<Math.PI/5,'narrow cone');
+  assert.ok(spot.decay>=1,'the pool fades with distance');
+  assert.equal(spot.target.parent,model.userData.beams);
+  const lightPos=new THREE.Vector3().setFromMatrixPosition(spot.matrixWorld);
+  const targetPos=new THREE.Vector3().setFromMatrixPosition(spot.target.matrixWorld);
+  assert.ok(targetPos.z<lightPos.z-8,'the beam aims down the road, along -Z');
+  assert.ok(targetPos.y<lightPos.y,'the beam angles slightly down');
+ }
+ assert.equal(model.getObjectByName('head').material.isMeshBasicMaterial,true);
 
  applyPlayerLamps(model,false);
  animateVehicle(model,8,0,1/60,true);

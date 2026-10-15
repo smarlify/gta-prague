@@ -14,10 +14,10 @@ export function createPlayerCarRenderer(scene){
  active.rotation.order='YXZ';
  const starter=createVehicle(0,true),entries=new Map();let home=null,current=null,first,lookKey='crossover|';
  const build=(model,owned=false)=>{
-  const shared=new Set();model.traverse(m=>{if(m.isMesh&&m.name!=='head-beam')shared.add(m.geometry);});
-  const damage=createVehicleDamage(model),privateGeometry=new Set(),materials=new Set(),beamMaterials=new Set();
-  model.traverse(m=>{if(m.isMesh){if(m.name==='head-beam'){privateGeometry.add(m.geometry);beamMaterials.add(m.material);}else if(!shared.has(m.geometry))privateGeometry.add(m.geometry);if(m.material.name==='paint')materials.add(m.material);}});
-  return {model,damage,dispose(){model.removeFromParent();for(const g of privateGeometry)g.dispose();for(const m of beamMaterials)m.dispose();if(owned)for(const m of materials){unregisterEnvMaterial(m);m.dispose();}}};
+  const shared=new Set();model.traverse(m=>{if(m.isMesh)shared.add(m.geometry);});
+  const damage=createVehicleDamage(model),privateGeometry=new Set(),materials=new Set(),lights=[];
+  model.traverse(m=>{if(m.isSpotLight)lights.push(m);else if(m.isMesh){if(!shared.has(m.geometry))privateGeometry.add(m.geometry);if(m.material?.name==='paint')materials.add(m.material);}});
+  return {model,damage,dispose(){model.removeFromParent();for(const g of privateGeometry)g.dispose();for(const light of lights)light.dispose();if(owned)for(const m of materials){unregisterEnvMaterial(m);m.dispose();}}};
  };
  const firstBuilt=build(starter);first=firstBuilt;active.add(starter);active.userData=starter.userData;
  let lamps=false;
