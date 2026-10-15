@@ -14,7 +14,7 @@ export function createMobileControls({keys,canPlay=()=>true,onMenuChange=()=>{},
  aux.innerHTML=`<button id="touch-menu" type="button" aria-label="Open game menu" aria-haspopup="dialog" aria-controls="mobile-menu" aria-expanded="false">${menuIcon}<span>Menu</span></button>`;
  const pad=doc.getElementById('touch-steer'),menuButton=doc.getElementById('touch-menu'),pedals=[...controls.querySelectorAll('[data-key]')],steerButtons=controls.querySelector('.mobile-steer-buttons'),tiltHint=controls.querySelector('.mobile-tilt-hint');
  const menu=doc.createElement('dialog');menu.id='mobile-menu';menu.setAttribute('aria-labelledby','mobile-menu-title');
- menu.innerHTML=`<div class="mobile-menu-head"><h2 id="mobile-menu-title">Menu</h2><button class="mobile-menu-close" type="button" aria-label="Resume game">×</button></div><p id="mobile-menu-status" class="mobile-menu-status"></p><div class="mobile-menu-actions"><button type="button" data-action="map"><span>City map</span><small>Find a place</small></button><button type="button" data-action="camera"><span>Camera</span><small id="mobile-camera-value">Drive</small></button><button type="button" data-action="weather"><span>Time &amp; weather</span><small id="mobile-weather-value">Midday</small></button><button type="button" data-action="sound"><span>Sound</span><small id="mobile-sound-value">Off</small></button></div><fieldset class="mobile-steering-options"><legend>Steering</legend><div><button type="button" data-steering="thumb" aria-pressed="true">Thumb</button><button type="button" data-steering="buttons" aria-pressed="false">Buttons</button><button type="button" data-steering="tilt" aria-pressed="false">Tilt</button></div></fieldset><p id="mobile-steering-note" role="status">Slide left or right for gentle turns. Release to straighten.</p><div class="mobile-menu-secondary"><button type="button" data-action="help">How to play</button><button type="button" data-action="reset">Reset position</button><button type="button" data-action="sources">About this city</button></div><button class="mobile-menu-resume" type="button">Back to the city <span aria-hidden="true">→</span></button>`;
+ menu.innerHTML=`<div class="mobile-menu-head"><h2 id="mobile-menu-title">Menu</h2><button class="mobile-menu-close" type="button" aria-label="Resume game">×</button></div><p id="mobile-menu-status" class="mobile-menu-status"></p><div class="mobile-menu-actions"><button type="button" data-action="map"><span>City map</span><small>Find a place</small></button><button type="button" data-action="camera"><span>Camera</span><small id="mobile-camera-value">Drive</small></button><button type="button" data-action="daytime"><span>Time of day</span><small id="mobile-day-value">Midday</small></button><button type="button" data-action="weather"><span>Weather</span><small id="mobile-weather-value">Clear</small></button><button type="button" data-action="sound"><span>Sound</span><small id="mobile-sound-value">Off</small></button></div><fieldset class="mobile-steering-options"><legend>Steering</legend><div><button type="button" data-steering="thumb" aria-pressed="true">Thumb</button><button type="button" data-steering="buttons" aria-pressed="false">Buttons</button><button type="button" data-steering="tilt" aria-pressed="false">Tilt</button></div></fieldset><p id="mobile-steering-note" role="status">Slide left or right for gentle turns. Release to straighten.</p><div class="mobile-menu-secondary"><button type="button" data-action="help">How to play</button><button type="button" data-action="reset">Reset position</button><button type="button" data-action="sources">About this city</button></div><button class="mobile-menu-resume" type="button">Back to the city <span aria-hidden="true">→</span></button>`;
  doc.getElementById('app').append(menu);
  doc.body.classList.add('mobile-controls-ready');
  const note=doc.getElementById('mobile-steering-note');
@@ -55,7 +55,8 @@ export function createMobileControls({keys,canPlay=()=>true,onMenuChange=()=>{},
   const battery=doc.getElementById('battery-value')?.textContent||'100%';
   doc.getElementById('mobile-menu-status').textContent=state.mode==='car'?`Car · Battery ${battery}`:state.mode==='walk'?'Exploring on foot':state.mode==='bike'?'Exploring by bike':'Exploring by scooter';
   doc.getElementById('mobile-camera-value').textContent=doc.getElementById('view-label')?.textContent||'Drive';
-  doc.getElementById('mobile-weather-value').textContent=doc.getElementById('look-label')?.textContent||'Midday';
+  doc.getElementById('mobile-day-value').textContent=doc.getElementById('look-label')?.textContent||'Midday';
+  doc.getElementById('mobile-weather-value').textContent=doc.getElementById('weather-label')?.textContent||'Clear';
   doc.getElementById('mobile-sound-value').textContent=doc.getElementById('sound-btn')?.getAttribute('aria-label')==='Mute sound'?'On':'Off';
  }
  function openMenu(){
@@ -76,7 +77,7 @@ export function createMobileControls({keys,canPlay=()=>true,onMenuChange=()=>{},
  on(menu,'click',e=>{if(e.target===menu&&backdropPointer===e.pointerId&&outsideMenu(e))closeMenu();backdropPointer=null;});
  for(const button of menu.querySelectorAll('[data-action]'))on(button,'click',()=>{
   const name=button.dataset.action,action=actions[name];if(!action)return;
-  if(['camera','weather','sound'].includes(name)){action();refreshMenu();}
+  if(['camera','daytime','weather','sound'].includes(name)){action();refreshMenu();}
   else closeMenu(action);
  });
  function applySteering(mode){

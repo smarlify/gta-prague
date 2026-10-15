@@ -272,10 +272,13 @@ buildingMaterial.onBeforeCompile=shader=>{
   }
  `);
 };
-look=createLook({scene,sky,hemi,sun,post,surfaces:[surfaceMaterial],getSea:()=>sea,initial:clockLook(pragueHour()),automatic:true}); // live Prague clock; T steps through looks and returns to automatic
-$('look-label').textContent=look.label;look.onChange((name,label)=>{$('look-label').textContent=label;});$('look-btn').addEventListener('click',()=>{look.cycle();toast(look.label);$('world').focus();});
+look=createLook({scene,sky,hemi,sun,post,surfaces:[surfaceMaterial],getSea:()=>sea,initial:clockLook(pragueHour()),automatic:true}); // live Prague clock and forecast; T cycles daytime, Y cycles weather
+function paintLook(){$('look-label').textContent=look.label;$('weather-label').textContent=look.weatherLabel;}
+paintLook();look.onChange(paintLook);
+$('look-btn').addEventListener('click',()=>{look.cycle();toast(look.label);$('world').focus();});
+$('weather-btn').addEventListener('click',()=>{look.cycleWeather();toast(look.weatherLabel);$('world').focus();});
 startPragueForecast(look);
-window.helsinkiLook={set:(name,opts)=>look.set(name,opts),cycle:()=>look.cycle(),get name(){return look.name;},post};
+window.helsinkiLook={set:(name,opts)=>look.set(name,opts),setWeather:(name,opts)=>look.setWeather(name,opts),cycle:()=>look.cycle(),cycleWeather:()=>look.cycleWeather(),get name(){return look.name;},get weather(){return look.weather;},post};
 cutLowerYard(ground.material);cutLowerYard(surfaceMaterial);
 const loadedTiles=new Map(),loadingTiles=new Map();
 const uploads=createFrameQueue({onError:e=>console.error('GPU upload failed:',e)}),detailScheduler=createDetailScheduler(2),treeChunks=[],leafGeometries=[],shadowCuller=createStaticShadowCuller(cityModel);
@@ -711,6 +714,7 @@ window.addEventListener('keydown',e=>{
  if(e.code==='KeyR'){reset();return;}
  if(e.code==='KeyC'){cycleCamera();return;}
  if(e.code==='KeyT'){look.cycle();toast(look.label);return;}
+ if(e.code==='KeyY'){look.cycleWeather();toast(look.weatherLabel);return;}
  if(e.code==='KeyH'){
   if(travel?.mode==='car'&&travel.car?.visual?.police)stolenSirenOn=!stolenSirenOn;
   return;
@@ -743,7 +747,7 @@ $('sound-btn').addEventListener('click',()=>setSound(!sound));
 // without a second click on ♪ (autoplay still blocks keyboard-only starts).
 $('start-btn').addEventListener('click',()=>{if(!sound)setSound(true);},{capture:true});
 // After a HUD action, the next movement/interaction key belongs to the game.
-for(const id of ['view-btn','look-btn','sound-btn','zoom-in','zoom-out'])$(id).addEventListener('click',focusWorldControls);
+for(const id of ['view-btn','look-btn','weather-btn','sound-btn','zoom-in','zoom-out'])$(id).addEventListener('click',focusWorldControls);
 
 mobileControls=createMobileControls({
  keys,
@@ -751,7 +755,8 @@ mobileControls=createMobileControls({
  onMenuChange:()=>{mapOpen=!!document.querySelector('dialog[open]');if(mapOpen)peopleInteraction?.close();keys.clear();keys.tilt=0;},
  actions:{
   map:()=>showDialog('map-dialog'),camera:cycleCamera,
-  weather:()=>{look.cycle();toast(look.label);},sound:()=>$('sound-btn').click(),
+  daytime:()=>{look.cycle();toast(look.label);},
+  weather:()=>{look.cycleWeather();toast(look.weatherLabel);},sound:()=>$('sound-btn').click(),
   help:()=>showDialog('help-dialog'),reset,sources:()=>showDialog('sources-dialog'),
  },
  notify:toast,

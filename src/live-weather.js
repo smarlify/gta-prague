@@ -1,4 +1,4 @@
-import {LOOKS} from './weather.js';
+import {LOOKS,WEATHERS} from './weather.js';
 
 // Prague local time from Intl. No request. The forecast is a separate call.
 export const PRAGUE_TZ='Europe/Prague';
@@ -8,6 +8,7 @@ export const FORECAST_URL=`https://api.open-meteo.com/v1/forecast?latitude=${PRA
 export const FORECAST_EVERY_MS=30*60*1000;
 const HOUR_EVERY_MS=30*1000;
 
+const OVERCAST=new Set([3,45,48]);
 const RAIN=new Set([51,53,55,56,57,61,63,65,66,67,80,81,82]);
 const SNOW=new Set([71,73,75,77,85,86]);
 const THUNDER=new Set([95,96,99]);
@@ -33,19 +34,19 @@ export function weatherKind(code){
  if(THUNDER.has(c))return 'thunder';
  if(SNOW.has(c))return 'snow';
  if(RAIN.has(c))return 'rain';
+ if(OVERCAST.has(c))return 'overcast';
  return 'clear';
 }
 
+// Daytime and weather stay separate. A failed forecast keeps the clock and assumes clear.
 export function lookFromForecast(hour,code,{failed=false}={}){
- if(failed||!Number.isFinite(Number(code))){
-  const look=clockLook(hour);
-  return {look,storm:false,kind:'clear',label:`${LOOKS[look].label} (auto)`};
- }
- const kind=weatherKind(code);
- const look=kind==='rain'||kind==='thunder'?'rain':kind==='snow'?'snow':clockLook(hour);
- const storm=kind==='thunder';
- const base=storm?'Thunderstorm':LOOKS[look].label;
- return {look,storm,kind,label:`${base} (auto)`};
+ const day=clockLook(hour);
+ const weather=failed||!Number.isFinite(Number(code))?'clear':weatherKind(code);
+ return {
+  day,weather,
+  dayLabel:`${LOOKS[day].label} (auto)`,
+  weatherLabel:`${WEATHERS[weather].label} (auto)`,
+ };
 }
 
 export async function readWeatherCode(fetchImpl=globalThis.fetch,url=FORECAST_URL){
@@ -64,7 +65,8 @@ export function startPragueForecast(look,{fetchImpl,intervalMs=FORECAST_EVERY_MS
  const apply=()=>{
   if(stopped)return;
   const state=lookFromForecast(pragueHour(),code,{failed});
-  look.follow(state.look,{storm:state.storm});
+  look.followDay(state.day);
+  look.followWeather(state.weather);
  };
  const pull=async()=>{
   try{

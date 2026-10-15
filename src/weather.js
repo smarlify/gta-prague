@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import {SUN_OFFSET,SKY_PALETTE,LIGHTING,FOG_COLOR} from './sky.js';
 import {GRADE_DEFAULTS} from './post.js';
 
-// Time-of-day and weather "looks". Every preset describes the whole image at once: sky dome
-// palette and cloud cover, sun/hemisphere light, fog, water tint, post exposure and grade,
-// rain and road wetness. Switching looks blends every value over a couple of seconds.
+// Daytime and weather compose. A daytime preset owns the sun, the sky and the clear grade.
+// Weather only adds wetness, rain or snow streaks, the snow tint, tighter fog and lightning.
+// It does not move the sun: a rainy morning stays a morning sky with rain on top.
+// Switching either one blends every value over a couple of seconds.
 //
 // Shared weather uniforms for other shaders (the street-surface owner can hook wet asphalt):
 //   import {WEATHER_UNIFORMS} from './weather.js';
@@ -69,40 +70,19 @@ const whitenight={
  grade:{...GRADE_DEFAULTS,exposure:.9,tint:[.98,.97,1.06],lift:[.02,.02,.05],saturation:.9,contrast:1.0,bloomStrength:.3,vignette:.3},
  ...clear,
 };
-const overcast={
- label:'Overcast',
- sky:{zenith:'#8d979f',mid:'#aab3ba',horizon:'#c7cdd2',sunGlow:'#d8dde1',cloudLit:'#d7dcdf',cloudShade:'#8d969d',coverage:.05,sunDisc:0},
- sunOffset:[-120,300,120],sunColor:'#e9edf1',sunIntensity:.55,
- hemiSky:'#cfd6dc',hemiGround:'#747873',hemiIntensity:1.55,
- fog:{color:'#c7cdd2',near:230,far:760},
- sea:{deep:'#2b3233',shore:'#454a48',sunColor:'#d8dde1'},
- grade:{...GRADE_DEFAULTS,exposure:1.0,tint:[.99,1,1.02],lift:[.02,.022,.03],saturation:.9,contrast:1.0,bloomStrength:.12,bloomThreshold:1.2,vignette:.2,aoStrength:.85},
- ...clear,
-};
-const rain={
- label:'Rain',
- sky:{zenith:'#6a737a',mid:'#8c949a',horizon:'#aab1b6',sunGlow:'#b6bcc0',cloudLit:'#b8bfc4',cloudShade:'#6c747b',coverage:.02,sunDisc:0},
- sunOffset:[-120,300,120],sunColor:'#dfe4e8',sunIntensity:.4,
- hemiSky:'#b7bfc6',hemiGround:'#5f6361',hemiIntensity:1.35,
- fog:{color:'#aab1b6',near:110,far:560},
- sea:{deep:'#262c2e',shore:'#3d4241',sunColor:'#b6bcc0'},
- grade:{...GRADE_DEFAULTS,exposure:.95,tint:[.98,1,1.03],lift:[.025,.028,.035],saturation:.84,contrast:1.0,bloomStrength:.1,bloomThreshold:1.2,vignette:.24,haze:.05,hazeColor:[.66,.7,.74],aoStrength:.85},
- wetness:1,rain:1,snow:0,
-};
-// Overcast sky and the rain streaks, drawn white and slower. The road stays dry.
-const snow={
- label:'Snow',
- sky:{zenith:'#9aa3ab',mid:'#b7c0c6',horizon:'#d5dbe0',sunGlow:'#e4e8eb',cloudLit:'#e7ebed',cloudShade:'#9aa3aa',coverage:.08,sunDisc:0},
- sunOffset:[-80,280,80],sunColor:'#eef1f4',sunIntensity:.7,
- hemiSky:'#d5dbe0',hemiGround:'#8a8e88',hemiIntensity:1.6,
- fog:{color:'#d5dbe0',near:200,far:720},
- sea:{deep:'#2c3436',shore:'#4a5254',sunColor:'#e4e8eb'},
- grade:{...GRADE_DEFAULTS,exposure:1.05,tint:[.98,.99,1.02],lift:[.03,.032,.04],saturation:.88,contrast:.98,bloomStrength:.14,bloomThreshold:1.2,vignette:.18},
- wetness:0,rain:1,snow:1,
-};
-export const LOOKS=Object.freeze({morning,midday,golden,night,whitenight,overcast,rain,snow});
+export const LOOKS=Object.freeze({morning,midday,golden,night,whitenight});
 // Automatic is a mode in front of this list, not a sky preset. White night stays manual.
-export const LOOK_ORDER=Object.freeze(['morning','midday','golden','night','whitenight','overcast','rain','snow']);
+export const LOOK_ORDER=Object.freeze(['morning','midday','golden','night','whitenight']);
+// Weather sits on the daytime sun. Fog distances only pull inward; clear has no fog of its own.
+// Thunderstorm is rain plus the flash in createLook, not a second sky.
+export const WEATHERS=Object.freeze({
+ clear:{label:'Clear',wetness:0,rain:0,snow:0},
+ overcast:{label:'Overcast',wetness:0,rain:0,snow:0,fog:{near:230,far:760}},
+ rain:{label:'Rain',wetness:1,rain:1,snow:0,fog:{near:110,far:560}},
+ thunder:{label:'Thunderstorm',wetness:1,rain:1,snow:0,fog:{near:110,far:560}},
+ snow:{label:'Snow',wetness:0,rain:1,snow:1,fog:{near:200,far:720}},
+});
+export const WEATHER_ORDER=Object.freeze(['clear','overcast','rain','thunder','snow']);
 
 // Grass and leaf materials mix toward white from WEATHER_UNIFORMS.snow. Bark is a separate
 // material, or a foliage attribute of 0 on the shared species mesh.
@@ -189,24 +169,38 @@ function blend(a,b,k){
  }
 }
 
-export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,initial='midday',automatic=false,transition=.7}={}){
- let name=initial,target=materialise(LOOKS[name]);
- let settled=target,lastSkyEvent=0,auto=!!automatic,storm=false,liveLook=initial,liveStorm=false,flash=0,thunderIn=8;
+function compose(dayName,weatherName){
+ const state=materialise(LOOKS[dayName]),fx=WEATHERS[weatherName];
+ state.wetness=fx.wetness;state.rain=fx.rain;state.snow=fx.snow;
+ if(fx.fog){state.fog.near=Math.min(state.fog.near,fx.fog.near);state.fog.far=Math.min(state.fog.far,fx.fog.far);}
+ return state;
+}
+function stepList(order,name,isAuto,leaveAuto,applyNext,restore){
+ if(isAuto()){leaveAuto();return applyNext(order[0]);}
+ const i=order.indexOf(name());
+ if(i<0||i+1>=order.length)return restore();
+ return applyNext(order[i+1]);
+}
+
+export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,initial='midday',weather:initialWeather='clear',automatic=false,transition=.7}={}){
+ if(!LOOKS[initial])throw Error(`Unknown daytime "${initial}"`);
+ if(!WEATHERS[initialWeather])throw Error(`Unknown weather "${initialWeather}"`);
+ let day=initial,wx=initialWeather,target=compose(day,wx);
+ let settled=target,lastSkyEvent=0,dayAuto=!!automatic,wxAuto=!!automatic,liveDay=day,liveWx=wx,flash=0,thunderIn=8;
  // A transition has settled when every numeric channel of the blended state is within 1% of its target.
  const settledEnough=(a,b)=>Object.keys(a).every(key=>{const x=a[key],y=b[key];
   if(x instanceof THREE.Color||x instanceof THREE.Vector3){const p=x.toArray(),q=y.toArray();return p.every((v,i)=>Math.abs(v-q[i])<.01);}
   if(Array.isArray(x))return x.every((v,i)=>Math.abs(v-y[i])<.01);
   if(typeof x==='number')return Math.abs(x-y)<.01;
   return x&&typeof x==='object'?settledEnough(x,y):true;});
- const current=materialise(LOOKS[name]);
+ const current=compose(day,wx);
  const rainLines=createRain();if(scene)scene.add(rainLines);
  const baseColors=new Map(surfaces.map(m=>[m,m.color.clone()]));
  const listeners=new Set();
- function currentLabel(){
-  const base=auto&&storm&&name==='rain'?'Thunderstorm':LOOKS[name].label;
-  return auto?`${base} (auto)`:base;
- }
- function emit(){for(const fn of listeners)fn(name,currentLabel());}
+ function daytimeLabel(){const base=LOOKS[day].label;return dayAuto?`${base} (auto)`:base;}
+ function conditionsLabel(){const base=WEATHERS[wx].label;return wxAuto?`${base} (auto)`:base;}
+ function emit(){for(const fn of listeners)fn(day,daytimeLabel(),wx,conditionsLabel());}
+ function retarget(instant){target=compose(day,wx);if(instant){blend(current,target,1);apply();}}
  function apply(){
   const c=current;
   if(sky){const u=sky.uniforms;u.uZenith.value.copy(c.sky.zenith);u.uMid.value.copy(c.sky.mid);u.uHorizon.value.copy(c.sky.horizon);u.uSunGlow.value.copy(c.sky.sunGlow);u.uCloudLit.value.copy(c.sky.cloudLit);u.uCloudShade.value.copy(c.sky.cloudShade);u.uCoverage.value=c.sky.coverage;u.uSunDisc.value=c.sky.sunDisc;sky.setSun(c.sunOffset);}
@@ -219,8 +213,9 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
   rainLines.visible=c.rain>.01;
   for(const [m,base] of baseColors){m.roughness=1-c.wetness*.72;m.color.copy(base).multiplyScalar(1-c.wetness*.3);}
  }
- // Thunderstorm is the rain look plus a short sky and hemisphere flash. Clear rain and snow do not flash.
+ // Lightning is a short flash on the thunderstorm weather only. The daytime sun stays put between flashes.
  function stepFlash(dt){
+  const storm=wx==='thunder';
   if(!(storm&&current.rain>.45))flash=storm?Math.max(0,flash-dt*3.2):0;
   else{
    flash=Math.max(0,flash-dt*3.2);thunderIn-=dt;
@@ -235,40 +230,54 @@ export function createLook({scene,sky,hemi,sun,post,surfaces=[],getSea=()=>null,
  }
  apply();
  const api={
-  get name(){return name;},
-  get label(){return currentLabel();},
-  get automatic(){return auto;},
-  get storm(){return storm;},
+  get name(){return day;},
+  get label(){return daytimeLabel();},
+  get weather(){return wx;},
+  get weatherLabel(){return conditionsLabel();},
+  get automatic(){return dayAuto;},
+  get weatherAutomatic(){return wxAuto;},
+  get storm(){return wx==='thunder';},
   get current(){return current;},
   uniforms:WEATHER_UNIFORMS,
   rain:rainLines,
-  set(next,{instant=false,keepAutomatic=false,storm:nextStorm}={}){
-   if(!LOOKS[next])throw Error(`Unknown look "${next}"`);
-   if(nextStorm!==undefined)storm=!!nextStorm;
-   else if(!keepAutomatic)storm=false;
-   name=next;target=materialise(LOOKS[next]);
-   if(instant){blend(current,target,1);apply();}
-   emit();
-   return api;
+  set(next,{instant=false,keepAutomatic=false}={}){
+   if(!LOOKS[next])throw Error(`Unknown daytime "${next}"`);
+   if(!keepAutomatic)dayAuto=false;
+   day=next;retarget(instant);emit();return api;
   },
-  // Remember the live Prague look. Apply it only while automatic, and not every frame.
-  follow(next,{storm:nextStorm=false}={}){
-   if(!LOOKS[next])throw Error(`Unknown look "${next}"`);
-   liveLook=next;liveStorm=!!nextStorm;
-   if(!auto||(name===next&&storm===liveStorm))return api;
-   if(name!==next)return api.set(next,{keepAutomatic:true,storm:liveStorm});
-   storm=liveStorm;emit();return api;
+  setWeather(next,{instant=false,keepAutomatic=false}={}){
+   if(!WEATHERS[next])throw Error(`Unknown weather "${next}"`);
+   if(!keepAutomatic)wxAuto=false;
+   wx=next;retarget(instant);emit();return api;
   },
-  // Automatic is the first step, so T can leave the live look and later return to it.
+  // Remember the live Prague clock. Apply it only while daytime is automatic, and not every frame.
+  followDay(next){
+   if(!LOOKS[next])throw Error(`Unknown daytime "${next}"`);
+   liveDay=next;
+   if(!dayAuto||day===next)return api;
+   return api.set(next,{keepAutomatic:true});
+  },
+  followWeather(next){
+   if(!WEATHERS[next])throw Error(`Unknown weather "${next}"`);
+   liveWx=next;
+   if(!wxAuto||wx===next)return api;
+   return api.setWeather(next,{keepAutomatic:true});
+  },
+  // Automatic is the first step, so T can leave the live clock and later return to it.
   cycle(){
-   if(auto){auto=false;storm=false;return api.set(LOOK_ORDER[0]);}
-   const i=LOOK_ORDER.indexOf(name);
-   if(i<0||i+1>=LOOK_ORDER.length){
-    auto=true;storm=liveStorm;
-    if(name!==liveLook)return api.set(liveLook,{keepAutomatic:true,storm:liveStorm});
+   return stepList(LOOK_ORDER,()=>day,()=>dayAuto,()=>{dayAuto=false;},next=>api.set(next),()=>{
+    dayAuto=true;
+    if(day!==liveDay)return api.set(liveDay,{keepAutomatic:true});
     emit();return api;
-   }
-   storm=false;return api.set(LOOK_ORDER[i+1]);
+   });
+  },
+  // Y cycles weather the same way. It does not change the hour.
+  cycleWeather(){
+   return stepList(WEATHER_ORDER,()=>wx,()=>wxAuto,()=>{wxAuto=false;},next=>api.setWeather(next),()=>{
+    wxAuto=true;
+    if(wx!==liveWx)return api.setWeather(liveWx,{keepAutomatic:true});
+    emit();return api;
+   });
   },
   onChange(fn){listeners.add(fn);return()=>listeners.delete(fn);},
   update(dt,seconds){
