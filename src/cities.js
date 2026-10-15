@@ -1,4 +1,6 @@
-// Cities this build can load, and URL selection of city and starting point.
+import {LOOKS,LOOK_ORDER,WEATHERS,WEATHER_ORDER} from './weather.js';
+
+// Cities this build can load, and URL selection of city, starting point, time and weather.
 // Praha is registered from public/cities/index.json. Helsinki and Tampere are
 // not selectable here; ?city=helsinki and ?city=tampere say the city is missing.
 // A city entry names its data root and its geographic origin.
@@ -39,6 +41,35 @@ export function pickStart(starts,request){
  const want=slug(request);if(!want)return null;
  const named=starts.map(s=>({s,id:slug(s.id||s.name)}));
  return (named.find(n=>n.id===want)||named.find(n=>n.id.startsWith(want))||named.find(n=>n.id.includes(want)))?.s||null;
+}
+
+// Slugs of the look id and its on-screen label, so ?time=white-night and ?time=whitenight
+// both mean the manual White night look, and ?weather=thunderstorm means thunder.
+function queryIds(table,order){
+ const map={};
+ for(const id of order)for(const key of [slug(id),slug(table[id].label)])if(key)map[key]=id;
+ return map;
+}
+const TIME_FROM_SLUG=queryIds(LOOKS,LOOK_ORDER);
+const WEATHER_FROM_SLUG=queryIds(WEATHERS,WEATHER_ORDER);
+function matchQuery(map,raw){
+ if(raw==null)return null;
+ const key=slug(raw);
+ return key?map[key]||null:null;
+}
+
+// ?time= and ?weather= from the same query string as ?city= and ?start=.
+// A missing or unknown value is null: that half stays on the live clock or forecast.
+export function sceneQuery(search=''){
+ const params=new URLSearchParams(search);
+ return {time:matchQuery(TIME_FROM_SLUG,params.get('time')),weather:matchQuery(WEATHER_FROM_SLUG,params.get('weather'))};
+}
+
+// Turn off automatic daytime or weather only for the halves the URL named.
+export function applySceneQuery(look,query){
+ if(query?.time)look.set(query.time,{instant:true});
+ if(query?.weather)look.setWeather(query.weather,{instant:true});
+ return look;
 }
 
 // Keep the address bar shareable: it always names the current city and start.

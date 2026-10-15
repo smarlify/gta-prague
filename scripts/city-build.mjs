@@ -322,14 +322,20 @@ const fame=t=>(t.wikidata?3:0)+(t.wikipedia?2:0)+(t.tourism?2:0)+(t.place==='squ
 const seen=new Set(),candidates=points.elements.filter(e=>e.tags?.name&&(e.lat||e.center)).map(e=>{const c=e.center||e;return {name:e.tags.name,p:local(c.lon,c.lat),score:fame(e.tags)};})
  .filter(c=>Math.hypot(...c.p)<R-60).sort((a,b)=>b.score-a.score||Math.hypot(...a.p)-Math.hypot(...b.p));
 const startCap=Math.max(8,(def.starts||[]).length);
-const drivable=city.roads.filter(r=>!/muu/.test(r.kind)),manual=(def.starts||[]).map(s=>({name:s.name,district:s.district,p:local(...s.at),score:99}));
+const drivable=city.roads.filter(r=>!/muu/.test(r.kind)),manual=(def.starts||[]).map(s=>({name:s.name,district:s.district,p:local(...s.at),score:99,exact:s.exact===true,heading:s.heading,street:s.street||''}));
 for(const c of [...manual,...candidates]){
  if(city.landmarks.length>=startCap)break;if(seen.has(c.name))continue;
- try{const p=nearestRoadPoint(c.p[0],c.p[1],drivable,buildingIndex);
+ try{
+  // exact: keep a park, path, or chosen lane. Other starts snap to a clear carriageway.
+  if(c.exact){
+   const [x,z]=c.p;if(buildingIndex.at(x,z))throw Error(`${c.name}: exact start is inside a building`);
+   city.landmarks.push({name:c.name,district:c.district??def.name,street:c.street,x,z,heading:Number.isFinite(c.heading)?+Number(c.heading).toFixed(4):0});seen.add(c.name);continue;
+  }
+  const p=nearestRoadPoint(c.p[0],c.p[1],drivable,buildingIndex);
   // Face along the nearest car edge.
   let best=null;for(const e of mobility.roads.edges)for(let i=1;i<e.points.length;i++){const a=e.points[i-1],b=e.points[i],dx=b[0]-a[0],dz=b[1]-a[1],l=dx*dx+dz*dz;if(!l)continue;const t=Math.max(0,Math.min(1,((p.x-a[0])*dx+(p.z-a[1])*dz)/l)),d=Math.hypot(a[0]+dx*t-p.x,a[1]+dz*t-p.z);if(!best||d<best.d)best={d,dx,dz};}
   city.landmarks.push({name:c.name,district:c.district??def.name,street:p.name||'',x:p.x,z:p.z,heading:best?+Math.atan2(-best.dx,-best.dz).toFixed(4):0});seen.add(c.name);
- }catch{}
+ }catch(error){if(c.exact)throw error;}
 }
 if(!city.landmarks.length)throw Error('No drivable start point found; add one under "starts" in city.json');
 
@@ -412,7 +418,8 @@ function publishStage(){
 }
 const previousCity=publishStage();
 const regFile='public/cities/index.json',registryFile=fs.existsSync(regFile)?JSON.parse(fs.readFileSync(regFile)):{schemaVersion:1,cities:[]};
-registryFile.cities=[...registryFile.cities.filter(c=>c.id!==id),{id,name:def.name,country:def.country,dataRoot:URL_DIR,origin:def.origin,radius:R,projection,defaultStart:city.landmarks[0].name,status:def.status,maintainers:def.maintainers,liveries:def.liveries||undefined,
+const defaultStart=city.landmarks.some(l=>l.name===def.defaultStart)?def.defaultStart:city.landmarks[0].name;
+registryFile.cities=[...registryFile.cities.filter(c=>c.id!==id),{id,name:def.name,country:def.country,dataRoot:URL_DIR,origin:def.origin,radius:R,projection,defaultStart,status:def.status,maintainers:def.maintainers,liveries:def.liveries||undefined,
  attribution:'Map data © OpenStreetMap contributors, ODbL 1.0 (openstreetmap.org/copyright).'+(def.official?` ${def.official.attribution}.`:'')+' Building heights from OSM tags or estimated by building type.',fetchedAt:city.fetchedAt,counts}];
 fs.writeFileSync(regFile,JSON.stringify(registryFile,null,1));
 (await import('./facades.mjs')).shipFacades(id); // façades described from street-level photos, if any (cities/<id>/facades.json)
