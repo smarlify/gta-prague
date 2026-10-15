@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {LOOKS,LOOK_ORDER,WEATHERS,WEATHER_ORDER,WEATHER_UNIFORMS,SNOW_DUST,createLook,createRain,createSnow} from '../src/weather.js';
+import {weatherBeds} from '../src/audio.js';
 import {createSky,SUN_OFFSET} from '../src/sky.js';
 import {GRADE_DEFAULTS} from '../src/post.js';
 
@@ -125,24 +126,31 @@ test('cycling daytime leaves the weather code and cycling weather leaves the hou
  back.dispose();
 });
 
-test('each lightning flash queues one thunder cue and ordinary rain does not',()=>{
+test('a thunderstorm queues a clap and rain or snow do not',()=>{
  const scene=new THREE.Scene();scene.fog=new THREE.Fog('#b9cbd4',330,850);scene.background=new THREE.Color('#b9cbd4');
  const sky=createSky({scene});const hemi=new THREE.HemisphereLight(),sun=new THREE.DirectionalLight();
  const look=createLook({scene,sky,hemi,sun,post:{setGrade(){}},surfaces:[],weather:'thunder'});
  look.setWeather('thunder',{instant:true});
  const random=Math.random;Math.random=()=>0;
+ const claps=cues=>weatherBeds({enabled:true,precipitation:true,snow:look.weather==='snow',thunder:cues}).claps;
  try{
   assert.equal(look.consumeThunder(),0);
   look.update(7.9,7.9);assert.equal(look.consumeThunder(),0,'the first strike has not landed');
-  look.update(.2,8.1);assert.equal(look.consumeThunder(),1);
+  look.update(.2,8.1);
+  const strike=look.consumeThunder();
+  assert.equal(strike,1);assert.equal(claps(strike),1,'the strike queues one clap');
   assert.equal(look.consumeThunder(),0,'one flash is one cue');
   look.update(6.9,15);assert.equal(look.consumeThunder(),0);
-  look.update(.2,15.2);assert.equal(look.consumeThunder(),1);
-  look.update(100,120);assert.equal(look.consumeThunder(),1,'a long frame still claps once');
+  look.update(.2,15.2);assert.equal(claps(look.consumeThunder()),1);
+  look.update(100,120);
+  assert.equal(claps(look.consumeThunder()),1,'a long frame still claps once');
   look.setWeather('rain',{instant:true});
-  look.update(30,160);assert.equal(look.consumeThunder(),0,'ordinary rain has no thunder');
+  look.update(30,160);
+  assert.equal(claps(look.consumeThunder()),0,'ordinary rain has no thunder');
   look.setWeather('snow',{instant:true});
-  look.update(30,200);assert.equal(look.consumeThunder(),0,'snow has no thunder');
+  look.update(30,200);
+  assert.equal(claps(look.consumeThunder()),0,'snow has no thunder');
+  assert.equal(weatherBeds({enabled:true,precipitation:true,snow:true}).rain,0,'snow does not play rain');
  }finally{Math.random=random;look.dispose();}
 });
 

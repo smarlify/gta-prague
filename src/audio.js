@@ -15,6 +15,9 @@ const FILES={
 };
 // The strike is seen, then the clap. One shot, never a loop.
 export const THUNDER_DELAY=.4;
+// Long enough that the crack is still loud after one frame, then the low end rolls off.
+export const THUNDER_DURATION=2.05;
+export const THUNDER_PEAK=1.4;
 const TRAM_SLOTS=3,TRAM_RANGE=90;
 
 // Drop encoder silence, then blend the end back into the start so a loop
@@ -69,20 +72,22 @@ export function weatherBeds({enabled=false,precipitation=false,snow=false,thunde
  };
 }
 
-// Short clap: noise burst, lowpass, decaying gain. No recording, so nothing to license.
+// One clap after the flash. The lowpass stays open for the crack, then falls
+// into the rumble. A 420 Hz muffler died in a few milliseconds, under the rain.
 export function playThunder(ctx,destination,when=0){
- const start=(Number.isFinite(when)?when:0)+THUNDER_DELAY,duration=1.35,rate=ctx.sampleRate||44100;
+ const start=(Number.isFinite(when)?when:0)+THUNDER_DELAY,duration=THUNDER_DURATION,rate=ctx.sampleRate||44100;
  const frames=Math.max(1,Math.floor(rate*duration));
  const buffer=ctx.createBuffer(1,frames,rate),data=buffer.getChannelData(0);
  for(let i=0;i<frames;i++)data[i]=Math.random()*2-1;
  const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
  source.buffer=buffer;source.loop=false;
  filter.type='lowpass';
- filter.frequency.setValueAtTime(420,start);
- filter.frequency.exponentialRampToValueAtTime(70,start+duration);
+ const open=Math.min(7200,rate*.45);
+ filter.frequency.setValueAtTime(open,start);
+ filter.frequency.exponentialRampToValueAtTime(Math.min(110,open),start+duration);
  gain.gain.setValueAtTime(.001,start);
- gain.gain.exponentialRampToValueAtTime(.85,start+.02);
- gain.gain.exponentialRampToValueAtTime(.001,start+duration);
+ gain.gain.exponentialRampToValueAtTime(THUNDER_PEAK,start+.012);
+ gain.gain.exponentialRampToValueAtTime(.015,start+duration);
  source.connect(filter);filter.connect(gain);gain.connect(destination);
  source.start(start);source.stop(start+duration+.02);
  return source;

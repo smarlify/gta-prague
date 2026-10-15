@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {carSample,crowdLevel} from '../src/audio-math.js';
-import {playThunder,weatherBeds,THUNDER_DELAY} from '../src/audio.js';
+import {playThunder,weatherBeds,THUNDER_DELAY,THUNDER_PEAK} from '../src/audio.js';
 
 const kmh=k=>k/3.6;
 
@@ -40,22 +40,30 @@ test('snow does not enable the rain loop, and rain still does when sound is on',
 });
 
 test('a thunder clap is one delayed noise burst, not a loop',()=>{
- const nodes=[];
- const ramp=()=>({setValueAtTime(){},exponentialRampToValueAtTime(){}});
+ const nodes=[],events=[];
+ const ramp=name=>({
+  setValueAtTime(value,time){events.push({name,value,time});},
+  exponentialRampToValueAtTime(value,time){events.push({name,value,time});},
+ });
  const ctx={
   sampleRate:8000,
   createBuffer(channels,length,rate){const data=new Float32Array(length);return {numberOfChannels:channels,length,sampleRate:rate,getChannelData:()=>data};},
   createBufferSource(){const node={kind:'source',loop:true,buffer:null,started:null,stopped:null,connect(){},start(t){node.started=t;},stop(t){node.stopped=t;}};nodes.push(node);return node;},
-  createBiquadFilter(){const node={kind:'filter',type:'highpass',frequency:ramp(),connect(){}};nodes.push(node);return node;},
-  createGain(){return {kind:'gain',gain:ramp(),connect(){}};},
+  createBiquadFilter(){const node={kind:'filter',type:'highpass',frequency:ramp('freq'),connect(){}};nodes.push(node);return node;},
+  createGain(){return {kind:'gain',gain:ramp('gain'),connect(){}};},
  };
  const source=playThunder(ctx,{kind:'out'},2);
  assert.equal(source.loop,false);
  assert.equal(source.started,2+THUNDER_DELAY);
- assert.ok(source.stopped>source.started);
+ assert.ok(source.stopped>source.started+1/60,'the clap lasts longer than a frame');
  assert.equal(nodes.filter(node=>node.kind==='source').length,1);
  assert.equal(nodes.find(node=>node.kind==='filter').type,'lowpass');
+ assert.ok(source.buffer.length/ctx.sampleRate>1/60);
  assert.ok(source.buffer.getChannelData(0).some(sample=>sample!==0),'the burst is noise, not silence');
+ const gains=events.filter(event=>event.name==='gain');
+ assert.equal(Math.max(...gains.map(event=>event.value)),THUNDER_PEAK);
+ assert.ok(THUNDER_PEAK>=1,'the crack is loud enough to clear the rain');
+ assert.ok(events.find(event=>event.name==='freq').value>2000,'the crack is not muffled at 420 Hz');
 });
 
 test('crowd murmur follows the nearest pedestrians',()=>{
