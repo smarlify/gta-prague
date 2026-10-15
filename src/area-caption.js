@@ -20,6 +20,12 @@ export const PRAGUE_AREAS=[
  {district:'Praha 7 - Holešovice',x:1842,z:-1839},
  {district:'Praha 8 - Karlín',x:2057,z:-616},
 ];
+// Praha number of the nearest anchor ("Praha 8 - Karlín" → "8"). No reach cap and no
+// uppercasing: the tab uses whichever anchor is nearer, not the minimap caption.
+export function pragueDistrictNumber(places,x,z){
+ let best=null,d=Infinity;for(const p of places||[]){if(!p?.district)continue;const q=Math.hypot(p.x-x,p.z-z);if(q<d){d=q;best=p;}}
+ const m=String(best?.district||'').match(/praha\s+(\d+)/i);return m?m[1]:'';
+}
 export function areaName(places,x,z,city,{reach=1500}={}){
  let best=null,d=reach;for(const p of places){const q=Math.hypot(p.x-x,p.z-z);if(q<d&&p.district){d=q;best=p;}}
  const name=best?.district||city;

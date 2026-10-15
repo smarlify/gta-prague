@@ -54,7 +54,7 @@ import {createStationStreetLife} from './station-street-life.js';
 import {createStationStatues} from './station-statues.js';
 import {createStationBuildingDetails} from './station-building.js';
 import {createLocationReadout,describeLocation,useProjection} from './location-readout.js';
-import {areaCaption,HELSINKI_AREAS,PRAGUE_AREAS} from './area-caption.js';
+import {areaCaption,pragueDistrictNumber,HELSINKI_AREAS,PRAGUE_AREAS} from './area-caption.js';
 import {createWaterfrontLandmarks} from './waterfront-landmarks.js';
 import {createStreetNameSigns} from './street-name-signs.js';
 import {createPalaceLife} from './palace-life.js';
@@ -771,7 +771,7 @@ function updateHUD(now){
  const driving=travel?.mode==='car';
  const speed=displayedSpeedKmh(car.speed);$('speed').title='Game-style indicated speed: 70% of world speed';$('gear').textContent=car.speed<-.2?'REVERSE':speed>1?'DRIVING':'PARKED & READY';$('distance').textContent=(car.distance/1000).toFixed(2);
  const road=world.roads.at(car.x,car.z),pave=world.pavement.at(car.x,car.z),streetName=road?.name||pave?.name||'';$('street').textContent=streetName||'Off the beaten path';
- const placeName=areaLabel?areaLabel(car.x,car.z,now):'';const nextTitle=locationPageTitle({street:streetName,place:placeName});if(document.title!==nextTitle)document.title=nextTitle;
+ const district=pragueDistrictNumber(city?.id==='prague'?PRAGUE_AREAS:[],car.x,car.z);const nextTitle=locationPageTitle({street:streetName,district});if(document.title!==nextTitle)document.title=nextTitle;
  if(car.damage>.02)$('gear').textContent=`DAMAGE ${Math.round(car.damage*100)}% · R TO RESET`;
  if(car.battery===0)$('gear').textContent='R TO RECHARGE';else if(car.battery<=.2)$('gear').textContent='LOW BATTERY · R TO RECHARGE';
  if(!driving){$('gear').textContent=TRAVEL_MODES[travel.mode].label.toUpperCase();$('speed').title='Speed in kilometres per hour';}
