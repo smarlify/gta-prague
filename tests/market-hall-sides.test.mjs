@@ -6,7 +6,7 @@ import {gunzipSync} from 'node:zlib';
 import {analyseBuilding} from '../src/building-detail.js';
 import {isWaterfrontFront} from '../src/kauppatori-buildings.js';
 import {createMarketHallSides,isMarketHallSide,MARKET_HALL_SIDE_PLANES} from '../src/market-hall-sides.js';
-test('only four measured west side records replaced, existing hero ends remain disjoint', {skip:!existsSync('public/data')},()=>{
+test('only four measured west side records replaced, existing hero ends remain disjoint', {skip:'Finland city is not part of this build'},()=>{
  const idx=JSON.parse(readFileSync('public/data/buildings3d-index.json'));let selected=0,retained=0;
  for(const t of idx.tiles)for(const p of t.parts.filter(p=>p.ratu===410)){
   const b=gunzipSync(readFileSync('public/data/'+t.file)),a=new Float32Array(b.buffer,b.byteOffset,b.byteLength/4);

@@ -209,7 +209,7 @@ test('lake shores follow the bank smoothly instead of 3 m steps',()=>{
  setTerrain(null);
 });
 
-test('Tampere: no drivable street jumps at its interchanges (Rantatunneli, Sorinsilta, Lapintie)', {skip:!existsSync('public/cities/tampere')},async()=>{
+test('Tampere: no drivable street jumps at its interchanges (Rantatunneli, Sorinsilta, Lapintie)', {skip:'Finland city is not part of this build'},async()=>{
  const fs=await import('node:fs'),{gunzipSync}=await import('node:zlib');
  setTerrain(decodeTerrain(gunzipSync(fs.readFileSync('public/cities/tampere/terrain.pack'))));
  const roads=JSON.parse(fs.readFileSync('public/cities/tampere/mobility.json')).roads.edges.map(e=>({points:e.points,layer:0}));

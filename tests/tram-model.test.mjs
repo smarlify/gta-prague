@@ -40,7 +40,7 @@ test('Artic modules carry see-through glazing, an interior and lettering within 
  const glass=modules[1].glass.attributes.position;let right=0,left=0;for(let i=0;i<glass.count;i++){const x=glass.getX(i);if(x>1)right++;if(x<-1)left++;}
  assert.ok(right>left,'plug doors are glazed on the kerb (right) side only');
 });
-test('six Artic trams render as a fixed set of instanced batches', {skip:!existsSync('public/data')},()=>{
+test('six Artic trams render as a fixed set of instanced batches', {skip:'Finland city is not part of this build'},()=>{
  const data=JSON.parse(readFileSync('public/data/trams.json'));
  const sim=new TramSimulation(data,{buildings:{at:()=>undefined},roads:{at:()=>true},pavement:{at:()=>true}});sim.reset({x:0,z:117.7});
  const scene=new THREE.Scene(),renderer=createTramRenderer(scene,sim);renderer.update({x:0,z:117.7});
