@@ -47,15 +47,16 @@ const golden={
  grade:{...GRADE_DEFAULTS,exposure:1.0,tint:[1.03,1,.96],lift:[.02,.014,.02],saturation:1.04,bloomStrength:.3,vignette:.26},
  ...clear,
 };
-// Dark night. Fog reaches only as far as rain, so the city still melts out at the same distance.
+// Moonlit night. The dome stays a night sky; a cool hemisphere and a dim moon keep
+// buildings, roads and the car readable. Fog starts well past the street, not on it.
 const night={
  label:'Night',
  sky:{zenith:'#070d18',mid:'#121c30',horizon:'#1c283c',sunGlow:'#2a384c',cloudLit:'#243044',cloudShade:'#101820',coverage:.35,sunDisc:.2},
- sunOffset:[-30,36,-160],sunColor:'#b7c6de',sunIntensity:.16,
- hemiSky:'#243656',hemiGround:'#121418',hemiIntensity:.32,
- fog:{color:'#1c283c',near:110,far:560},
+ sunOffset:[-30,36,-160],sunColor:'#b7c6de',sunIntensity:.58,
+ hemiSky:'#8eabcc',hemiGround:'#3a424c',hemiIntensity:1.1,
+ fog:{color:'#1c283c',near:300,far:800},
  sea:{deep:'#0c1218',shore:'#161c24',sunColor:'#b7c6de'},
- grade:{...GRADE_DEFAULTS,exposure:.62,tint:[.9,.94,1.08],lift:[.008,.01,.028],saturation:.78,contrast:1.05,bloomStrength:.16,vignette:.42},
+ grade:{...GRADE_DEFAULTS,exposure:.86,tint:[.9,.94,1.08],lift:[.008,.01,.028],saturation:.78,contrast:1.05,bloomStrength:.16,vignette:.3},
  ...clear,
 };
 // June white night: the sun skims the northern horizon; dim blue-pink dusk, nothing is dark.
