@@ -117,7 +117,7 @@ import {createMappedFurniture} from './mapped-furniture.js';
 import {createPlace} from './place-scene.js';
 import {createSpeciesTrees} from './tree-species.js';
 import {createTreeTrunks} from './tree-trunks.js';
-import {PlayerTravel,TRAVEL_MODES} from './player-travel.js';
+import {PlayerTravel,TRAVEL_MODES,cameraBody} from './player-travel.js';
 import {createPlayerTravelRenderer,travelCameraPose} from './player-travel-renderer.js';
 import {createTravelUI} from './player-travel-ui.js';
 import {createMobileControls} from './mobile-controls.js';
@@ -815,7 +815,9 @@ function frame(now){
     }else if(!r.crashed){const h=travel.hitPeople(previous,[...mobility.people,...detailPeople],impacts,{police,obstacles:travelObstacles()});
      if(h?.fell){car=travel.actor;playerCars.sync(travel);toast(h.fell>5?'Ouch. You hit someone and went flying.':'You hit someone and came off. Press Enter to get back on.');lastToast=now;}else if(h?.bumped&&now-lastToast>1500){toast('Sorry!');lastToast=now;}}
     distance=car.distance;
-    if(r.collision==='water'&&driving){const sink=travel.sinkInWater();car=travel.actor;playerCars.sync(travel);if(sink.ok&&now-lastToast>1200){toast('Car sinking — swim to shore, then Enter a stopped car.');lastToast=now;}}else if(r.collision&&now-lastToast>2200){lastToast=now;}
+    // Bridge decks are mapped as water, so a splash stops the car instead of sinking it.
+    if(r.collision&&now-lastToast>2200){lastToast=now;}
+    if(travel.mode!=='car')car=cameraBody(travel,car);
    }
    const beforeTransitImpact=Math.abs(car.speed);
    tramSim.step(step,car,[...mobility.cars,...(buses?.obstacles||[]),...police.obstacles,...parked]);
@@ -833,13 +835,14 @@ function frame(now){
   if(police.message){toast(police.message);police.message=null;}
  }else if(ready&&police?.busted){policeRenderer.update(dt);roadblock?.update(dt,car);if(finale.cinematicStep(dt,roadblock?.playing)){$('busted-overlay').classList.toggle('live',!!roadblock?.active);$('busted-overlay').hidden=false;highScore.offer(finale.summary?.raw?.distance??car?.distance??distance);$('busted-continue').focus();}} // arrest cinematic: strobes keep flashing, then the end screen
  if(car){
+   car=cameraBody(travel,car); // after a crash or leftover sink, follow the new body, not the abandoned car
    speedometer.update(car,dt,{mode:travel.mode});
    const lamps=vehicleLampsOn(look.name,look.weather);playerCars.setLamps(lamps);streetLife?.setLamps(lamps,car);refreshStreetLamps();travel.advanceTransition(paused||mapOpen?0:dt);playerCars.sync(travel,dt);const vehicle=travel.sunkCar||travel.car||car;
    treeFocus.value.set(car.x,car.z);
    treeFade.value=chaseCamera&&started?0:1;
    surfaceNow=world?surfaceDetailAt(world,car.x,car.z):surfaceNow;rumbleNow=rumbleFor(travel.mode==='car'&&started&&!paused&&!mapOpen?surfaceNow.surface:'asphalt',travel.mode==='car'?car.speed:0,paused||mapOpen?0:dt,roadRumble,surfaceNow.roughness);
    const slope=groundPose(vehicle.x,vehicle.z,vehicle.heading,1.4,.8); // terrain: wheels on the ground, body pitched and rolled with the slope
-   const sinkY=(vehicle.sunk||vehicle.sinkProgress)?-(vehicle.sinkProgress||0)*3.2:0;carGroup.visible=travel.mode==='car'||!!travel.sunkCar;carGroup.position.set(vehicle.x,.12+rumbleNow.bob+slope.y+sinkY,vehicle.z);carGroup.rotation.y=vehicle.heading;carGroup.rotation.x=rumbleNow.pitch+slope.pitch+(sinkY?-0.25*Math.min(1,-sinkY/3):0);
+   carGroup.visible=travel.mode==='car'||!!travel.sunkCar;carGroup.position.set(vehicle.x,.12+rumbleNow.bob+slope.y,vehicle.z);carGroup.rotation.y=vehicle.heading;carGroup.rotation.x=rumbleNow.pitch+slope.pitch; // no sink drop: bridge decks are mapped as water
    carGroup.rotation.z=(started?-vehicle.steer*Math.min(Math.abs(vehicle.speed)*.002,.04):0)+rumbleNow.roll+slope.roll;
    animateVehicle(carGroup,vehicle.speed,vehicle.steer,paused||mapOpen?0:dt,keys.has('Space')||keys.has('KeyS')||keys.has('ArrowDown'));
    for(const w of carGroup.userData.wheels)w.pivot.scale.y=vehicle.flat?.7:1;if(vehicle.flat)carGroup.position.y-=.08; // shredded tyres: squashed wheels, car sits on its rims

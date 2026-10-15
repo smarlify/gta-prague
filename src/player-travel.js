@@ -96,6 +96,10 @@ export function starterRides(car,world){
  return rides;
 }
 
+// Chase camera follows the live body on foot. A crash or a leftover sink replaces
+// that body; the abandoned car heading must not hold the view.
+export function cameraBody(travel,car){return travel?.mode&&travel.mode!=='car'?travel.actor:car;}
+
 export class PlayerTravel{
  constructor(car,world,{cars=()=>[],rides=()=>[],obstacles=()=>[]}={}){this.carSources=cars;this.rideSources=rides;this.obstacles=obstacles;this.reset(car,world);}
  reset(car,world){
@@ -118,17 +122,8 @@ export class PlayerTravel{
   });
  }
  nearest(obstacles=this.obstacles()){return this.choices(obstacles).filter(c=>c.available).sort((a,b)=>a.distance-b.distance)[0]||null;}
- // Drive into the Vltava: the car sinks and the player swims to shore for a new ride.
- sinkInWater(){
-  if(this.mode!=='car')return {ok:false};
-  const from={...this.actor},sunk=this.actor;
-  sunk.sunk=true;sunk.disabled=true;sunk.speed=0;sunk.steer=0;sunk.sinkProgress=0;
-  this.cars=this.cars.filter(c=>c!==sunk);
-  this.actor=makeActor({x:from.x,z:from.z,heading:from.heading},'swim',from.distance);
-  this.mode='swim';this.car=this.cars[0]||null;this.riding=null;this.sprint=false;this.sunkCar=sunk;
-  this.startTransition(from);
-  return {ok:true,message:'Swim to shore and find another car.',sunk};
- }
+ // Disabled. Bridge decks are mapped as water, so this sank the car on the road.
+ sinkInWater(){return {ok:false};}
  interact(id=null,obstacles=this.obstacles()){
   if(!onFoot(this.mode)){
    if(Math.abs(this.actor.speed)>1.2)return {ok:false,message:'Stop before getting off.'};
@@ -188,15 +183,16 @@ export class PlayerTravel{
  }
  step(keys,dt,obstacles=[]){
   if(this.mode==='car')return {collision:null};
-  if(this.sunkCar){this.sunkCar.sinkProgress=Math.min(1,(this.sunkCar.sinkProgress||0)+dt*.35);if(this.sunkCar.sinkProgress>=1)this.sunkCar=null;}
-  const fall=this.actor.knockdown;if(fall){fall.elapsed+=Math.max(0,dt);this.actor.speed=0;if(fall.elapsed>=fall.duration)delete this.actor.knockdown;return {collision:null};}
+  // Sink progress stays off. Bridge decks are mapped as water, so this used to pull the car under the road.
+  const steerInput=(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)-(keys.has('KeyD')||keys.has('ArrowRight')?1:0)||(keys.tilt||0);
+  const fall=this.actor.knockdown;if(fall){fall.elapsed+=Math.max(0,dt);const p=this.actor;p.speed=0;p.steer+=(steerInput-p.steer)*(1-Math.exp(-Math.max(0,dt)*14));p.heading+=p.steer*2.8*Math.max(0,dt);if(fall.elapsed>=fall.duration)delete p.knockdown;return {collision:null};}
   // Leave the river: swimming ends on shore / pavement / road.
   if(this.mode==='swim'&&!inMappedWater(this.world,this.actor.x,this.actor.z)){
    const from={...this.actor};this.actor=makeActor(from,'walk',from.distance);this.mode='walk';this.startTransition(from);
   }
   const p=this.actor,spec=TRAVEL_MODES[this.mode],walk=onFoot(this.mode);
   const up=keys.has('KeyW')||keys.has('ArrowUp'),down=keys.has('KeyS')||keys.has('ArrowDown'),brake=keys.has('Space');
-  const steer=(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)-(keys.has('KeyD')||keys.has('ArrowRight')?1:0)||(keys.tilt||0);
+  const steer=steerInput;
   const sprint=this.mode==='walk'&&(this.sprint||keys.has('ShiftLeft')||keys.has('ShiftRight'));
   const base=brake?0:up===down?0:up?(sprint?spec.run:spec.speed):walk?-1.4:p.speed>.15?0:-1.3;
   const target=base*slopeFactor(this.mode,gradeAhead(p,Math.sign(base)));

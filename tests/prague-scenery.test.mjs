@@ -58,15 +58,13 @@ test('building footprints on asphalt do not block driving; off-road buildings st
  assert.equal(blocksDriveSample(10,8,world),true,'real building off the asphalt');
 });
 
-test('driving into water sinks the car and starts swimming; shore returns to walking',()=>{
+test('driving into water does not sink the car',()=>{
  assert.ok(TRAVEL_MODES.swim);
- const water={rings:[[[-5,-5],[5,-5],[5,5],[-5,5],[-5,-5]]],bbox:[-5,-5,5,5]};
- const road={rings:[[[6,-2],[20,-2],[20,2],[6,2],[6,-2]]],bbox:[6,-2,20,2]};
- const world={buildings:new SpatialIndex([]),roads:new SpatialIndex([road]),pavement:new SpatialIndex([]),water:[water]};
- const travel=new PlayerTravel(makeCar(0,0),world);
+ const travel=new PlayerTravel(makeCar(0,0),{buildings:new SpatialIndex([]),roads:new SpatialIndex([]),pavement:new SpatialIndex([]),water:[]});
  const sink=travel.sinkInWater();
- assert.equal(sink.ok,true);assert.equal(travel.mode,'swim');assert.ok(travel.sunkCar?.sunk);
- travel.actor.x=10;travel.actor.z=0;
- travel.step(new Set(),.05);
- assert.equal(travel.mode,'walk','leaving the river stands the player up');
+ assert.equal(sink.ok,false);assert.equal(travel.mode,'car');assert.equal(travel.sunkCar,null);
+ travel.mode='walk';travel.sunkCar={sinkProgress:.25,heading:0};
+ travel.step(new Set(),.5);
+ assert.equal(travel.sunkCar.sinkProgress,.25,'leftover sink progress is not applied');
+ assert.equal(travel.mode,'walk');
 });

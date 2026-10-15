@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SpatialIndex,setPlayableRadius} from '../src/geo.js';
 import {makeCar} from '../src/physics.js';
-import {PlayerTravel,travelCollision,TRAVEL_MODES,exitPosition,slopeFactor} from '../src/player-travel.js';
+import {PlayerTravel,travelCollision,TRAVEL_MODES,exitPosition,slopeFactor,cameraBody} from '../src/player-travel.js';
+import {createDriveCameraState,stepDriveCamera} from '../src/driving-camera.js';
 import {setTerrain} from '../src/terrain.js';
 import {trafficFootprintsOverlap,sweptContact} from '../src/contact-geometry.js';
 import {carBox} from '../src/lane-model.js';
@@ -120,6 +121,15 @@ test('a bike or scooter that hits something at speed falls over and the rider ge
  Object.assign(travel.actor,{x:0,z:-4,heading:0,speed:CRASH_SPEED+3});Object.assign(travel.riding,travel.actor);
  let crashed=null;for(let i=0;i<120&&!crashed;i++)crashed=travel.step(new Set(['KeyW']),1/60).crashed;
  assert.ok(crashed>=CRASH_SPEED,'hit the wall at speed');assert.equal(travel.mode,'walk');assert.ok(travel.actor.knockdown);assert.ok(ride.fallen,'ride tipped over');
+ const before=travel.actor.heading,parked=travel.car.heading;
+ travel.step(new Set(['KeyA']),.25);
+ assert.ok(travel.actor.knockdown,'still getting up');
+ assert.ok(travel.actor.heading>before+.05,'turning while getting up changes heading');
+ assert.equal(travel.car.heading,parked,'the parked car stays put');
+ assert.equal(cameraBody(travel,travel.car),travel.actor);
+ const cam=createDriveCameraState(before);
+ stepDriveCamera(cam,cameraBody(travel,travel.car),.25,{drive:true});
+ assert.ok(Math.abs(cam.heading-before)>.02,'chase camera follows the rider, not the parked car');
  for(let i=0;i<60*5;i++)travel.step(new Set(['KeyW']),1/60);assert.ok(!travel.actor.knockdown,'rider gets up');
 });
 
