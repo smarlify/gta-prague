@@ -313,10 +313,6 @@ function updateCaptureBadge(){
  b.style.left='16px';b.style.bottom='16px';b.style.maxWidth='';b.style.whiteSpace='nowrap';
  if(captureFrame.fixed){if(captureFrame.x>=160){b.style.left='-'+(captureFrame.x-16)+'px';b.style.maxWidth=(captureFrame.x-32)+'px';b.style.whiteSpace='normal';}else if(captureFrame.y>=40)b.style.bottom='-'+(captureFrame.y-8)+'px';}
 }
-// At the playable edge, invite the player to build the next streets (at most every 2 minutes).
-let edgeInviteAt=-Infinity;
-function showEdgeInvite(){const now=performance.now(),el=$('edge-invite');if(now-edgeInviteAt<120000){toast(`The edge of our ${city.name}. Turn back and keep exploring.`);return;}edgeInviteAt=now;el.hidden=false;clearTimeout(el.timer);el.timer=setTimeout(()=>{el.hidden=true;},12000);}
-$('edge-invite').querySelector('button').addEventListener('click',()=>{$('edge-invite').hidden=true;});
 function toast(message,{important=false}={}){const el=$('toast');if(!important&&el.classList.contains('important')&&el.classList.contains('visible'))return;el.textContent=message;el.classList.toggle('important',important);el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),important?5000:2800);}
 function progress(n,message){if(gameIsStopped())throw new Error('Startup stopped after a game failure');loadingScreen.progress(n,message);}
 // Static hosts answer a missing file with the app's index.html (200, text/html): treat that as a 404.
@@ -807,7 +803,7 @@ function frame(now){
     }else if(!r.crashed){const h=travel.hitPeople(previous,[...mobility.people,...detailPeople],impacts,{police,obstacles:travelObstacles()});
      if(h?.fell){car=travel.actor;playerCars.sync(travel);toast(h.fell>5?'Ouch. You hit someone and went flying.':'You hit someone and came off. Press Enter to get back on.');lastToast=now;}else if(h?.bumped&&now-lastToast>1500){toast('Sorry!');lastToast=now;}}
     distance=car.distance;
-    if(r.collision==='water'&&driving){const sink=travel.sinkInWater();car=travel.actor;playerCars.sync(travel);if(sink.ok&&now-lastToast>1200){toast('Car sinking — swim to shore, then Enter a stopped car.');lastToast=now;}}else if(r.collision&&now-lastToast>2200){if(r.collision==='boundary')showEdgeInvite();lastToast=now;}
+    if(r.collision==='water'&&driving){const sink=travel.sinkInWater();car=travel.actor;playerCars.sync(travel);if(sink.ok&&now-lastToast>1200){toast('Car sinking — swim to shore, then Enter a stopped car.');lastToast=now;}}else if(r.collision&&now-lastToast>2200){lastToast=now;}
    }
    const beforeTransitImpact=Math.abs(car.speed);
    tramSim.step(step,car,[...mobility.cars,...(buses?.obstacles||[]),...police.obstacles,...parked]);
