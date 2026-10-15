@@ -52,8 +52,6 @@
  body.mobile-controls-ready #toast:not(.important){background:#30312eea}
  body.mobile-controls-ready #toast.important{top:calc(var(--mobile-top) + 106px);bottom:auto;right:var(--mobile-right);left:auto;max-width:min(330px,calc(100% - 24px));transform:translateY(-5px);text-align:left}
  body.mobile-controls-ready #toast.important.visible{transform:translateY(0)}
- body.mobile-controls-ready .edge-invite{top:calc(var(--mobile-top) + 60px);max-width:calc(100% - 32px)}
- body.mobile-controls-ready .edge-invite button{width:44px;height:44px;right:0;top:0}
  body.mobile-controls-ready #mobile-menu{position:fixed;inset:auto 0 0;margin:0 auto;width:100%;max-width:520px;max-height:calc(100dvh - max(12px,env(safe-area-inset-top)));overflow:auto;overscroll-behavior:contain;padding:21px max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));border:1px solid #fffc;border-bottom:0;border-radius:18px 18px 0 0;background:#f8f5ee;color:#30312e;box-shadow:0 -12px 50px #1118}
  #mobile-menu::backdrop{background:#1c211f78;backdrop-filter:blur(5px)}
  .mobile-menu-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
