@@ -106,7 +106,7 @@ export async function joinDemoRoom(user = getFirebaseAuth().currentUser, { name 
       heading: 0,
       speed: 0,
       mode: 'car',
-      vehicle: { type: 'crossover' },
+      vehicle: { type: 'gwagen' },
       wanted: { level: 0, heat: 0, status: 'CLEAR', busted: false },
       police: [],
       updatedAt: Date.now(),

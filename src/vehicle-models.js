@@ -6,6 +6,10 @@ import {PAINT_FLAKE_UNIFORM,PAINT_FLAKE_SCALE_UNIFORM} from './surface-textures.
 
 // Original geometry, not manufacturer CAD. Crossover dimensions are based on
 // Toyota Finland MY26 Yaris Cross: 4.172 x 1.765 x 1.595 m, wheelbase 2.560 m.
+// The player starter (gwagen) follows published Mercedes-Benz G-Class (W463)
+// proportions: 4.825 x 1.931 x 1.969 m, wheelbase 2.890 m. It stays out of
+// VEHICLE_TYPES so NPC traffic keeps its existing body styles.
+export const PLAYER_CAR_TYPE='gwagen';
 export const VEHICLE_TYPES=['crossover','hatchback','sedan','estate','suv','van','taxi'];
 const specs={
  crossover:{l:4.172,w:1.765,h:1.595,wb:2.56,rf:-.46,rr:1.18,rg:1.76,belt:1.02,r:.335,clad:true,blackRoof:true},
@@ -16,6 +20,7 @@ const specs={
  van:{l:4.47,w:1.84,h:1.91,wb:2.78,rf:-.80,rr:1.91,rg:2.04,belt:1.07,r:.33,van:true},
  taxi:{l:4.60,w:1.81,h:1.49,wb:2.70,rf:-.46,rr:1.60,rg:2.05,belt:.96,r:.32,rails:true,taxi:true},
  offroad:{l:4.55,w:1.92,h:1.86,wb:2.72,rf:-.7,rr:1.45,rg:2.0,belt:1.15,r:.4,clad:true},
+ gwagen:{l:4.825,w:1.931,h:1.969,wb:2.89,gf:-1.02,rf:-.84,rr:1.38,rg:1.55,belt:1.30,r:.40,clad:true,rails:true,boxy:true},
 };
 const palette=['#b8bcb8','#e5e7e1','#284c65','#be3529','#344a3e','#393b41','#a29b8b','#577383','#794537'];
 const templates=new Map();
@@ -54,9 +59,9 @@ export function createVehicleMaterials(){
  registerEnvMaterial(paint,1);registerEnvMaterial(glass,1.5);registerEnvMaterial(chrome,1.1);registerEnvMaterial(black,.7);registerEnvMaterial(rubber,.35);registerEnvMaterial(tail,.6);
  return mats;
 }
-function loft(sections){
+function loft(sections,chamfer=.10){
  const vertices=[],indices=[],n=8;
- for(const [z,w,lo,hi]of sections){const b=Math.min(.10,(hi-lo)*.2);for(const [x,y]of[[-w+b,lo],[w-b,lo],[w,lo+b],[w,hi-b],[w-b,hi],[-w+b,hi],[-w,hi-b],[-w,lo+b]])vertices.push(x,y,z);}
+ for(const [z,w,lo,hi]of sections){const b=Math.min(chamfer,(hi-lo)*.2);for(const [x,y]of[[-w+b,lo],[w-b,lo],[w,lo+b],[w,hi-b],[w-b,hi],[-w+b,hi],[-w,hi-b],[-w,lo+b]])vertices.push(x,y,z);}
  for(let i=0;i<sections.length-1;i++)for(let j=0;j<n;j++){const a=i*n+j,b=i*n+(j+1)%n;indices.push(a,b,a+n,b,b+n,a+n);}
  for(let j=1;j<n-1;j++){indices.push(0,j+1,j);const k=(sections.length-1)*n;indices.push(k,k+j,k+j+1);}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return g.toNonIndexed();
@@ -70,7 +75,7 @@ export function headBeams(spec){
  const group=new THREE.Group();group.name='head-beams';group.visible=false;
  const distance=40,angle=.28,penumbra=.55,decay=2,intensity=7000,dip=.1,aim=24;
  for(const side of [-1,1]){
-  const x=side*W*.66,y=B-.11,z=-L+.02;
+  const x=side*W*(spec.boxy?0.55:0.66),y=spec.boxy?B-.22:B-.11,z=-L+(spec.boxy?-0.01:0.02);
   const spot=new THREE.SpotLight('#ffe6c2',intensity,distance,angle,penumbra,decay);
   spot.name='head-beam';spot.castShadow=false;spot.position.set(x,y,z);
   const target=new THREE.Object3D();target.name='head-beam-target';
@@ -84,31 +89,59 @@ function build(type,detailed){
  const mats=createVehicleMaterials();
  function add(g,mat,x=0,y=0,z=0,rx=0,ry=0,rz=0){g.rotateX(rx);g.rotateY(ry);g.rotateZ(rz);g.translate(x,y,z);if(g.index)g=g.toNonIndexed();g.deleteAttribute('uv');if(!batches.has(mat))batches.set(mat,[]);batches.get(mat).push(g);}
  function box(w,h,d,mat,x,y,z,rx=0,ry=0,rz=0){add(new RoundedBoxGeometry(w,h,d,detailed?2:1,Math.min(.06,w/4,h/4,d/4)),mat,x,y,z,rx,ry,rz);}
+ function disc(r,depth,mat,x,y,z){add(new THREE.CylinderGeometry(r,r,depth,detailed?16:8),mat,x,y,z,Math.PI/2);}
+ function star(x,y,z){for(let i=0;i<3;i++){const g=new THREE.BoxGeometry(.016,.10,.012);g.translate(0,.045,0);add(g,'chrome',x,y,z,0,0,i*Math.PI*2/3);}}
  function strut(a,b,width,mat){const v=new THREE.Vector3(...b).sub(new THREE.Vector3(...a)),g=new THREE.BoxGeometry(width,v.length(),width);g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),v.clone().normalize()));g.translate(...new THREE.Vector3(...a).addScaledVector(v,.5).toArray());add(g,mat);}
- add(loft([[-L,W*.78,.45,B*.82],[-L+.22,W*.95,.36,B*.93],[-L+.67,W,.37,B],[-.50,W,.37,B+.035],[L-.47,W,.40,B+.025],[L-.08,W*.94,.46,B],[L,W*.82,.50,B-.09]]),'paint');
- const fg=-L+.93,rw=W*.80;
- add(loft([[fg,W*.88,B-.01,B+.055],[s.rf,rw,B,H-.065],[s.rr,rw,B,H-.065],[s.rg,W*.88,B,B+.035]]),'glass');
- box(rw*2+.045,.085,s.rr-s.rf+.14,s.blackRoof?'black':'paint',0,H-.043,(s.rr+s.rf)/2);
+ const edge=s.boxy?0.04:0.10;
+ add(loft(s.boxy
+  ?[[-L,W*.98,.58,B],[-L+.08,W,.50,B],[-L+.55,W,.48,B],[0,W,.46,B],[L-.55,W,.48,B],[L-.06,W*.99,.52,B],[L,W*.97,.58,B*.98]]
+  :[[-L,W*.78,.45,B*.82],[-L+.22,W*.95,.36,B*.93],[-L+.67,W,.37,B],[-.50,W,.37,B+.035],[L-.47,W,.40,B+.025],[L-.08,W*.94,.46,B],[L,W*.82,.50,B-.09]],edge),'paint');
+ const fg=s.boxy?s.gf:-L+.93,rw=s.boxy?W*.92:W*.80;
+ add(loft(s.boxy
+  ?[[fg,W*.93,B-.04,B+.05],[s.rf,rw,B,H-.04],[s.rr,rw,B,H-.04],[s.rg,W*.93,B-.04,B+.05]]
+  :[[fg,W*.88,B-.01,B+.055],[s.rf,rw,B,H-.065],[s.rr,rw,B,H-.065],[s.rg,W*.88,B,B+.035]],edge),'glass');
+ if(s.boxy)box(W*1.78,.045,s.rr-s.rf+.06,'paint',0,H-.015,(s.rr+s.rf)/2);
+ else box(rw*2+.045,.085,s.rr-s.rf+.14,s.blackRoof?'black':'paint',0,H-.043,(s.rr+s.rf)/2);
  for(const side of [-1,1]){
   strut([side*W*.88,B,fg],[side*rw,H-.07,s.rf],.075,s.blackRoof?'black':'paint');
   strut([side*rw,H-.07,s.rr],[side*W*.89,B,s.rg],s.van?.16:.12,s.blackRoof?'black':'paint');
   strut([side*W*.91,B,.20],[side*rw,H-.07,.20],.075,'black');
   box(.05,.065,s.rg-fg,'chrome',side*W*.90,B+.012,(s.rg+fg)/2);
-  box(.085,.18,L*1.23,s.clad?'rubber':'paint',side*(W-.035),.46,0);
+  box(s.boxy?.06:.085,s.boxy?.10:.18,s.boxy?s.wb*.7:L*1.23,s.clad?'rubber':'paint',side*(W-(s.boxy?.01:.035)),s.boxy?.42:.46,s.boxy?.1:0);
   for(const z of [-.13,s.van?1.08:.95]){box(.035,.05,.19,'chrome',side*(W+.008),B-.11,z);box(.012,.45,.013,'black',side*(W+.009),B-.37,z+.20);}
   box(.18,.12,.25,s.blackRoof?'black':'paint',side*(W+.07),B+.08,fg+.11);
   box(.14,.075,.015,'glass',side*(W+.075),B+.085,fg+.245);
-  if(s.clad)for(const z of [-s.wb/2,s.wb/2])add(new THREE.TorusGeometry(s.r+.035,.052,6,detailed?28:14,Math.PI),'rubber',side*(W-.02),s.r,z,0,Math.PI/2);
+  if(s.clad)for(const z of [-s.wb/2,s.wb/2])add(new THREE.TorusGeometry(s.r+(s.boxy?.05:.035),s.boxy?.068:.052,6,detailed?28:14,Math.PI),'rubber',side*(W+(s.boxy?.02:-.02)),s.r,z,0,Math.PI/2);
   if(s.rails)box(.045,.065,s.rr-s.rf-.15,'chrome',side*rw*.87,H+.03,(s.rf+s.rr)/2);
-  box(.43,.105,.09,'black',side*W*.64,B-.13,-L+.045);
-  box(.35,.035,.10,'head',side*W*.66,B-.11,-L+.015,0,side*.11);
-  box(.36,.11,.10,'tail',side*W*.67,B-.10,L-.045);
-  if(s.clad)box(.075,.18,.085,'tail',side*W*.84,B-.19,L-.10);
+  if(s.boxy){
+   for(const z of [-s.wb/2,s.wb/2])box(.12,.22,.62,'paint',side*(W+.03),s.r+.12,z);
+   box(.09,.05,s.wb*.55,'black',side*(W+.02),.40,.08);
+   for(const dy of [-.12,-.32]){disc(.105,.028,'black',side*W*.55,B+dy,-L+.01);disc(.082,.04,'head',side*W*.55,B+dy,-L-.02);}
+   box(.08,.32,.045,'tail',side*(W-.16),B-.30,L+.012);
+   box(.055,.035,.09,'chrome',side*W*.72,B+.012,-s.wb/2-.2);
+  }else{
+   box(.43,.105,.09,'black',side*W*.64,B-.13,-L+.045);
+   box(.35,.035,.10,'head',side*W*.66,B-.11,-L+.015,0,side*.11);
+   box(.36,.11,.10,'tail',side*W*.67,B-.10,L-.045);
+   if(s.clad)box(.075,.18,.085,'tail',side*W*.84,B-.19,L-.10);
+  }
   if(s.van||type==='estate'||s.taxi)box(.095,.40,.075,'tail',side*W*.9,B+.03,L-.09);
   box(.14,.04,.035,'plate',side*W*.55,.66,L+.01);
  }
- box(W*1.80,.19,.16,'black',0,.46,-L+.11);box(W*1.86,.21,.15,'rubber',0,.48,L-.10);box(W*1.30,.09,.12,'chrome',0,.37,L-.09);
- box(W*1.35,.21,.085,'black',0,.71,-L+.025);for(let i=0;i<3;i++)box(W*1.20,.015,.09,'chrome',0,.65+i*.057,-L+.015);
+ if(s.boxy){
+  box(W*1.96,.26,.10,'black',0,.64,-L+.02);
+  box(W*.74,.46,.05,'black',0,B-.30,-L-.01);
+  for(let i=0;i<5;i++)box(W*.62,.016,.055,'chrome',0,B-.48+i*.09,-L-.03);
+  star(0,B-.28,-L-.05);
+  const spareY=1.12;
+  disc(.36,.14,'rubber',0,spareY,L+.18);
+  disc(.14,.16,'chrome',0,spareY,L+.22);
+  box(.04,.58,.04,'black',0,spareY,L+.05);
+  box(W*1.92,.16,.10,'rubber',0,.52,L-.02);
+ }else{
+  box(W*1.80,.19,.16,'black',0,.46,-L+.11);box(W*1.86,.21,.15,'rubber',0,.48,L-.10);box(W*1.30,.09,.12,'chrome',0,.37,L-.09);
+  box(W*1.35,.21,.085,'black',0,.71,-L+.025);for(let i=0;i<3;i++)box(W*1.20,.015,.09,'chrome',0,.65+i*.057,-L+.015);
+ }
  box(W*1.16,.085,.035,'black',0,B-.07,L-.014);
  for(const z of [-L-.006,L+.017]){box(.48,.13,.025,'plate',0,.74,z);box(.043,.12,.029,'glass',-.21,.74,z);if(detailed)for(let i=0;i<7;i++)box(.022,.063,.032,'black',-.145+i*.048,.743,z);}
  if(type==='crossover'){
@@ -132,12 +165,12 @@ function build(type,detailed){
  if(detailed)body.add(headBeams(s));
  return group;
 }
-export function createDetailedVehicle(colour=0,detailed=false,type=detailed?'crossover':'sedan'){
+export function createDetailedVehicle(colour=0,detailed=false,type=detailed?PLAYER_CAR_TYPE:'sedan'){
  if(!specs[type])throw Error(`Unknown vehicle type: ${type}`);
  if(!templates.has(type))templates.set(type,build(type,false));
  const model=detailed?build(type,true):templates.get(type).clone(true);
  model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(palette[colour%palette.length]);}});
- model.name=type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
+ model.name=type==='gwagen'?'Mercedes G':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
  model.userData={type,spec:{...specs[type]},wheels:model.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:specs[type].r})),body:model.getObjectByName('body'),head:detailed?model.getObjectByName('head').material:null,tail:detailed?model.getObjectByName('tail').material:null,beams:detailed?model.getObjectByName('head-beams'):null};
  return model;
 }

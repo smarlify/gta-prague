@@ -1,4 +1,4 @@
-export {createDetailedVehicle as createVehicle,VEHICLE_TYPES} from './vehicle-models.js';
+export {createDetailedVehicle as createVehicle,VEHICLE_TYPES,PLAYER_CAR_TYPE} from './vehicle-models.js';
 const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
 // Body pitch (nose up positive, car faces -z) and roll from the change in
 // speed and the steering input, eased with a frame-rate independent lag.

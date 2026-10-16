@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {createVehicle,animateVehicle,applyPlayerLamps} from './vehicles.js';
+import {createVehicle,animateVehicle,applyPlayerLamps,PLAYER_CAR_TYPE} from './vehicles.js';
 import {createVehicleDamage} from './vehicle-damage.js';
 import {createPoliceBody} from './police-model.js';
 import {attachPursuitLights,flashPursuitLights} from './police-renderer.js';
@@ -12,7 +12,7 @@ export function createPlayerCarRenderer(scene){
  const active=new THREE.Group(),parked=new THREE.Group();active.name='Current player car';parked.name='Player parked cars';scene.add(active,parked);
  // Terrain pitch/roll are measured in the car's frame, then turned by heading.
  active.rotation.order='YXZ';
- const starter=createVehicle(0,true),entries=new Map();let home=null,current=null,first,lookKey='crossover|';
+ const starter=createVehicle(0,true,PLAYER_CAR_TYPE),entries=new Map();let home=null,current=null,first,lookKey=`${PLAYER_CAR_TYPE}|`;
  const build=(model,owned=false)=>{
   const shared=new Set();model.traverse(m=>{if(m.isMesh)shared.add(m.geometry);});
   const damage=createVehicleDamage(model),privateGeometry=new Set(),materials=new Set(),lights=[];
@@ -23,7 +23,7 @@ export function createPlayerCarRenderer(scene){
  let lamps=false,travelMode='car';
  // Only the car the player is in. A parked start car keeps the lamps it had when they got out.
  const paintOccupied=()=>{if(travelMode==='car'&&current)applyPlayerLamps(current.model,lamps);};
- return {group:active,setLamps(on){lamps=!!on;},setLook(type='crossover',paint=''){
+ return {group:active,setLamps(on){lamps=!!on;},setLook(type=PLAYER_CAR_TYPE,paint=''){
   const key=`${type}|${paint}`;if(key===lookKey)return;lookKey=key;
   const model=createVehicle(0,true,type);if(paint)model.traverse(m=>{if(m.isMesh&&m.material?.name==='paint')m.material.color.set(paint);});
   const next=build(model,true);
