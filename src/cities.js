@@ -43,6 +43,37 @@ export function pickStart(starts,request){
  return (named.find(n=>n.id===want)||named.find(n=>n.id.startsWith(want))||named.find(n=>n.id.includes(want)))?.s||null;
 }
 
+// Remembered position in the named-start list for this city. One step per visit
+// when the page has no ?start=. A pinned start leaves the position where it is.
+export const START_CYCLE_PREFIX='gta-praha-start-cycle:';
+export function startCycleKey(cityId='prague'){return START_CYCLE_PREFIX+slug(cityId||'prague');}
+
+function cycleBox(storage){
+ if(storage)return storage;
+ try{return globalThis.localStorage;}catch{return null;}
+}
+function wrapIndex(index,length){return ((index%length)+length)%length;}
+
+// `request` is the raw ?start= value, or null when the param is absent.
+// A present param returns that place (or null when nothing matches) and does not
+// move the cycle. A missing param returns the next named start and saves that
+// position for the following visit. The result is always one of `starts`.
+export function bootStart(starts,request,storage,cityId='prague'){
+ const list=starts||[];
+ if(request)return {start:pickStart(list,request),pinned:true};
+ if(!list.length)return {start:null,pinned:false};
+ const key=startCycleKey(cityId);
+ let index=0;
+ try{
+  const box=cycleBox(storage);
+  const raw=box?.getItem(key);
+  const prev=raw==null||raw===''?-1:Number(raw);
+  index=Number.isInteger(prev)?wrapIndex(prev+1,list.length):0;
+  box?.setItem(key,String(index));
+ }catch{index=0;}
+ return {start:list[index],pinned:false};
+}
+
 // Slugs of the look id and its on-screen label, so ?time=white-night and ?time=whitenight
 // both mean the manual White night look, and ?weather=thunderstorm means thunder.
 function queryIds(table,order){

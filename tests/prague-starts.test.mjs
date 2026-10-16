@@ -5,7 +5,7 @@ import {gunzipSync} from 'node:zlib';
 import proj4 from 'proj4';
 import {pointInPolygon, SpatialIndex} from '../src/geo.js';
 import {carSamples, makeCar} from '../src/physics.js';
-import {pickStart} from '../src/cities.js';
+import {pickStart, bootStart, startCycleKey} from '../src/cities.js';
 import {cherryBlossomTrees, PETRIN} from '../src/prague-scenery.js';
 
 const projection = '+proj=tmerc +lat_0=50.08747 +lon_0=14.42125 +k=1 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs';
@@ -34,14 +34,51 @@ function trackDistance(x, z) {
   return best;
 }
 
-test('Petřín is the boot start and both new places are on the list', () => {
-  assert.equal(registry.defaultStart, 'Petřín');
-  assert.equal(def.defaultStart, 'Petřín');
+function memoryStorage() {
+  const data = new Map();
+  return {
+    getItem(key) { return data.has(key) ? data.get(key) : null; },
+    setItem(key, value) { data.set(key, String(value)); },
+  };
+}
+
+test('a missing start cycles every named place, and a start URL pins one', () => {
   assert.equal(registry.counts.starts, city.landmarks.length);
-  assert.ok(city.landmarks.some(l => l.name === 'Petřín'));
-  assert.ok(city.landmarks.some(l => l.name === 'Jelení příkop'));
-  assert.equal(pickStart(city.landmarks, registry.defaultStart).name, 'Petřín');
-  assert.equal(city.landmarks[0].name, 'Petřín');
+  assert.deepEqual(city.landmarks.map(l => l.name), def.starts.map(s => s.name));
+  const names = city.landmarks.map(l => l.name);
+  assert.deepEqual(names, [
+    'Petřín', 'Jelení příkop', 'Národní divadlo', 'Most Legií', 'Karlův most',
+    'Smetanovo nábřeží', 'Masarykovo nábřeží', 'Malostranské nábřeží', 'Mánesův most',
+    'Národní muzeum', 'Klárov', 'Karlovo náměstí', 'I. P. Pavlova', 'Náměstí Míru',
+    'Anděl', 'Újezd', 'Vítězné náměstí', 'Hradčanská', 'Letenské náměstí', 'Vltavská', 'Florenc',
+  ]);
+
+  const storage = memoryStorage();
+  const seen = [];
+  for (let i = 0; i < names.length; i++) {
+    const boot = bootStart(city.landmarks, null, storage);
+    seen.push(boot.start.name);
+    assert.equal(boot.pinned, false);
+    assert.equal(boot.start, city.landmarks[i], 'the visit uses that curated start, not a new coordinate');
+  }
+  assert.deepEqual(seen, names, 'each visit without start= takes the next named place');
+  assert.equal(bootStart(city.landmarks, null, storage).start, city.landmarks[0], 'after the last place, the cycle returns to the first');
+
+  const pinned = memoryStorage();
+  assert.equal(bootStart(city.landmarks, null, pinned).start.name, names[0]);
+  const cursor = pinned.getItem(startCycleKey('prague'));
+  for (const request of ['Anděl', 'andel', 'ANDĚL', 'karluv most', 'Karlův-most', 'jeleni-prikop', 'Újezd', 'i. p. pavlova']) {
+    const boot = bootStart(city.landmarks, request, pinned);
+    assert.equal(boot.pinned, true);
+    assert.equal(boot.start, pickStart(city.landmarks, request));
+    assert.equal(pinned.getItem(startCycleKey('prague')), cursor, `${request} does not advance the cycle`);
+  }
+  assert.equal(bootStart(city.landmarks, 'nowhere-in-prague', pinned).start, null);
+  assert.equal(pinned.getItem(startCycleKey('prague')), cursor, 'an unknown start= does not advance the cycle');
+  assert.equal(bootStart(city.landmarks, null, pinned).start.name, names[1], 'the next unpinned visit continues the cycle');
+
+  const blocked = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
+  assert.equal(bootStart(city.landmarks, null, blocked).start, city.landmarks[0]);
 });
 
 test('Petřín starts in the middle of the sakura grove, off the road and clear of buildings', () => {
