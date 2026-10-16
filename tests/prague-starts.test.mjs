@@ -64,6 +64,27 @@ test('Jelení příkop starts on the moat path, not inside the castle', () => {
   assert.equal(roads.at(start.x, start.z), undefined);
 });
 
+test('Karlův most starts on the bridge deck, clear of the towers', () => {
+  const start = byName('Karlův most');
+  const deck = pavement.at(start.x, start.z);
+  assert.equal(deck?.name, 'Karlův most');
+  assert.match(deck?.kind || '', /Silta/);
+  assert.equal(buildings.at(start.x, start.z), undefined);
+  assert.equal(clear(start.x, start.z, start.heading), true);
+  assert.equal(roads.at(start.x, start.z), undefined, 'the bridge is cobbled deck, not a carriageway polygon');
+  assert.ok(carSamples(makeCar(start.x, start.z, start.heading)).every(([x, z]) => {
+    const hit = pavement.at(x, z);
+    return hit?.name === 'Karlův most' && /Silta/.test(hit.kind || '');
+  }), 'the whole car sits on the bridge deck');
+  const towers = city.buildings.filter(b => /mostecká věž/i.test(b.name || ''));
+  assert.ok(towers.length >= 2);
+  for (const tower of towers) {
+    const box = tower.bbox;
+    const distance = Math.hypot((box[0] + box[2]) / 2 - start.x, (box[1] + box[3]) / 2 - start.z);
+    assert.ok(distance > 40, `${tower.name} is ${distance.toFixed(0)} m from the car`);
+  }
+});
+
 test('Újezd starts on the road beside the Malá Strana tram stop', () => {
   const start = byName('Újezd');
   const stops = trams.stops.filter(s => s.name === 'Újezd');
