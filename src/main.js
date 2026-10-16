@@ -10,7 +10,7 @@ import {SpatialIndex,RADIUS,pointInPolygon,insidePlayable,setPlayableRadius} fro
 import {loadExtensionIndex,loadExtension,applyExtensions,mapViewFor,activateExtension,createExtensionStreamer} from './extensions.js';
 import {setTramLivery} from './tram-model.js';
 import {setBusLivery} from './bus-renderer.js';
-import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,sceneQuery,applySceneQuery} from './cities.js';
+import {selectCity,useCity,pickStart,bootStart,startUrl,dataUrl,registerCities,sceneQuery,applySceneQuery} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
@@ -961,7 +961,7 @@ async function boot(){
    if(helsinki)data.landmarks.push({...HARBOUR_START});
    for(const e of extensions)data.landmarks.push(...(e.starts||[]));
    areaLabel=areaCaption(city.id==='prague'?[...PRAGUE_AREAS,...data.landmarks]:helsinki?[...HELSINKI_AREAS,...extensions.flatMap(e=>e.starts||[])]:data.landmarks,city.name);
-   const requestedStart=new URLSearchParams(location.search).get('start'),firstStart=pickStart(data.landmarks,requestedStart)||pickStart(data.landmarks,city.defaultStart)||(helsinki?HARBOUR_START:data.landmarks[0]);
+   const requestedStart=new URLSearchParams(location.search).get('start'),chosen=bootStart(data.landmarks,requestedStart,null,city.id),firstStart=chosen.start||pickStart(data.landmarks,city.defaultStart)||(helsinki?HARBOUR_START:data.landmarks[0]);
    treeTrunks=createTreeTrunks({lanes:mobilityData.roads.edges});
    const regionStages=new Map(),transitQueue=[],addTransit=e=>{if(!tramSim||!buses)transitQueue.push(e);else installTransit(e.transitLines,{trams:tramSim,tramRenderer,buses:buses.simulation});};
    extensionStreamer=createExtensionStreamer({entries:extensions,load:e=>loadExtension(e,json,unpack),onError:handleTileError,install:async e=>{
@@ -1074,8 +1074,11 @@ async function boot(){
    world.collisionBuildings=world.cameraBuildings;
    world.objects=new WorldObjects([...streetObstacles,...ads.obstacles,...breakableSigns.bodies]);
    cityModel.traverse(object=>{if(object.worldObjects)world.objects.add(object.worldObjects);});
-   // ?start=<name> picks any start on the city map (fuzzy, accent-insensitive).
-   setStart(firstStart);history.replaceState(null,'',startUrl(location,city,firstStart));
+   // ?start=<name> pins that place. With no start param, bootStart already chose
+   // the next named place and remembered it. Leave that choice off the query
+   // string so a later visit of this page advances instead of pinning it.
+   setStart(firstStart);
+   if(requestedStart){try{history.replaceState(null,'',startUrl(location,city,firstStart));}catch(e){console.warn('Could not update the start URL:',e);}}
    progress(58,'Preparing the driving map');await new Promise(r=>setTimeout(r,30));drawMapBase();
    progress(68,'Loading buildings and textures');focus.set(car.x,0,car.z);await Promise.all([ensureCityModel(),updateTiles()]);
    progress(88,'Loading traffic and pedestrians');mobility=helsinki?new Mobility(correctHarbourLanes(mobilityData),world,{stationCars:16,corridorCars:HARBOUR_CORRIDOR_CARS,corridor:harbourCorridor(world.roads)}):new Mobility(mobilityData,world);mobility.reset(car);angryDrivers=createAngryDrivers({vehicleOf:a=>streetLife?.traffic?.vehicleOf(a)});scene.add(angryDrivers.group);mobility.onCrash=a=>angryDrivers.trigger(a,mobility.time);streetLife=createStreetLife(scene,mobility,{paintColors:city.id==='prague'?SKODA_PAINT:null});streetLife.update(0,car,vehicleLampsOn(look.name,look.weather));world.objects.add(breakableSigns.bodies);
