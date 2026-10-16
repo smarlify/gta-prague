@@ -86,6 +86,7 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
 /* Footer: one block, one style. */
 .boot-footer{border-top:1px solid var(--line);padding-top:var(--s-16);font:400 var(--t-12)/20px var(--ui);color:var(--muted);text-wrap:pretty}
 .boot-links{display:flex;align-items:center;flex-wrap:wrap;gap:0 var(--s-8)}
+.boot-links a{white-space:nowrap}
 .boot-links>span{opacity:.6}
 .boot-footer a{color:var(--ink);text-decoration:none;text-underline-offset:3px}
 .boot-footer a:hover{text-decoration:underline}
