@@ -51,6 +51,13 @@
    "at": [14.4117, 50.0819]
   },
   {
+   "name": "Karlův most",
+   "district": "Praha 1 - Malá Strana",
+   "at": [14.4102928, 50.0866106],
+   "exact": true,
+   "heading": -1.7724
+  },
+  {
    "name": "Smetanovo nábřeží",
    "district": "Praha 1 - Staré Město",
    "at": [14.4132, 50.084]
