@@ -1,5 +1,12 @@
 import {groundAt} from './terrain.js';
-// Pure pose function: used by both the renderer and camera regression tests.
+// Pure pose functions: used by both the renderer and camera regression tests.
+// Welcome view, before Start. High enough to read the neighbourhood, but always
+// above the slope: an absolute height looks through Petřín instead of at it.
+export function welcomeCameraPose(car,zoom=150){
+ const span=Math.max(36,Math.min(240,zoom)),height=span*.64,behind=span*.70,heading=car.heading||0;
+ const y=car.y??groundAt(car.x,car.z),px=car.x+Math.sin(heading)*behind,pz=car.z+Math.cos(heading)*behind;
+ return {position:[px,Math.max(y+height,groundAt(px,pz)+1.5),pz],target:[car.x,y+1.15,car.z]};
+}
 export function overviewCameraPose(car,heading,zoom=240,high=false){
  const span=Math.max(36,Math.min(240,zoom)),t=(span-36)/204;
  // Follow is only one storey above Drive, not a city-map camera. High retains

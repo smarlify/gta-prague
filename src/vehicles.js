@@ -37,7 +37,8 @@ export function playerHeadlightsOn(mode,day,weather){
 export function applyPlayerLamps(model,on){
  const u=model?.userData;if(!u)return;
  const lit=!!on;u.lampsOn=lit;
- if(u.head)u.head.color.set(lit?'#fff4dc':'#24282b');
+ const head=u.head?.isMesh?u.head.material:u.head;
+ if(head?.color)head.color.set(lit?'#fff4dc':'#24282b');
  if(u.beams)u.beams.visible=lit;
  if(u.tail){u.tail.toneMapped=!lit;u.tail.fog=!lit;u.tail.emissiveIntensity=lit?Math.max(u.tail.emissiveIntensity||0,.7):0;}
 }

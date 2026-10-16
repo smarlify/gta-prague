@@ -65,7 +65,7 @@ function loft(sections){
 // the road and the walls ahead are MeshStandardMaterial, so they pick up the pool.
 // Intensity is candela. Decay is inverse-square, and the cone is narrow, so the near
 // road reads clearly and the pool is gone by the end of the range. No shadow map.
-function headBeams(spec){
+export function headBeams(spec){
  const L=spec.l/2,W=spec.w/2,B=spec.belt;
  const group=new THREE.Group();group.name='head-beams';group.visible=false;
  const distance=40,angle=.28,penumbra=.55,decay=2,intensity=7000,dip=.1,aim=24;

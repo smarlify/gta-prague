@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import {encodeTerrain,decodeTerrain,setTerrain,groundAt,waterAt,lakeAt,groundPose,footprintBase,liftBuildings,hasTerrain} from '../src/terrain.js';
 import {drapeGeometry,settleObject,subdivideGeometry,createLakeGeometry,lakeSurface} from '../src/terrain-mesh.js';
 import {makeCar,driveStep} from '../src/physics.js';
-import {drivingCameraPose} from '../src/driving-camera.js';
+import {drivingCameraPose,welcomeCameraPose} from '../src/driving-camera.js';
 import {SpatialIndex} from '../src/geo.js';
 import {blur,levelWater,findLakes,stampBridges,bridgeChains,conditionRoads,readPng,limitProfile,gradeSpikes,roadLines,roadLayers,junctionMask,streetLevel,lakeBed} from '../scripts/city-terrain.mjs';
 
@@ -150,6 +150,16 @@ test('car on a slope: wheels on the ground, nose up uphill, gravity slows the cl
  setTerrain(field((x,z)=>.1*x,{size:201,cell:2}));const side=makeCar(0,0);assert.ok(side.roll>.09,'right side up');
  const cam=drivingCameraPose(side,0,150);assert.ok(cam.position[1]>groundAt(cam.position[0],cam.position[2])+1);assert.ok(cam.target[1]>side.y);
  setTerrain(null);
+});
+
+test('the welcome camera sits above a hill and looks along the start, not through the slope',()=>{
+ setTerrain(field(()=>96,{size:121,cell:20}));
+ try{
+  const pose=welcomeCameraPose({x:0,z:0,heading:-Math.PI/2},150);
+  assert.ok(pose.position[0]<0,'a car facing east is seen from the west, toward the city');
+  assert.ok(pose.position[1]>groundAt(pose.position[0],pose.position[2])+1,'lens stays above the slope behind the car');
+  assert.ok(pose.target[1]>90,'looks at the hilltop, not down through it at sea level');
+ }finally{setTerrain(null);}
 });
 
 const grid=(size,cell,fn)=>{const extent=(size-1)*cell/2,g=new Float32Array(size*size);for(let j=0;j<size;j++)for(let i=0;i<size;i++)g[j*size+i]=fn(i*cell-extent,j*cell-extent);return g;};
