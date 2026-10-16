@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {headBeams} from './vehicle-models.js';
 import {policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
 export {policeLiveryFor,policeAgencyFor};
 const pragueLivery=l=>l==='praha'||l==='praha-mestska';
@@ -287,10 +288,11 @@ export function createPoliceBody(variant='estate',livery='fi'){
   const mesh=new THREE.Mesh(merged,mats[name]);mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);gs.forEach(g=>g.dispose());
  }
  group.name=`Police ${variant}`;
+ group.add(headBeams(s));
  const numbers=[{w:.3,h:.14,x:0,y:s.bonnet.y,z:s.bonnet.z,rx:-Math.PI/2+s.bonnet.slope,ry:Math.PI},{w:.26,h:.12,x:0,y:s.rearGlass.y,z:s.rearGlass.z,rx:s.rearGlass.tilt,ry:0}];
  if(s.wingNumber)for(const side of [-1,1])numbers.push({w:.24,h:.11,x:side*(W*.97+.012),y:s.wingNumber.y,z:s.wingNumber.z,rx:0,ry:side*Math.PI/2});
  if(s.roofNumber)numbers.push({w:.3,h:.14,x:0,y:s.roofNumber.y,z:s.roofNumber.z,rx:-Math.PI/2+s.roofNumber.slope,ry:Math.PI});
- group.userData={type:variant,spec:{...s},numberColour:van?POLICE_BLUE:POLICE_WHITE,wheels:group.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:s.r})),tail:mats.tail,
+ group.userData={type:variant,spec:{...s},numberColour:van?POLICE_BLUE:POLICE_WHITE,wheels:group.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:s.r})),head:group.getObjectByName('head'),tail:mats.tail,beams:group.getObjectByName('head-beams'),
   mounts:{bar:{y:bar.y,z:bar.z,x:.25+lensW/2,w:lensW},grille:{y:van?.6:.5,z:-L+.03,x:W*.7},head:{y:van?B-.24:B-.17,z:-L-.03,x:W*.6},numbers}};
  return group;
 }

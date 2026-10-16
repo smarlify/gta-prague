@@ -39,7 +39,7 @@ import {createLandcover} from './landcover.js';
 import {TramSimulation} from './tram-simulation.js';
 import {createTramRenderer} from './trams.js';
 import {createHarbour} from './harbour.js';
-import {drivingCameraPose,overviewCameraPose,createDriveCameraState,stepDriveCamera,DRIVE_FOV} from './driving-camera.js';
+import {drivingCameraPose,overviewCameraPose,welcomeCameraPose,createDriveCameraState,stepDriveCamera,DRIVE_FOV} from './driving-camera.js';
 import {surfaceDetailAt,rumbleFor,createRumbleState} from './road-surface.js';
 import {createCityAudio} from './audio.js';
 import {createSkyEnvironment} from './environment.js';
@@ -721,7 +721,7 @@ window.addEventListener('keydown',e=>{
  if(e.code==='KeyC'){cycleCamera();return;}
  if(e.code==='KeyT'){look.cycle();toast(look.label);return;}
  if(e.code==='KeyY'){look.cycleWeather();toast(look.weatherLabel);return;}
- if(e.code==='KeyL'){headlightMode=cycleHeadlights(headlightMode);toast(headlightModeLabel(headlightMode));return;}
+ if(e.code==='KeyL'){if(travel?.mode==='car'&&travel.car){headlightMode=cycleHeadlights(headlightMode);toast(headlightModeLabel(headlightMode));}return;}
  if(e.code==='KeyH'){
   if(travel?.mode==='car'&&travel.car?.visual?.police)stolenSirenOn=!stolenSirenOn;
   return;
@@ -859,13 +859,13 @@ function frame(now){
    focus.lerp(target,1-Math.exp(-dt*5));
  }
  viewSpan+=(desiredSpan-viewSpan)*(1-Math.exp(-dt*7));resizeCamera();
- const heading=started?cameraHeading:0,height=viewSpan*(highCamera?.85:.64),behind=viewSpan*(highCamera?.40:.70);
+ const heading=started?cameraHeading:0;
  if(chaseCamera&&started){
   const pose=(travel.mode==='car'?drivingCameraPose:travelCameraPose)(travel.viewActor(),cameraHeading,viewSpan,cameraLook,travel.mode==='car'?world.cameraBuildings:world.travelCameraBuildings);
   if(cameraTransition){cameraTransition.elapsed+=paused||mapOpen?0:dt;const t=Math.min(1,cameraTransition.elapsed/.5),blend=t*t*(3-2*t);pose.position=pose.position.map((v,i)=>cameraTransition.position.getComponent(i)+(v-cameraTransition.position.getComponent(i))*blend);pose.target=pose.target.map((v,i)=>cameraTransition.target.getComponent(i)+(v-cameraTransition.target.getComponent(i))*blend);if(t===1)cameraTransition=null;}
   camera.position.set(pose.position[0]+cameraShake[0]+cameraRumble[0],pose.position[1]+cameraShake[1]+cameraRumble[1],pose.position[2]+cameraShake[2]+cameraRumble[2]);camera.lookAt(...pose.target);camera.rotateZ(cameraRoll);
  }else if(started&&car){const pose=overviewCameraPose(car,heading,viewSpan,highCamera);camera.position.set(...pose.position);camera.lookAt(...pose.target);
- }else{camera.position.set(focus.x+Math.sin(heading)*behind,height,focus.z+Math.cos(heading)*behind);camera.lookAt(focus);}
+ }else{const pose=welcomeCameraPose({x:focus.x,z:focus.z,heading:cameraHeading},viewSpan);camera.position.set(...pose.position);camera.lookAt(...pose.target);}
  if(inspectionCamera){camera.position.set(...inspectionCamera.eye);camera.lookAt(...inspectionCamera.target);}
  {const pose=roadblock?.cameraPose()||finale.cameraPose(car);if(pose){camera.position.set(...pose.position);camera.lookAt(...pose.target);}} // arrest cinematic orbit
  const wantFov=chaseCamera&&started&&!inspectionCamera?cameraFov:DRIVE_FOV.min;if(camera.fov!==wantFov){camera.fov=wantFov;camera.updateProjectionMatrix();}
@@ -1095,6 +1095,9 @@ async function boot(){
    // Lanes know the tram tracks and buses the junction signals; respawn traffic clear of trams and buses.
    transitQueue.splice(0).forEach(addTransit);mobility.attachTrams(tramSim);mobility.attachBuses(buses.simulation);buses.reset(car,tramSim.obstacles);mobility.externalBodies=transitBodies();mobility.reset(car);
    progress(100,'Ready');
+   // Roof meshes join the scene through the frame upload queue. Wait for the
+   // same nearby buildings the drive view uses, so the welcome card is not an empty hill.
+   while(uploads.size){if(gameIsStopped())return;await new Promise(requestAnimationFrame);}
    ready=true;carGroup.visible=true;marker.visible=true;loadingScreen.ready(startPoint.name);
    if(!helsinki)$('boot-place-label').textContent=`Your starting point in ${city.name}`;
    startPicker=createStartPicker({starts:data.landmarks,current:startPoint,onChange:previewStart,districts:city.id==='prague'});

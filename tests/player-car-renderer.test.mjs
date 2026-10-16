@@ -7,6 +7,12 @@ import {createVehicle} from '../src/vehicles.js';
 import {currentEnvironment,setEnvironment} from '../src/environment.js';
 import {terrain,setTerrain,groundPose} from '../src/terrain.js';
 
+const ctx=new Proxy({},{get:(t,k)=>k==='createRadialGradient'?()=>({addColorStop(){}}):()=>{},set:()=>true});
+function withDocument(run){
+ const original=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>ctx,width:0,height:0})};
+ try{run();}finally{if(original===undefined)delete globalThis.document;else globalThis.document=original;}
+}
+
 const car=(x,z,type,paint)=>({...makeCar(x,z),visual:type?{type,paint}:undefined});
 const state=home=>({homeCar:home,car:home,actor:home,cars:[home]});
 const paintMesh=model=>model.getObjectByName('paint');
@@ -45,6 +51,31 @@ test('reset unregisters disposed car paint so later sky updates do not retain or
  try{setEnvironment(next);assert.notEqual(paint.envMap,next,'disposed material must leave the sky registry');assert.equal(paint.version,before);}
  finally{setEnvironment(previous);next.dispose();}
 });
+
+test('lamps follow the occupied car and stay as they were on foot',()=>withDocument(()=>{
+ const scene=new Scene(),renderer=createPlayerCarRenderer(scene),home=car(0,0);
+ const police={...makeCar(20,0),visual:{police:true,type:'police',variant:'estate',livery:'praha'}};
+ const stolen=car(40,0,'sedan','#223344');
+ const travel={homeCar:home,car:home,actor:home,cars:[home,police,stolen],mode:'car'};
+ renderer.sync(travel);renderer.setLamps(false);renderer.sync(travel);
+ const homeModel=renderer.group.children[0];
+ assert.equal(homeModel.userData.beams.visible,false);
+ travel.car=travel.actor=police;renderer.setLamps(true);renderer.sync(travel);
+ const policeModel=renderer.group.children[0];
+ assert.equal(policeModel.name.startsWith('Police'),true);
+ assert.equal(policeModel.userData.head.isMesh,true);
+ assert.equal(policeModel.userData.beams.visible,true);
+ assert.equal(homeModel.userData.beams.visible,false,'the parked start car keeps the lamps it had');
+ travel.car=travel.actor=stolen;renderer.sync(travel);
+ const stolenModel=renderer.group.children[0];
+ assert.ok(stolenModel.userData.beams,'an entered car has its own head-beams');
+ assert.equal(stolenModel.userData.beams.visible,true);
+ assert.equal(policeModel.userData.beams.visible,true,'the police car keeps the beams from when it was occupied');
+ travel.mode='walk';renderer.setLamps(false);renderer.sync(travel);
+ assert.equal(homeModel.userData.beams.visible,false);
+ assert.equal(policeModel.userData.beams.visible,true);
+ assert.equal(stolenModel.userData.beams.visible,true);
+}));
 
 test('the active car stays aligned with the same slope when its heading changes',()=>{
  const previous=terrain(),ground=Float32Array.from([-4,0,4,-4,0,4,-4,0,4]);
