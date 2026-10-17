@@ -14,7 +14,7 @@ import {selectCity,useCity,pickStart,bootStart,startUrl,dataUrl,registerCities,s
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
-import {animateVehicle,cycleHeadlights,headlightModeLabel,playerHeadlightsOn,streetLampsOn,vehicleLampsOn} from './vehicles.js';
+import {animateVehicle,cycleHeadlights,headlightModeLabel,playerHeadlightsOn,streetLampsOn,vehicleLampsOn,PLAYER_CAR_TYPE} from './vehicles.js';
 import {Mobility} from './mobility.js';
 import {createStreetLife} from './street-life.js';
 import {SKODA_PAINT,policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
@@ -870,7 +870,7 @@ function frame(now){
  {const pose=roadblock?.cameraPose()||finale.cameraPose(car);if(pose){camera.position.set(...pose.position);camera.lookAt(...pose.target);}} // arrest cinematic orbit
  const wantFov=chaseCamera&&started&&!inspectionCamera?cameraFov:DRIVE_FOV.min;if(camera.fov!==wantFov){camera.fov=wantFov;camera.updateProjectionMatrix();}
  playerCars.setVisible(!inspectionCamera);
-  if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode},dt);travel.gagDriver=!!pavlova.driver;playerCars.setLook(pavlova.driver?'offroad':'crossover',pavlova.driver?'#161616':'');ambulance?.update(pavlova,dt);}
+  if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode},dt);travel.gagDriver=!!pavlova.driver;playerCars.setLook(pavlova.driver?'offroad':PLAYER_CAR_TYPE,pavlova.driver?'#161616':'');ambulance?.update(pavlova,dt);}
   travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null});
   if(ready&&!paused&&!mapOpen&&!police?.busted){
    const birdStep=Math.min(.1,dt); // keep encounter pressure and bird motion on the same clock at low frame rates
