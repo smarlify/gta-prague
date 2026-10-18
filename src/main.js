@@ -14,6 +14,7 @@ import {selectCity,useCity,pickStart,bootStart,startUrl,dataUrl,registerCities,s
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
+import {roadsterStep,carIsAirborne,ROADSTER_AIR_MAX} from './roadster-flight.js';
 import {animateVehicle,cycleHeadlights,headlightModeLabel,playerHeadlightsOn,streetLampsOn,vehicleLampsOn,PLAYER_CAR_TYPE} from './vehicles.js';
 import {Mobility} from './mobility.js';
 import {createStreetLife} from './street-life.js';
@@ -646,7 +647,7 @@ function policeCarSources(){
   return {...source,blockers(){return [...(own?.()||[]),...police.units.filter(u=>u!==source.actor&&!u.playerTaken),...(travel?.parked?.()||[])];}};
  })];
 }
-function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,l.heading??(l.name==='Senate Square'?0:-Math.PI/2+.17));car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
+function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,l.heading??(l.name==='Senate Square'?0:-Math.PI/2+.17));car.roadster=true;car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
 function handleTileError(e){console.error(e);if(!document.body.classList.contains('booting'))toast('Some scenery could not load. Nearby streets will retry.');} // not over the welcome card
 const touchScreen=matchMedia('(pointer:coarse)').matches; // phones and tablets: no keyboard, so the HUD and touch buttons stay on
 if(touchScreen){document.body.classList.remove('clean-capture');document.body.classList.add('touch');}
@@ -786,6 +787,8 @@ function updateHUD(now){
  const district=pragueDistrictNumber(city?.id==='prague'?PRAGUE_AREAS:[],car.x,car.z);const nextTitle=locationPageTitle({street:streetName,district});if(document.title!==nextTitle)document.title=nextTitle;
  if(car.damage>.02)$('gear').textContent=`DAMAGE ${Math.round(car.damage*100)}% · R TO RESET`;
  if(car.battery===0)$('gear').textContent='R TO RECHARGE';else if(car.battery<=.2)$('gear').textContent='LOW BATTERY · R TO RECHARGE';
+ if(car.flying&&(car.battery??1)>0)$('gear').textContent=(car.alt||0)>1&&Math.abs(car.speed)<3?'HOVER':'FLYING';
+ else if(car.roadster&&!car.flying&&Math.abs(car.speed)<1&&(car.battery??1)>.2&&!(car.damage>.02))$('gear').textContent='SHIFT TO FLY';
  if(!driving){$('gear').textContent=TRAVEL_MODES[travel.mode].label.toUpperCase();$('speed').title='Speed in kilometres per hour';}
  if(areaLabel){const text=areaLabel(car.x,car.z,now);$('district-label').textContent=text;const caption=document.querySelector('.minimap-caption')?.firstChild;if(caption&&caption.textContent!==`${text} `)caption.textContent=`${text} `;}
  const location=currentLocation();locationReadout.update(location);
@@ -796,7 +799,7 @@ function updateHUD(now){
 function frame(now){
  if(gameIsStopped())return;
  requestAnimationFrame(frame);const frameMs=lastTime?now-lastTime:0;const steps=simulationSteps(lastTime?(now-lastTime)/1000:0),dt=steps.reduce((a,b)=>a+b,0);lastTime=now;
- mobileControls.update({started,paused,mapOpen,busted:!!police?.busted,mode:travel?.mode||'car',speed:car?.speed||0});
+   mobileControls.update({started,paused,mapOpen,busted:!!police?.busted,mode:travel?.mode||'car',speed:car?.speed||0,roadster:!!car?.roadster,flying:!!car?.flying});
  if(ready)peopleInteraction.update(dt,car,nearbyPeople(),{enabled:canTalk()});
  if(ready&&marketShop){marketShop.update(paused||mapOpen?0:dt,car,{enabled:canTalk()});for(const m of marketShop.drainMessages())marketUI.say(m);}
  if(ready&&!paused&&!mapOpen&&!police?.busted){
@@ -806,15 +809,15 @@ function frame(now){
    impacts.step(step,world);crowd?.step(step);let before=null;const driving=travel.mode==='car',parked=travel.parked();
    if(started){
     if(driving&&travel.car&&car!==travel.car)car=travel.car;
-    const previous=before={...car},r=driving?driveStep(car,keys,step,world):travel.step(keys,step,travelObstacles());
+    const previous=before={...car},r=driving?(car.roadster&&!travel.gagDriver?roadsterStep(car,keys,step,world):driveStep(car,keys,step,world)):travel.step(keys,step,travelObstacles());
     if(r.crashed){car=travel.actor;playerCars.sync(travel);if(now-lastToast>1500){toast(r.crashed>5?'Ouch. That was a hard fall.':'You came off. Press Enter to get back on.');lastToast=now;}}
     police.observeDriving(previous,car,step,{driving});
-    const parkedHit=driving&&parked.find(p=>sweptContact(previous,car,p));
+    const aloft=carIsAirborne(car),parkedHit=driving&&!aloft&&parked.find(p=>sweptContact(previous,car,p));
     if(parkedHit){Object.assign(car,{x:previous.x,z:previous.z,heading:previous.heading,speed:0});impacts.damage(car,Math.abs(previous.speed),'vehicle');police.report(parkedHit.travelMode==='car'?'vehicle':'property',`parked:${parkedHit.id}`,Math.abs(previous.speed));}
-    knockables?.step(step,driving?car:{...car,speed:0},world);
+    knockables?.step(step,driving&&!aloft?car:{...car,speed:0},world);
     if(driving){
-     police.observe(previous,car,mobility.cars,[]);
-     impacts.collide(previous,car,[...mobility.people,...detailPeople],[...cyclists.riders.filter(r=>!r.playerTaken),...npcScooters.riders],[...mobility.cars,...police.obstacles,...(multiplayer?.remotes?.carBodies?.()||[])],police);
+     if(!aloft){police.observe(previous,car,mobility.cars,[]);impacts.collide(previous,car,[...mobility.people,...detailPeople],[...cyclists.riders.filter(r=>!r.playerTaken),...npcScooters.riders],[...mobility.cars,...police.obstacles,...(multiplayer?.remotes?.carBodies?.()||[])],police);}
+     if(r.collision==='landing'){impacts.damage(car,Math.max(4,r.impact||6),'vehicle');if(now-lastToast>1500){toast('Hard landing.');lastToast=now;}}
      if(r.collision==='building'){impacts.damage(car,Math.abs(previous.speed),'building');finale.buildingImpact({...car,speed:previous.speed},Math.abs(previous.speed),world,police);}
     }else if(!r.crashed){const h=travel.hitPeople(previous,[...mobility.people,...detailPeople],impacts,{police,obstacles:travelObstacles()});
      if(h?.fell){car=travel.actor;playerCars.sync(travel);toast(h.fell>5?'Ouch. You hit someone and went flying.':'You hit someone and came off. Press Enter to get back on.');lastToast=now;}else if(h?.bumped&&now-lastToast>1500){toast('Sorry!');lastToast=now;}}
@@ -826,7 +829,7 @@ function frame(now){
    const beforeTransitImpact=Math.abs(car.speed);
    tramSim.step(step,car,[...mobility.cars,...(buses?.obstacles||[]),...police.obstacles,...parked]);
    buses?.step(step,car,[...mobility.cars,...tramSim.obstacles,...police.obstacles,...parked]);
-   if(started&&driving&&beforeTransitImpact>=2&&car.speed===0){impacts.damage(car,beforeTransitImpact,'transit');finale.transitImpact(car,beforeTransitImpact,tramSim.trams,police);}
+   if(started&&driving&&!carIsAirborne(car)&&beforeTransitImpact>=2&&car.speed===0){impacts.damage(car,beforeTransitImpact,'transit');finale.transitImpact(car,beforeTransitImpact,tramSim.trams,police);}
    mobility.externalObstacles=[...impacts.obstacles(),...tramSim.obstacles,...(buses?.obstacles||[]),...police.obstacles,...parked];mobility.externalBodies=transitBodies();
    mobility.step(step,car);angryDrivers.update(step,mobility.time,car);cyclists.step(step,car);marketLife.update(step,car);universityLife.update(step,car);terminalLife.update(step,car);
    npcScooters.step(step,car,{people:[...mobility.people,...detailPeople],vehicles:[...mobility.cars,...tramSim.obstacles,...(buses?.obstacles||[]),...police.obstacles,...parked],impacts});
@@ -846,13 +849,15 @@ function frame(now){
    treeFade.value=chaseCamera&&started?0:1;
    surfaceNow=world?surfaceDetailAt(world,car.x,car.z):surfaceNow;rumbleNow=rumbleFor(travel.mode==='car'&&started&&!paused&&!mapOpen?surfaceNow.surface:'asphalt',travel.mode==='car'?car.speed:0,paused||mapOpen?0:dt,roadRumble,surfaceNow.roughness);
    const slope=groundPose(vehicle.x,vehicle.z,vehicle.heading,1.4,.8); // terrain: wheels on the ground, body pitched and rolled with the slope
-   carGroup.visible=travel.mode==='car'||!!travel.sunkCar;carGroup.position.set(vehicle.x,.12+rumbleNow.bob+slope.y,vehicle.z);carGroup.rotation.y=vehicle.heading;carGroup.rotation.x=rumbleNow.pitch+slope.pitch; // no sink drop: bridge decks are mapped as water
-   carGroup.rotation.z=(started?-vehicle.steer*Math.min(Math.abs(vehicle.speed)*.002,.04):0)+rumbleNow.roll+slope.roll;
-   animateVehicle(carGroup,vehicle.speed,vehicle.steer,paused||mapOpen?0:dt,keys.has('Space')||keys.has('KeyS')||keys.has('ArrowDown'));
+   const airborne=!!(vehicle.flying&&(vehicle.alt||0)>.02);
+   carGroup.visible=travel.mode==='car'||!!travel.sunkCar;carGroup.position.set(vehicle.x,.12+(airborne?0:rumbleNow.bob)+slope.y+(airborne?vehicle.alt||0:0),vehicle.z);carGroup.rotation.y=vehicle.heading;carGroup.rotation.x=airborne?(vehicle.pitch||0):rumbleNow.pitch+slope.pitch; // no sink drop: bridge decks are mapped as water
+   carGroup.rotation.z=airborne?(vehicle.roll||0):(started?-vehicle.steer*Math.min(Math.abs(vehicle.speed)*.002,.04):0)+rumbleNow.roll+slope.roll;
+   carGroup.userData.nozzle=airborne||travel.mode==='car'?vehicle.nozzle||0:0;carGroup.userData.lift=vehicle.lift||0;carGroup.userData.flying=airborne;carGroup.userData.flightPitch=vehicle.pitch||0;
+   animateVehicle(carGroup,vehicle.speed,vehicle.steer,paused||mapOpen?0:dt,!airborne&&(keys.has('Space')||keys.has('KeyS')||keys.has('ArrowDown')));
    for(const w of carGroup.userData.wheels)w.pivot.scale.y=vehicle.flat?.7:1;if(vehicle.flat)carGroup.position.y-=.08; // shredded tyres: squashed wheels, car sits on its rims
    marker.position.set(car.x,.14+groundAt(car.x,car.z),car.z);marker.material.opacity=started?.18:.4;
    // Drive-camera feel (src/driving-camera.js): springy heading lag, Q/E look, roll, speed FOV and impact shake.
-   driveCamera.heading=cameraHeading;const cam=stepDriveCamera(driveCamera,car,dt,{lookTarget:keys.has('KeyQ')?1.4:keys.has('KeyE')?-1.4:0,drive:chaseCamera&&started,maxSpeed:PLAYER_MAX_SPEED,rumble:{bob:(rumbleNow.cameraBob||0)*(captureMode?.6:1),roll:(rumbleNow.cameraRoll||0)*(captureMode?.6:1)}}); // camera gets its own gentle sway, not the body's jiggle
+   driveCamera.heading=cameraHeading;const cam=stepDriveCamera(driveCamera,car,dt,{lookTarget:keys.has('KeyQ')?1.4:keys.has('KeyE')?-1.4:0,drive:chaseCamera&&started,maxSpeed:car.roadster?ROADSTER_AIR_MAX:PLAYER_MAX_SPEED,rumble:{bob:(rumbleNow.cameraBob||0)*(captureMode?.6:1),roll:(rumbleNow.cameraRoll||0)*(captureMode?.6:1)}}); // camera gets its own gentle sway, not the body's jiggle
    cameraHeading=driveCamera.heading;cameraLook=cam.look;cameraFov=cam.fov;cameraRoll=cam.roll;cameraShake=captureMode?[0,0,0]:cam.offset;cameraRumble=cam.rumble; // capture mode keeps 60% cobble rumble, no impact shake
    const ahead=started?11+Math.abs(car.speed)*.5:0;
    const target=new THREE.Vector3(car.x-Math.sin(cameraHeading)*ahead,0,car.z-Math.cos(cameraHeading)*ahead);
@@ -1117,7 +1122,7 @@ async function boot(){
     const sourceLinks=document.querySelector('#sources-dialog .source-links');sourceLinks.replaceChildren();
     for(const [label,href]of [['OpenStreetMap','https://www.openstreetmap.org/copyright'],['Data and asset credits','https://github.com/worldhood/worldhood/blob/main/NOTICE.md']]){const a=document.createElement('a');a.textContent=label+' ↗';a.href=href;a.target='_blank';a.rel='noreferrer';sourceLinks.append(a);}
     document.querySelector('#map-dialog .map-caption').firstChild.textContent=`${city.name.toUpperCase()} FROM OPEN DATA `;
-    document.querySelector('#help-dialog .help-note').textContent='Explore this single-player city playground on foot, by car, bicycle or scooter. Share the streets with simulated traffic and pedestrians. Available rides start near each starting point; buildings and water constrain movement.';
+    document.querySelector('#help-dialog .help-note').textContent='Explore this single-player city playground on foot, by car, bicycle or scooter. Share the streets with simulated traffic and pedestrians. Available rides start near each starting point; buildings and water constrain movement. The starting car is a Roadster: hold Shift and the cold-gas rockets lift it, then pitch with W and S.';
     $('district-label').textContent=city.name.toUpperCase();
     document.querySelector('#pause-overlay h2').textContent=`${city.name} can wait.`;
     $('sources-btn').firstChild.textContent=`Map data © OpenStreetMap contributors · ODbL${city.furniture?' · Mapillary':''}${/Digiroad/.test(city.attribution)?' · Digiroad CC BY':''}${city.terrain?/National Land Survey/.test(city.terrain.source)?' · NLS elevation CC BY':' · Mapterhorn elevation':''} `;
@@ -1135,7 +1140,7 @@ async function boot(){
    installMapillaryAttribution(city);
    {const a=document.createElement('a');a.href='/THIRD_PARTY_LICENSES.txt';a.textContent='Open-source software notices ↗';a.target='_blank';a.rel='noreferrer';document.querySelector('#sources-dialog .source-links').append(a);}
    $('world').setAttribute('aria-label',`3D view of ${city.name}, explored on foot, by car, bike or scooter`);
-   document.querySelector('#help-dialog .dialog-copy').textContent=`Explore ${city.name} by car, on foot, by bicycle or on a scooter. Press F to get out, Enter to use a nearby stopped car, bicycle or scooter, and G to greet someone. Hold Shift to run. Tap the small action buttons on a phone. The minimap stays north-up.`;
+   document.querySelector('#help-dialog .dialog-copy').textContent=`Explore ${city.name} by car, on foot, by bicycle or on a scooter. Press F to get out, Enter to use a nearby stopped car, bicycle or scooter, and G to greet someone. Hold Shift to run, or to lift the Roadster on its rockets. Tap the small action buttons on a phone. The minimap stays north-up.`;
    document.querySelector('#help-dialog .dialog-drive').firstChild.textContent='Keep exploring ';
    const helpGrid=document.querySelector('#help-dialog .help-grid');if(helpGrid)$('pause-controls').append(helpGrid.cloneNode(true));
    updateHUD(0);

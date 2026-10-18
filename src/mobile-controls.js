@@ -10,7 +10,7 @@ export function createMobileControls({keys,canPlay=()=>true,onMenuChange=()=>{},
  let state={started:false,paused:false,mapOpen:false,busted:false,mode:'car',speed:0},steering='thumb',afterClose=null,backdropPointer=null,neutral=null,motionSeen=false,motionTimer=null,disposed=false;
  const on=(target,type,handler,options={})=>target.addEventListener(type,handler,{...options,signal:listeners.signal});
  const touch=()=>doc.body.classList.contains('touch'),allowed=()=>touch()&&state.started&&!state.paused&&!state.mapOpen&&!state.busted&&!menu.open&&canPlay();
- controls.innerHTML=`<div class="mobile-steering"><div id="touch-steer" class="mobile-steer" role="slider" tabindex="0" aria-label="Steer. Drag left or right; release to straighten." aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0" aria-orientation="horizontal"><span class="mobile-steer-track"></span><span class="mobile-steer-arrow left">${arrow('left')}</span><span class="mobile-steer-arrow right">${arrow('right')}</span><span class="mobile-steer-thumb"><i></i><i></i><i></i></span><span class="mobile-steer-label">Steer</span></div><div class="mobile-steer-buttons" hidden><button type="button" data-key="ArrowLeft" aria-label="Steer left">${arrow('left')}</button><button type="button" data-key="ArrowRight" aria-label="Steer right">${arrow('right')}</button></div><span class="mobile-tilt-hint" hidden>Tilt to steer</span></div><div class="mobile-pedals"><button id="touch-brake" class="mobile-pedal" type="button" data-key="ArrowDown" aria-label="Brake, then reverse">${arrow('down')}<span>Brake<small>Reverse</small></span></button><button id="touch-go" class="mobile-pedal mobile-go" type="button" data-key="ArrowUp" aria-label="Accelerate">${arrow('up')}<span>Go</span></button></div>`;
+ controls.innerHTML=`<div class="mobile-steering"><div id="touch-steer" class="mobile-steer" role="slider" tabindex="0" aria-label="Steer. Drag left or right; release to straighten." aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0" aria-orientation="horizontal"><span class="mobile-steer-track"></span><span class="mobile-steer-arrow left">${arrow('left')}</span><span class="mobile-steer-arrow right">${arrow('right')}</span><span class="mobile-steer-thumb"><i></i><i></i><i></i></span><span class="mobile-steer-label">Steer</span></div><div class="mobile-steer-buttons" hidden><button type="button" data-key="ArrowLeft" aria-label="Steer left">${arrow('left')}</button><button type="button" data-key="ArrowRight" aria-label="Steer right">${arrow('right')}</button></div><span class="mobile-tilt-hint" hidden>Tilt to steer</span></div><div class="mobile-pedals"><button id="touch-brake" class="mobile-pedal" type="button" data-key="ArrowDown" aria-label="Brake, then reverse">${arrow('down')}<span>Brake<small>Reverse</small></span></button><button id="touch-fly" class="mobile-pedal" type="button" data-key="ShiftLeft" hidden aria-label="Fire the rockets and lift"><span>Fly<small>Rockets</small></span></button><button id="touch-go" class="mobile-pedal mobile-go" type="button" data-key="ArrowUp" aria-label="Accelerate">${arrow('up')}<span>Go</span></button></div>`;
  aux.innerHTML=`<button id="touch-menu" type="button" aria-label="Open game menu" aria-haspopup="dialog" aria-controls="mobile-menu" aria-expanded="false">${menuIcon}<span>Menu</span></button>`;
  const pad=doc.getElementById('touch-steer'),menuButton=doc.getElementById('touch-menu'),pedals=[...controls.querySelectorAll('[data-key]')],steerButtons=controls.querySelector('.mobile-steer-buttons'),tiltHint=controls.querySelector('.mobile-tilt-hint');
  const menu=doc.createElement('dialog');menu.id='mobile-menu';menu.setAttribute('aria-labelledby','mobile-menu-title');
@@ -108,16 +108,19 @@ export function createMobileControls({keys,canPlay=()=>true,onMenuChange=()=>{},
  return {
   release,openMenu,closeMenu,
   update(next){
-   const previousMode=state.mode;state={...state,...next};
+   const previousMode=state.mode,previousFlying=!!state.flying,previousRoadster=!!state.roadster;state={...state,...next};
    if(previousMode!==state.mode||!allowed())release();
    const visible=touch()&&state.started&&!state.paused&&!state.mapOpen&&!state.busted;
    controls.hidden=!visible;aux.hidden=!visible;
    if(menu.open)refreshMenu();
-   if(previousMode!==state.mode){
-    const walk=state.mode==='walk',brake=doc.getElementById('touch-brake'),go=doc.getElementById('touch-go');
-    brake.setAttribute('aria-label',walk?'Walk backwards':'Brake, then reverse');brake.querySelector('span').firstChild.textContent=walk?'Back':'Brake';brake.querySelector('small').textContent=walk?'':'Reverse';
-    go.setAttribute('aria-label',walk?'Walk forward':state.mode==='bike'?'Pedal forward':state.mode==='scooter'?'Ride forward':'Accelerate');
-    controls.setAttribute('aria-label',walk?'Touch walking controls':'Touch driving controls');
+   if(previousMode!==state.mode||previousFlying!==!!state.flying||previousRoadster!==!!state.roadster){
+    const walk=state.mode==='walk',brake=doc.getElementById('touch-brake'),go=doc.getElementById('touch-go'),fly=doc.getElementById('touch-fly');
+    const air=state.mode==='car'&&state.flying;
+    brake.setAttribute('aria-label',walk?'Walk backwards':air?'Pitch the nose down':'Brake, then reverse');brake.querySelector('span').firstChild.textContent=walk?'Back':air?'Nose':'Brake';brake.querySelector('small').textContent=walk?'':air?'Down':'Reverse';
+    go.setAttribute('aria-label',walk?'Walk forward':state.mode==='bike'?'Pedal forward':state.mode==='scooter'?'Ride forward':air?'Thrust and pitch the nose up':'Accelerate');
+    const goLabel=go.querySelector('span');if(goLabel.firstChild)goLabel.firstChild.textContent=air?'Nose':'Go';
+    if(fly)fly.hidden=!(state.roadster&&state.mode==='car');
+    controls.setAttribute('aria-label',walk?'Touch walking controls':air?'Touch flight controls':'Touch driving controls');
    }
    if((state.busted||!state.started)&&menu.open)closeMenu();
   },

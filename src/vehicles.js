@@ -61,4 +61,7 @@ export function animateVehicle(model,speed,steer,dt,braking=false){
  body.rotation.x=u.pitch||0;body.rotation.z=u.roll||0;
  // Keep the sills near the wheel arches: pitch about the axle line, not the ground.
  body.position.y=-Math.abs(u.pitch||0)*.1;
+ if(u.nozzleMat)u.nozzleMat.color.set((u.nozzle||0)>.08?'#d7f6ff':'#3e5158');
+ if(u.wing)u.wing.rotation.x=u.flying?Math.max(-.35,Math.min(.2,-(u.flightPitch||0)*.25)):0;
+ if(u.fanPivots&&dt>0){const spin=dt*(6+(u.lift?28:0)+Math.min(16,Math.abs(speed)*.35));for(const p of u.fanPivots)p.rotation.y+=spin;}
 }

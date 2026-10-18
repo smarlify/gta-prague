@@ -41,7 +41,7 @@ export function createPlayerCarRenderer(scene){
   // home-car repaint must not leave the wheel rig pointing at the parked car.
   if(selected)active.userData=selected.model.userData;
   paintOccupied();
-  for(const [car,entry]of entries){entry.damage.update(car);if(entry===selected)continue;parked.add(entry.model);groundPose(car.x,car.z,car.heading,1.4,.8,slope);entry.model.position.set(car.x,.12+slope.y,car.z);entry.model.rotation.set(slope.pitch,car.heading,slope.roll,'YXZ');entry.model.visible=Math.hypot(car.x-travel.actor.x,car.z-travel.actor.z)<650;animateVehicle(entry.model,0,0,dt,false);}
+  for(const [car,entry]of entries){entry.damage.update(car);if(entry===selected)continue;parked.add(entry.model);groundPose(car.x,car.z,car.heading,1.4,.8,slope);entry.model.position.set(car.x,.12+slope.y,car.z);entry.model.rotation.set(slope.pitch,car.heading,slope.roll,'YXZ');entry.model.visible=Math.hypot(car.x-travel.actor.x,car.z-travel.actor.z)<650;entry.model.userData.nozzle=0;entry.model.userData.lift=0;entry.model.userData.flying=false;animateVehicle(entry.model,0,0,dt,false);}
   if(selected)selected.model.visible=true;
  },setSiren(on,time=0){for(const [car,entry]of entries)flashPursuitLights(entry.model,time,!!on&&entry===current&&!!car.visual?.police);},setVisible(visible){active.visible=parked.visible=visible;}};
 }

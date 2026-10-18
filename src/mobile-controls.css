@@ -35,6 +35,7 @@
  body.mobile-controls-ready #touch-controls .mobile-pedal{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;width:var(--mobile-pedal);height:78px;padding:8px 3px;font:600 11px/1.2 'DM Sans',sans-serif}
  .mobile-pedal small{display:block;font:500 9px/1.4 'DM Sans',sans-serif;margin-top:2px;opacity:.68}
  body.mobile-controls-ready #touch-controls .mobile-go{height:92px;background:#da5e38ed;color:#fff8ed;border-color:#ecac927a}
+ body.mobile-controls-ready #touch-controls #touch-fly{width:46px;height:64px;align-self:flex-end}
  body.mobile-controls-ready #touch-controls button:is(:active,.pressed){background:#30312ef2;color:#fff8ed;border-color:#30312e}
  body.mobile-controls-ready #app .dashboard{position:absolute;left:50%;right:auto;bottom:calc(var(--mobile-bottom) + 4px);width:62px;height:52px;transform:translateX(-50%);display:block;pointer-events:none;z-index:24}
  body.mobile-controls-ready #app .dashboard :is(.minimap-card,.journey,.controls-hint){display:none}

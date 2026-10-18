@@ -24,8 +24,9 @@ test('Olympia separate carriageways only route north on east, south on west', {s
  assert.equal(original.roads.edges.length,corrected.roads.edges.length+13);
 });
 test('player G-Class is a boxy upright SUV and traffic body styles stay distinct',()=>{
- const player=createVehicle(0,true);
+ const player=createVehicle(0,true,'gwagen');
  assert.equal(player.userData.type,'gwagen');assert.equal(player.name,'Mercedes G');
+ assert.equal(createVehicle(0,true).userData.type,'roadster','the starter on this branch is the Roadster');
  assert.equal(player.userData.spec.l,4.825);assert.equal(player.userData.spec.w,1.931);assert.equal(player.userData.spec.h,1.969);assert.equal(player.userData.spec.wb,2.89);
  assert.equal(player.userData.spec.boxy,true);
  assert.equal(player.getObjectByName('paint').material.color.getHexString(),'111111','default G is black');

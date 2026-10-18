@@ -36,7 +36,7 @@ export function vehicleFromTravel(travel, playerCars) {
       variant: visual.variant === 'van' ? 'van' : 'estate',
     };
   }
-  const type = visual.type || playerCars?.group?.userData?.type || 'gwagen';
+  const type = visual.type || playerCars?.group?.userData?.type || 'roadster';
   let colour = visual.paint;
   if (colour && typeof colour === 'object' && typeof colour.getStyle === 'function') {
     colour = colour.getStyle();
