@@ -12,7 +12,7 @@ import {setTramLivery} from './tram-model.js';
 import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,bootStart,startUrl,dataUrl,registerCities,sceneQuery,applySceneQuery} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
-import {bindCharacterPicker,readCharacter,playerPageTitle} from './character-select.js';
+import {bindCharacterPicker,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
@@ -296,7 +296,8 @@ const tmp=new THREE.Object3D();
 const treeFocus={value:new THREE.Vector2(1e5,1e5)};
 const treeFade={value:0};
 const playerCars=createPlayerCarRenderer(scene),carGroup=playerCars.group;carGroup.visible=false;carGroup.rotation.order='YXZ'; // heading, then rumble pitch/roll in the car's own frame
-let chosenCharacter=readCharacter();
+let chosenCharacter=resolveDriver(location.search);
+if(new URLSearchParams(location.search).has('driver'))writeCharacterId(undefined,chosenCharacter.id);
 function rememberCharacter(choice){
  chosenCharacter=choice;
  writeStoredPlayerName(choice.name);

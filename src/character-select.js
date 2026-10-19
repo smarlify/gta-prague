@@ -1,5 +1,6 @@
 // Welcome-card choice: which car is parked for the camera and for Start, and
 // which name the local player publishes. Nothing chosen means the Roadster.
+import {slug} from './cities.js';
 import {locationPageTitle} from './worldhood-brand.js';
 
 export const CHARACTER_STORAGE_KEY = 'gta-praha-character';
@@ -57,6 +58,36 @@ export function readCharacterId(storage) {
 
 export function readCharacter(storage) {
   return characterById(readCharacterId(storage));
+}
+
+// ?driver= values, same slug style as ?start= / ?time= / ?weather=.
+const DRIVER_QUERY = {
+  elon: 'elon',
+  'elon-musk': 'elon',
+  turek: 'filip',
+  'filip-turek': 'filip',
+  filip: 'filip',
+  dave: 'dave',
+  'dave-n': 'dave',
+};
+
+/** The character named by ?driver=, or null when the param is missing or unknown. */
+export function driverFromSearch(search = '') {
+  const raw = new URLSearchParams(search).get('driver');
+  if (raw == null) return null;
+  const id = DRIVER_QUERY[slug(raw)];
+  return id ? characterById(id) : null;
+}
+
+/**
+ * A known ?driver= pins that choice, even when the saved visit is someone else.
+ * A missing param keeps the saved choice, which is the Roadster when nothing is saved.
+ * An unknown value does not guess: it stays on the Roadster.
+ */
+export function resolveDriver(search = '', storage) {
+  const params = new URLSearchParams(search);
+  if (!params.has('driver')) return readCharacter(storage);
+  return driverFromSearch(search) || characterById(DEFAULT_CHARACTER_ID);
 }
 
 export function writeCharacterId(storage, id) {

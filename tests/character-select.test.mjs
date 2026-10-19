@@ -7,7 +7,9 @@ import {
   isIdleDriverRecord,
   playerPageTitle,
   publishablePlayerName,
+  driverFromSearch,
   readCharacter,
+  resolveDriver,
   writeCharacterId,
 } from '../src/character-select.js';
 import { listedPlayers } from '../src/net/protocol.js';
@@ -33,6 +35,23 @@ test('the welcome choices are the G, the Roadster, and the Scala, and the Roadst
   assert.equal(readCharacter(memoryStorage()).name, 'Elon Musk');
   assert.equal(readCharacter(memoryStorage()).type, 'roadster');
   assert.equal(characterById('nope').id, 'elon');
+});
+
+test('?driver= pins Elon, Turek, or Dave and an unknown value stays on the Roadster', () => {
+  const saved = memoryStorage();
+  writeCharacterId(saved, 'dave');
+  assert.equal(driverFromSearch('?driver=elon').name, 'Elon Musk');
+  assert.equal(driverFromSearch('?driver=ELON').type, 'roadster');
+  assert.equal(driverFromSearch('?driver=Turek').name, 'Filip Turek');
+  assert.equal(driverFromSearch('?driver=turek').type, 'gwagen');
+  assert.equal(driverFromSearch('?driver=dave').name, 'Dave N.');
+  assert.equal(driverFromSearch('?driver=Dave').flies, false);
+  assert.equal(driverFromSearch('?city=prague&start=petrin&driver=turek&time=white-night').id, 'filip');
+  assert.equal(resolveDriver('?driver=turek', saved).name, 'Filip Turek');
+  assert.equal(resolveDriver('', saved).name, 'Dave N.');
+  assert.equal(resolveDriver('?driver=nobody', saved).id, 'elon');
+  assert.equal(resolveDriver('?driver=', memoryStorage()).id, 'elon');
+  assert.equal(driverFromSearch(''), null);
 });
 
 test('a saved choice is remembered and an unknown id falls back to the Roadster', () => {
