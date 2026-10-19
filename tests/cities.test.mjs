@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
-import {selectCity,pickStart,slug,startUrl,dataUrl,useCity,CITIES,registerCities,sceneQuery,applySceneQuery} from '../src/cities.js';
+import {selectCity,pickStart,slug,startUrl,dataUrl,useCity,CITIES,registerCities,sceneQuery,applySceneQuery,visitScene} from '../src/cities.js';
 import {createLook} from '../src/weather.js';
 
 const starts=[{name:'Olympia Terminal'},{name:'Töölö (National Opera)'},{name:'Seurasaari bridge'},{name:'Senate Square'}];
@@ -74,7 +74,7 @@ test('?time= and ?weather= pin a look; unknown or missing values do not',()=>{
  const hourOnly=createLook({automatic:true,initial:'whitenight',weather:'clear'});
  applySceneQuery(hourOnly,sceneQuery('?time=white-night'));
  assert.equal(hourOnly.automatic,false);
- assert.equal(hourOnly.weatherAutomatic,true,'a missing weather param leaves the forecast automatic');
+ assert.equal(hourOnly.weatherAutomatic,true,'applySceneQuery still leaves an unpinned half automatic');
  hourOnly.followWeather('rain');
  assert.equal(hourOnly.weather,'rain');
  hourOnly.followDay('midday');
@@ -83,7 +83,7 @@ test('?time= and ?weather= pin a look; unknown or missing values do not',()=>{
 
  const skyOnly=createLook({automatic:true,initial:'morning',weather:'thunder'});
  applySceneQuery(skyOnly,sceneQuery('?weather=thunderstorm'));
- assert.equal(skyOnly.automatic,true,'a missing time param leaves the clock automatic');
+ assert.equal(skyOnly.automatic,true,'applySceneQuery still leaves an unpinned hour automatic');
  assert.equal(skyOnly.weatherAutomatic,false);
  skyOnly.followDay('night');
  assert.equal(skyOnly.name,'night');
@@ -98,6 +98,45 @@ test('?time= and ?weather= pin a look; unknown or missing values do not',()=>{
  assert.equal(live.name,'night');
  assert.equal(live.weather,'rain');
  live.dispose();
+});
+test('a bare visit rolls daytime and weather once, and auto stays off until cycled',()=>{
+ const rolls=[0,0.99];
+ let i=0;
+ const bare=visitScene('',()=>rolls[i++]);
+ assert.equal(bare.time,'morning');
+ assert.equal(bare.weather,'snow');
+ assert.equal(bare.timePinned,false);
+ assert.equal(bare.weatherPinned,false);
+ const look=createLook({automatic:false,initial:bare.time,weather:bare.weather});
+ assert.equal(look.label,'Morning');
+ assert.equal(look.weatherLabel,'Snow');
+ assert.equal(look.automatic,false);
+ assert.equal(look.weatherAutomatic,false);
+ look.followDay('night');look.followWeather('clear');
+ assert.equal(look.name,'morning');
+ assert.equal(look.weather,'snow');
+ for(let step=0;step<4;step++)look.cycle();
+ assert.equal(look.name,'whitenight');
+ assert.equal(look.automatic,false);
+ look.cycle();
+ assert.equal(look.automatic,true);
+ assert.match(look.label,/\(auto\)$/);
+ look.dispose();
+
+ const night=visitScene('?time=night',()=>0);
+ assert.equal(night.time,'night');
+ assert.equal(night.timePinned,true);
+ assert.equal(night.weather,'clear');
+ assert.equal(night.weatherPinned,false);
+ const both=visitScene('?time=golden&weather=rain',()=>0);
+ assert.deepEqual({time:both.time,weather:both.weather},{time:'golden',weather:'rain'});
+ assert.equal(both.timePinned,true);
+ assert.equal(both.weatherPinned,true);
+ const unknown=visitScene('?time=noon&weather=hail',()=>1);
+ assert.equal(unknown.time,'midday');
+ assert.equal(unknown.weather,'overcast');
+ assert.equal(unknown.timePinned,false);
+ assert.equal(unknown.weatherPinned,false);
 });
 test('the address bar keeps city and start shareable; data stays under the city root',()=>{
  const helsinkiFixture={id:'helsinki',name:'Helsinki',dataRoot:'/data'};

@@ -10,7 +10,7 @@ import {SpatialIndex,RADIUS,pointInPolygon,insidePlayable,setPlayableRadius} fro
 import {loadExtensionIndex,loadExtension,applyExtensions,mapViewFor,activateExtension,createExtensionStreamer} from './extensions.js';
 import {setTramLivery} from './tram-model.js';
 import {setBusLivery} from './bus-renderer.js';
-import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,sceneQuery,applySceneQuery} from './cities.js';
+import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,visitScene} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {bindCharacterPicker,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
 import {writeStoredPlayerName} from './net/player-name.js';
@@ -108,7 +108,7 @@ import {gameIsStopped,onGameStop,reportGameError} from './game-resilience.js';
 import {createSky} from './sky.js';
 import {createPostPipeline} from './post.js';
 import {attachSnow,createLook,SNOW_DUST,WEATHER_UNIFORMS} from './weather.js';
-import {clockLook,pragueHour,startPragueForecast} from './live-weather.js';
+import {startPragueForecast} from './live-weather.js';
 import {createStreetFurniture,combineKnockables} from './street-furniture.js';
 import {breakableSigns} from './breakable-signs.js';
 import {createParkedMicromobility} from './parked-micromobility.js';
@@ -279,9 +279,8 @@ buildingMaterial.onBeforeCompile=shader=>{
   }
  `);
 };
-const launchLook=sceneQuery(location.search);
-look=createLook({scene,sky,hemi,sun,post,surfaces:[surfaceMaterial],getSea:()=>sea,initial:launchLook.time||clockLook(pragueHour()),weather:launchLook.weather||'clear',automatic:true}); // ?time= and ?weather= pin a look before the first paint; anything else follows the live Prague clock and forecast. T cycles daytime, Y cycles weather
-applySceneQuery(look,launchLook);
+const launchLook=visitScene(location.search);
+look=createLook({scene,sky,hemi,sun,post,surfaces:[surfaceMaterial],getSea:()=>sea,initial:launchLook.time,weather:launchLook.weather,automatic:false}); // ?time= and ?weather= pin that half. Anything absent is rolled once, not the live clock. T and Y can still return to (auto).
 function paintLook(){$('look-label').textContent=look.label;$('weather-label').textContent=look.weatherLabel;}
 paintLook();look.onChange(paintLook);
 $('look-btn').addEventListener('click',()=>{look.cycle();toast(look.label);$('world').focus();});
