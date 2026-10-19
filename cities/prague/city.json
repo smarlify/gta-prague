@@ -70,7 +70,10 @@
   {
    "name": "Malostranské nábřeží",
    "district": "Praha 1 - Malá Strana",
-   "at": [14.4085, 50.0862]
+   "at": [14.40793525, 50.08131985],
+   "exact": true,
+   "heading": 0,
+   "street": "Malostranské nábřeží"
   },
   {
    "name": "Mánesův most",
