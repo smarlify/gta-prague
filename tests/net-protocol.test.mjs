@@ -13,6 +13,10 @@ import {
   parseCrashImpulse,
   crashImpulsePayload,
   remotePlayersFromMap,
+  listedPlayers,
+  onlinePlayerCount,
+  playerPresencePath,
+  presenceIdentity,
   presencePublishHz,
   presencePublishes,
   canJoinMultiplayer,
@@ -318,6 +322,73 @@ test('ambulance poses stay on the row so another player in the demo room can dra
   assert.equal(remotes[0].uid, 'filip');
   assert.equal(remotes[0].ambulances.length, 2);
   assert.equal(parsePresence(filip).ambulances[1].z, 1370);
+});
+
+test('two tabs of one anonymous user are both in the demo room Online list', () => {
+  const now = 1_700_000_200_000;
+  const turekId = presenceIdentity('anon-brave', 'tab-turek');
+  const daveId = presenceIdentity('anon-brave', 'tab-dave');
+  const turek = buildPresence({
+    uid: turekId,
+    name: 'Filip Turek',
+    x: 10,
+    z: 20,
+    heading: 1,
+    speed: 4,
+    mode: 'car',
+    vehicle: { type: 'gwagen', colour: '#111111' },
+    updatedAt: now,
+  });
+  const dave = buildPresence({
+    uid: daveId,
+    name: 'Dave N.',
+    x: 12,
+    z: 22,
+    heading: 0.2,
+    speed: 6,
+    mode: 'car',
+    vehicle: { type: 'scala', colour: '#ee5a1c' },
+    updatedAt: now,
+  });
+  const turekPath = playerPresencePath('anon-brave', 'tab-turek');
+  const davePath = playerPresencePath('anon-brave', 'tab-dave');
+  assert.equal(turekPath, 'gta-praha/rooms/demo/players/anon-brave/tab-turek');
+  assert.equal(davePath, 'gta-praha/rooms/demo/players/anon-brave/tab-dave');
+  assert.notEqual(turekPath, davePath);
+  assert.notEqual(turekPath, PLAYERS_PATH);
+  assert.equal(turekPath.includes('Filip'), false);
+  assert.equal(davePath.includes('Dave'), false);
+  assert.equal(DEMO_ROOM, 'demo');
+  const snapshot = {
+    'anon-brave': {
+      'tab-turek': turek,
+      'tab-dave': dave,
+    },
+  };
+  const asTurek = listedPlayers(snapshot, turekId);
+  assert.equal(onlinePlayerCount(snapshot, turekId), 2);
+  assert.equal(asTurek.length, 2);
+  assert.equal(asTurek.find((row) => row.uid === turekId).you, true);
+  assert.equal(asTurek.find((row) => row.name === 'Dave N.').you, false);
+  const seen = remotePlayersFromMap(snapshot, turekId, now);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].uid, daveId);
+  assert.equal(seen[0].vehicle.type, 'scala');
+  const otherProfile = {
+    'anon-brave': { 'tab-turek': turek },
+    'anon-other': {
+      'tab-dave': buildPresence({
+        uid: presenceIdentity('anon-other', 'tab-dave'),
+        name: 'Dave N.',
+        x: 12,
+        z: 22,
+        mode: 'car',
+        vehicle: { type: 'scala' },
+        updatedAt: now,
+      }),
+    },
+  };
+  assert.equal(onlinePlayerCount(otherProfile, turekId), 2);
 });
 
 test('shouldSkipPublish is the gate used before set() — any authenticated uid', () => {

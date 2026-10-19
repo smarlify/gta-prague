@@ -18,23 +18,29 @@ import {
   DEMO_ROOM,
   PLAYERS_PATH,
   canJoinMultiplayer,
+  onlinePlayerCount,
   parsePresence,
+  playerPresencePath,
+  presenceIdentity,
+  presenceSessionId,
   remotePlayersFromMap,
   toRtdb,
 } from './protocol.js';
 
-function playerPath(uid) {
-  return `${PLAYERS_PATH}/${uid}`;
-}
-
 export class PresenceRoom {
-  constructor(db, roomId, uid) {
+  constructor(db, roomId, authUid, sessionId = presenceSessionId()) {
     this.db = db;
     this.roomId = roomId;
-    this.uid = uid;
+    this.authUid = authUid;
+    this.sessionId = sessionId;
+    this.uid = presenceIdentity(authUid, sessionId);
     this.players = {};
     this._unsub = null;
     this._joined = false;
+  }
+
+  path() {
+    return playerPresencePath(this.authUid, this.sessionId);
   }
 
   get remotes() {
@@ -42,7 +48,7 @@ export class PresenceRoom {
   }
 
   onlineCount() {
-    return Object.keys(this.players).length;
+    return onlinePlayerCount(this.players, this.uid);
   }
 
   listen() {
@@ -57,7 +63,7 @@ export class PresenceRoom {
     const row = parsePresence(presence, this.uid);
     if (!row || row.uid !== this.uid) return;
     try {
-      await set(ref(this.db, playerPath(this.uid)), toRtdb(row));
+      await set(ref(this.db, this.path()), toRtdb(row));
     } catch (err) {
       console.warn('publishPlayer failed', err);
     }
@@ -66,7 +72,7 @@ export class PresenceRoom {
   async leave() {
     this.dispose();
     try {
-      await remove(ref(this.db, playerPath(this.uid)));
+      await remove(ref(this.db, this.path()));
     } catch (err) {
       console.warn('leave room failed', err);
     }
@@ -86,14 +92,15 @@ export class PresenceRoom {
  * `name` seeds presence.name (typed / localStorage / the chosen character).
  * @returns {Promise<{ kind: 'solo' } | { kind: 'joined', room: PresenceRoom }>}
  */
-export async function joinDemoRoom(user = getFirebaseAuth().currentUser, { name } = {}) {
+export async function joinDemoRoom(user = getFirebaseAuth().currentUser, { name, sessionId } = {}) {
   if (!rtdbConfigured()) return { kind: 'solo' };
   if (!canJoinMultiplayer(user)) return { kind: 'solo' };
   try {
     const db = getFirebaseRtdb();
-    const uid = user.uid;
-    const room = new PresenceRoom(db, DEMO_ROOM, uid);
-    const rowRef = ref(db, playerPath(uid));
+    const room = new PresenceRoom(db, DEMO_ROOM, user.uid, sessionId);
+    const rowPath = room.path();
+    if (!room.uid || !rowPath || rowPath === PLAYERS_PATH) return { kind: 'solo' };
+    const rowRef = ref(db, rowPath);
     const seedName = publishablePlayerName(
       (typeof name === 'string' && name.trim())
         ? name
@@ -102,7 +109,7 @@ export async function joinDemoRoom(user = getFirebaseAuth().currentUser, { name 
     await onDisconnect(rowRef).remove();
     // Seed a minimal row so peers see the join immediately.
     await set(rowRef, toRtdb({
-      uid,
+      uid: room.uid,
       name: seedName,
       x: 0,
       z: 0,
