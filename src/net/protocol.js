@@ -11,6 +11,7 @@ export const DEMO_ROOM = 'demo';
 export const PLAYERS_PATH = 'gta-praha/rooms/demo/players';
 export const MAX_POLICE_UNITS = 12;
 export const MAX_OFFICERS = 8;
+export const MAX_AMBULANCES = 24;
 export const STALE_MS = 8000;
 /** While `afk` is set, peers keep the row for at least a minute after the last heartbeat. */
 export const AFK_STALE_MS = 60_000;
@@ -119,6 +120,27 @@ export function parseOfficer(raw) {
   };
 }
 
+export function parseAmbulance(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    x: finiteNumber(raw.x),
+    z: finiteNumber(raw.z),
+    heading: finiteNumber(raw.heading),
+  };
+}
+
+export function parseAmbulanceList(raw, max = MAX_AMBULANCES) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const row of raw) {
+    const unit = parseAmbulance(row);
+    if (!unit) continue;
+    out.push(unit);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 export function parseOfficerList(raw, max = MAX_OFFICERS) {
   if (!Array.isArray(raw)) return [];
   const out = [];
@@ -207,6 +229,7 @@ export function buildPresence({
   afkSince = 0,
   siren = false,
   impulse = null,
+  ambulances = null,
   updatedAt = Date.now(),
 } = {}) {
   const cleanUid = cleanString(uid, 128);
@@ -232,6 +255,7 @@ export function buildPresence({
     siren: false,
     officers: showForce ? parseOfficerList(officers, MAX_OFFICERS) : [],
     arrest: arrestRow,
+    ambulances: parseAmbulanceList(ambulances),
   };
   if (row.afk) row.afkSince = finiteNumber(afkSince, row.updatedAt) || row.updatedAt;
   if (row.mode === 'car') {
@@ -272,6 +296,7 @@ export function parsePresence(raw, uidHint = '') {
     afkSince: raw.afkSince,
     siren: raw.siren,
     impulse: raw.impulse,
+    ambulances: raw.ambulances,
     updatedAt: raw.updatedAt,
   });
 }

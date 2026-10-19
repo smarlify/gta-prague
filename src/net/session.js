@@ -66,6 +66,7 @@ export function createMultiplayerSession(scene, {
   getRoadblock = () => null,
   getCar = () => null,
   getSiren = () => false,
+  getAmbulances = () => [],
   doc = document,
 } = {}) {
   const remotes = createRemotePresence(scene);
@@ -201,6 +202,7 @@ export function createMultiplayerSession(scene, {
             afkSince,
             siren: !!getSiren() && !!vehicle?.police,
             impulse: pendingImpulse,
+            ambulances: getAmbulances(),
           });
           if (presence) void room.publishPlayer(presence);
         }

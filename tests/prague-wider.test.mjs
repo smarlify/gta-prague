@@ -2,14 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {waterGain} from '../src/audio-math.js';
 import {nearestWaterDistance} from '../src/water-proximity.js';
-import {onPavlovaRun,stepPavlova} from '../src/pavlova.js';
+import {PAVLOVA_RUN,applyAmbulanceRam,placeWaitingAmbulances,resolveDriverStart,stepPavlova} from '../src/pavlova.js';
+import {startCycleKey} from '../src/cities.js';
+import {prepareGraph} from '../src/mobility.js';
+import {annotateJunctions} from '../src/lane-model.js';
 import {planWaterfowl} from '../src/waterfowl.js';
 import {policeLiveryFor,policeAgencyFor,SKODA_PAINT} from '../src/czech-fleet.js';
 import {uniformLabelLines} from '../src/person-model.js';
 import {passageDeck,liftedBridgeHeight} from '../src/passage.js';
 import {groundAt,setCorridorHeights,setTerrain} from '../src/terrain.js';
 import {PoliceSimulation,TRAFFIC_HEAT_CAP,wantedLevel,incidentHeat,HEAT_LEVELS} from '../src/police.js';
-import {prepareGraph} from '../src/mobility.js';
 test('a bridge does not drop into the river beside its deck',()=>{
  const ground=(x,z)=>Math.hypot(x,z)<6?-6:-1;
  assert.equal(liftedBridgeHeight(ground,0,0),-1);
@@ -80,21 +82,127 @@ test('municipal uniform titles split into string lines, not nested arrays',()=>{
  assert.deepEqual(uniformLabelLines('POLICIE'),['POLICIE']);
 });
 
-test('the museum-to-Pavlova run faces south and ambulances drive into Filip only',()=>{
- assert.equal(onPavlovaRun(670,1100,Math.PI),true);
- assert.equal(onPavlovaRun(670,1100,0),false);
- assert.equal(onPavlovaRun(20,20,Math.PI),false);
- const quiet=stepPavlova({phase:'idle'},{x:670,z:1200,heading:Math.PI,speed:8,mode:'car'},.5);
- assert.equal(quiet.phase,'idle');
- assert.equal(quiet.driver,false);
- const filip={x:670,z:1200,heading:Math.PI,speed:8,mode:'car',ram:true};
- const cut=stepPavlova({phase:'idle'},filip,.5);
- assert.equal(cut.phase,'cut');
- assert.equal(cut.driver,false);
- assert.equal(cut.units.length,2);
- const done=stepPavlova({phase:'cut',units:cut.units,x:cut.x,z:cut.z,heading:cut.heading},filip,2);
- assert.equal(done.phase,'done');
- assert.ok(done.units.some(unit=>Math.hypot(unit.x-filip.x,unit.z-filip.z)<2.2));
+function memoryStorage(){
+ const data=new Map();
+ return {getItem(key){return data.has(key)?data.get(key):null;},setItem(key,value){data.set(key,String(value));}};
+}
+function crossRoads(places){
+ const nodes=[],edges=[];
+ for(const {x,z} of places){
+  const c=nodes.length;
+  nodes.push([x,z],[x,z-30],[x+30,z],[x,z+30],[x-30,z]);
+  const link=(from,to,a,b)=>edges.push({from,to,lane:1.5,points:[a,b],signal:-1});
+  link(c+1,c,[x,z-30],[x,z]);
+  link(c,c+1,[x,z],[x,z-30]);
+  link(c+2,c,[x+30,z],[x,z]);
+  link(c,c+2,[x,z],[x+30,z]);
+  link(c+3,c,[x,z+30],[x,z]);
+  link(c,c+3,[x,z],[x,z+30]);
+  link(c+4,c,[x-30,z],[x,z]);
+  link(c,c+4,[x,z],[x-30,z]);
+ }
+ const graph=prepareGraph({nodes,edges});
+ annotateJunctions(graph,[]);
+ return graph;
+}
+const starts=[
+ {name:'Petřín',x:1,z:2,heading:-1.57},
+ {name:'Národní muzeum',x:668.95,z:856.6,heading:2.4308},
+ {name:'Anděl',x:9,z:8,heading:.4},
+];
+
+test('Pavlova junctions inside the disk each get one waiting ambulance',()=>{
+ const center={x:0,z:0};
+ const graph=crossRoads([{x:0,z:0},{x:10,z:0},{x:80,z:0},{x:200,z:0}]);
+ const spots=placeWaitingAmbulances(graph,center);
+ assert.equal(spots.length,2,'nodes 10 m apart share one ambulance; the far crossroad is outside the disk');
+ assert.ok(spots.every(spot=>Math.hypot(spot.junction.x-center.x,spot.junction.z-center.z)<=150));
+ assert.ok(spots.every(spot=>Math.hypot(spot.junction.x-200,spot.junction.z)>1));
+ assert.ok(Math.hypot(spots[0].junction.x-5,spots[0].junction.z)<1,'the close pair clusters on its centroid');
+ assert.ok(Math.hypot(spots[1].junction.x-80,spots[1].junction.z)<1);
+});
+
+test('a Pavlova ambulance waits on the side street, short of the stop line',()=>{
+ const {ax,az,bx,bz}=PAVLOVA_RUN;
+ const t=.82,x=ax+(bx-ax)*t,z=az+(bz-az)*t;
+ const spots=placeWaitingAmbulances(crossRoads([{x,z}]),{x,z});
+ assert.equal(spots.length,1);
+ const spot=spots[0];
+ assert.ok(Math.abs(spot.z-z)<3,'parked across the museum road');
+ assert.ok(Math.abs(spot.x-x)>4,'not in the southbound lane');
+ assert.ok(Math.hypot(spot.x-x,spot.z-z)>6,'short of the crossing');
+});
+
+test('only Filip in a car pulls one ambulance, and it returns to its wait',()=>{
+ const spots=placeWaitingAmbulances(crossRoads([{x:0,z:0},{x:80,z:0}]),{x:0,z:0});
+ const elon=stepPavlova({spots},{x:80,z:0,heading:0,speed:8,mode:'car'},.5);
+ assert.equal(elon.units.length,0);
+ assert.equal(elon.driver,false);
+ const foot=stepPavlova({spots},{x:80,z:0,heading:0,speed:0,mode:'walk',ram:true},.5);
+ assert.equal(foot.units.length,0);
+ const player={x:spots[1].junction.x,z:spots[1].junction.z,heading:0,speed:8,mode:'car',ram:true};
+ const nudge=stepPavlova({spots},player,.4);
+ assert.equal(nudge.units[1].phase,'pull');
+ assert.ok(Math.hypot(nudge.units[1].x-spots[1].x,nudge.units[1].z-spots[1].z)>1);
+ assert.equal(nudge.units[0].phase,'wait');
+ assert.ok(Math.hypot(nudge.units[0].x-spots[0].x,nudge.units[0].z-spots[0].z)<.01);
+ let state=stepPavlova({spots},player,2);
+ assert.equal(state.units[1].phase,'return');
+ const gap=Math.hypot(state.units[1].x-player.x,state.units[1].z-player.z);
+ assert.ok(Math.abs(gap-2.2)<0.05,`stops against the car instead of driving through it, gap ${gap}`);
+ assert.equal(state.impulses.length,1);
+ assert.equal(state.units[0].phase,'wait');
+ const car={x:player.x,z:player.z,heading:player.heading,speed:0};
+ const shoved=applyAmbulanceRam(car,state.impulses[0]);
+ assert.ok(shoved);
+ assert.ok(Math.abs(car.speed)>2,`the ram changes speed, got ${car.speed}`);
+ assert.ok(Math.hypot(car.x-player.x,car.z-player.z)>0.5,'the ram moves the car');
+ state=stepPavlova(state,player,2);
+ assert.equal(state.units[1].phase,'wait');
+ assert.ok(Math.hypot(state.units[1].x-spots[1].x,state.units[1].z-spots[1].z)<1.2);
+ state=stepPavlova(state,player,.2);
+ assert.equal(state.units[1].phase,'wait','it stays parked while he is still in the crossing');
+ state=stepPavlova(state,{...player,z:player.z+40},.2);
+ assert.equal(state.units[1].phase,'wait');
+ state=stepPavlova(state,player,.3);
+ assert.equal(state.units[1].phase,'pull');
+ assert.equal(state.units[0].phase,'wait');
+});
+
+test('Filip with no start opens at the museum facing south; a start URL still wins',()=>{
+ const filip={pavlova:true},elon={pavlova:false};
+ const storage=memoryStorage();
+ const opened=resolveDriverStart(starts,null,storage,'prague',filip,null);
+ assert.equal(opened.start.name,'Národní muzeum');
+ assert.equal(opened.start.heading,Math.PI);
+ assert.equal(opened.pinned,false);
+ assert.equal(opened.unpinned,null);
+ assert.equal(storage.getItem(startCycleKey('prague')),null,'Filip does not take a cycle step');
+ assert.equal(starts[1].heading,2.4308,'the catalog heading stays on the landmark');
+ const cycled=resolveDriverStart(starts,null,storage,'prague',elon,opened.unpinned);
+ assert.equal(cycled.start.name,'Petřín');
+ assert.equal(cycled.start.heading,-1.57);
+ assert.equal(cycled.pinned,false);
+ assert.equal(storage.getItem(startCycleKey('prague')),'0');
+ const back=resolveDriverStart(starts,null,storage,'prague',filip,cycled.unpinned);
+ assert.equal(back.start.name,'Národní muzeum');
+ assert.equal(back.start.heading,Math.PI);
+ assert.equal(back.unpinned,cycled.start);
+ assert.equal(storage.getItem(startCycleKey('prague')),'0','switching to Filip leaves the cycle where it is');
+ const restored=resolveDriverStart(starts,null,storage,'prague',elon,back.unpinned);
+ assert.equal(restored.start,cycled.start);
+ assert.equal(storage.getItem(startCycleKey('prague')),'0');
+ const pinned=resolveDriverStart(starts,'Anděl',storage,'prague',filip,restored.unpinned);
+ assert.equal(pinned.start.name,'Anděl');
+ assert.equal(pinned.start.heading,.4);
+ assert.equal(pinned.pinned,true);
+ assert.equal(storage.getItem(startCycleKey('prague')),'0');
+ const museum=resolveDriverStart(starts,'Národní muzeum',storage,'prague',filip,null);
+ assert.equal(museum.start.name,'Národní muzeum');
+ assert.equal(museum.start.heading,Math.PI);
+ assert.equal(museum.pinned,true);
+ const elonMuseum=resolveDriverStart(starts,'Národní muzeum',storage,'prague',elon,null);
+ assert.equal(elonMuseum.start.heading,2.4308);
 });
 
 test('ducks and geese are placed inside water',()=>{

@@ -8,7 +8,8 @@ import { createVehicle, animateVehicle } from '../vehicles.js';
 import { createPersonBatch, personLook, advanceGait } from '../person-model.js';
 import { createRideVehicle, PLAYER_BIKE, PLAYER_SCOOTER } from '../player-ride-models.js';
 import { createPoliceBody, unitNumber, unitVariant, policeAgencyFor } from '../police-model.js';
-import { attachPursuitLights, flashPursuitLights } from '../police-renderer.js';
+import { attachPursuitLights, flashPursuitLights, strobe } from '../police-renderer.js';
+import { createAmbulanceMesh } from '../pavlova-scene.js';
 import { createSiren } from '../police-siren.js';
 import { createPoliceCarSource } from '../police-entry.js';
 import { officerLook } from '../roadblock.js';
@@ -182,6 +183,7 @@ class RemoteActor {
     this.hasPose = false;
     this.police = new Map();
     this.officers = null;
+    this.ambulanceMeshes = [];
     this.edge = { remote: true };
     this.clock = 0;
     this.sirenOn = false;
@@ -304,6 +306,32 @@ class RemoteActor {
     if (this.label) this.label.position.y = this.mode === 'car' ? 2.2 : 2.5;
     this.syncPolice(net);
     this.syncOfficers(net, dt);
+    this.syncAmbulances(net, dt);
+  }
+
+  syncAmbulances(net, dt) {
+    const list = net.ambulances || [];
+    while (this.ambulanceMeshes.length < list.length) {
+      const mesh = createAmbulanceMesh();
+      this.scene.add(mesh);
+      this.ambulanceMeshes.push(mesh);
+    }
+    for (let i = 0; i < this.ambulanceMeshes.length; i++) {
+      const mesh = this.ambulanceMeshes[i];
+      const unit = list[i];
+      if (!unit) {
+        mesh.visible = false;
+        continue;
+      }
+      mesh.visible = true;
+      mesh.position.set(unit.x, 0.12 + groundAt(unit.x, unit.z), unit.z);
+      mesh.rotation.set(0, unit.heading || Math.PI, 0);
+      animateVehicle(mesh, 8, 0, dt, false);
+      const lenses = mesh.userData.blueLenses || [];
+      lenses.forEach((lens, side) => {
+        lens.material.emissiveIntensity = strobe(this.clock, side, i * 0.17) ? 3.2 : 0.15;
+      });
+    }
   }
 
   syncPolice(net) {
@@ -430,6 +458,8 @@ class RemoteActor {
     this.clearBody();
     if (this.officers) { disposeObject(this.officers.batch.group); this.officers = null; }
     if (this.label) { disposeObject(this.label); this.label = null; }
+    for (const mesh of this.ambulanceMeshes) disposeObject(mesh);
+    this.ambulanceMeshes = [];
     for (const entry of this.police.values()) disposeObject(entry.mesh);
     this.police.clear();
     this.root.removeFromParent();

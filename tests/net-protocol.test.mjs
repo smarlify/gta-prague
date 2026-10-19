@@ -280,6 +280,46 @@ test('stolen police siren is only published on a police car', () => {
   assert.equal(off.vehicle.police, undefined);
 });
 
+test('ambulance poses stay on the row so another player in the demo room can draw them', () => {
+  const now = 1_700_000_000_000;
+  const filip = buildPresence({
+    uid: 'filip',
+    name: 'Filip Turek',
+    x: 640,
+    z: 1364,
+    heading: Math.PI,
+    speed: 4,
+    mode: 'car',
+    vehicle: { type: 'gwagen', colour: '#111111' },
+    ambulances: [
+      { x: 630, z: 1360, heading: 1.2 },
+      { x: 650, z: 1370, heading: 0.4 },
+      null,
+    ],
+    updatedAt: now,
+  });
+  assert.equal(filip.vehicle.type, 'gwagen');
+  assert.equal(filip.ambulances.length, 2);
+  assert.equal(filip.ambulances[0].x, 630);
+  assert.equal(filip.ambulances[0].heading, 1.2);
+  const dave = buildPresence({
+    uid: 'dave',
+    name: 'Dave N.',
+    x: 641,
+    z: 1365,
+    mode: 'car',
+    vehicle: { type: 'scala', colour: '#ee5a1c' },
+    updatedAt: now,
+  });
+  assert.deepEqual(dave.ambulances, []);
+  assert.equal(dave.vehicle.type, 'scala');
+  const remotes = remotePlayersFromMap({ filip, dave }, 'dave', now);
+  assert.equal(remotes.length, 1);
+  assert.equal(remotes[0].uid, 'filip');
+  assert.equal(remotes[0].ambulances.length, 2);
+  assert.equal(parsePresence(filip).ambulances[1].z, 1370);
+});
+
 test('shouldSkipPublish is the gate used before set() — any authenticated uid', () => {
   assert.equal(shouldSkipPublish({ uid: 'anon', isAnonymous: true }), false);
   assert.equal(shouldSkipPublish({ uid: 'g', isAnonymous: false, providerData: [{ providerId: 'google.com' }] }), false);

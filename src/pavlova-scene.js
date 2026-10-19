@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import {createVehicle,animateVehicle} from './vehicles.js';
 import {groundAt} from './terrain.js';
+import {strobe} from './police-renderer.js';
 
-// A small white van with a red stripe. It is not a named service or a person.
+// White van, red belt, red cross, blue roof bar. No one in the cab.
 function makeAmbulance(){
  const model=createVehicle(0,false,'van');
  model.traverse(mesh=>{
@@ -18,24 +19,51 @@ function makeAmbulance(){
   mark(.045,.46,.1,side*.97,1.52,-.2);
   mark(.045,.1,.46,side*.97,1.52,-.2);
  }
+ const barY=2.02,barZ=.15;
+ const housing=new THREE.Mesh(
+  new THREE.BoxGeometry(1.15,.07,.28),
+  new THREE.MeshStandardMaterial({color:'#2448a6',emissive:'#0c2a7a',emissiveIntensity:.25,roughness:.3,transparent:true,opacity:.82}),
+ );
+ housing.position.set(0,barY,barZ);
+ model.add(housing);
+ const lenses=[];
+ for(const side of [-1,1]){
+  const lens=new THREE.Mesh(
+   new THREE.BoxGeometry(.38,.06,.26),
+   new THREE.MeshStandardMaterial({color:'#2a52b8',emissive:'#1f5cff',emissiveIntensity:.15,roughness:.2}),
+  );
+  lens.position.set(side*.36,barY,barZ);
+  model.add(lens);
+  lenses.push(lens);
+ }
+ model.userData.blueLenses=lenses;
  model.visible=false;
  return model;
 }
 
-export function createPavlovaAmbulance(scene){
- const models=[makeAmbulance(),makeAmbulance()];
+export function createAmbulanceMesh(){
+ const model=makeAmbulance();
+ model.visible=true;
+ return model;
+}
+
+export function createPavlovaAmbulance(scene,count=0){
+ const models=Array.from({length:count},()=>makeAmbulance());
  for(const model of models)scene.add(model);
+ let time=0;
  return {models,update(state,dt){
-  const units=state?.phase==='cut'
-   ?(state.units?.length?state.units:[{x:state.x,z:state.z,heading:state.heading}])
-   :[];
+  time+=Math.max(0,dt)||0;
+  const units=state?.units||[];
   models.forEach((model,index)=>{
    const unit=units[index];
    model.visible=!!unit;
    if(!unit)return;
    model.position.set(unit.x,.12+groundAt(unit.x,unit.z),unit.z);
    model.rotation.set(0,unit.heading||Math.PI,0);
-   animateVehicle(model,14,0,dt,false);
+   const moving=unit.phase==='pull'||unit.phase==='return';
+   animateVehicle(model,moving?14:0,0,dt,false);
+   const lenses=model.userData.blueLenses||[];
+   lenses.forEach((lens,side)=>{lens.material.emissiveIntensity=strobe(time,side,index*.17)?3.2:.15;});
   });
  }};
 }

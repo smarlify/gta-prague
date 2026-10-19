@@ -10,7 +10,7 @@ import {SpatialIndex,RADIUS,pointInPolygon,insidePlayable,setPlayableRadius} fro
 import {loadExtensionIndex,loadExtension,applyExtensions,mapViewFor,activateExtension,createExtensionStreamer} from './extensions.js';
 import {setTramLivery} from './tram-model.js';
 import {setBusLivery} from './bus-renderer.js';
-import {selectCity,useCity,pickStart,bootStart,startUrl,dataUrl,registerCities,sceneQuery,applySceneQuery} from './cities.js';
+import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,sceneQuery,applySceneQuery} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {bindCharacterPicker,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
 import {writeStoredPlayerName} from './net/player-name.js';
@@ -23,7 +23,7 @@ import {createStreetLife} from './street-life.js';
 import {SKODA_PAINT,policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
 import {nearestWaterDistance} from './water-proximity.js';
 import {createWaterfowl} from './waterfowl.js';
-import {stepPavlova} from './pavlova.js';
+import {stepPavlova,placeWaitingAmbulances,pavlovaCenter,resolveDriverStart,startHeading,applyAmbulanceRam} from './pavlova.js';
 import {createPavlovaAmbulance} from './pavlova-scene.js';
 import {passageDeck,stripBoredTunnels,bridgeDeckHeight,bridgeDriveHeight,isBridgeSurface,isFeaturedBridge} from './passage.js';
 import {pragueSceneryTrees,pragueParkPlanting,createParkFlowers,createCharlesStatues} from './prague-scenery.js';
@@ -163,7 +163,7 @@ const driveCamera=createDriveCameraState();let cameraFov=DRIVE_FOV.min,cameraRol
 const roadRumble=createRumbleState();let cameraRumble=[0,0,0],surfaceNow={surface:'off',roughness:0},rumbleNow={bob:0,roll:0,pitch:0,intensity:0};
 let treeTrunks=null,cityModelPromise,surfaceStreamer=null,extensionStreamer=null,switchingStart=false,startVisitVersion=0,places=[],speciesTrees=null;const placeHidden=new Set();
 let birds=null,birdColonies=[],crowd=null,waterfowl=null; // gulls, pigeons, crows and sparrows from the city's map data (birds.js)
-let pavlova={phase:'idle'},ambulance=null;
+let pavlova={phase:'idle'},ambulance=null,unpinnedStart=null;
 let cyclists,cyclistRenderer,npcScooters,npcScooterRenderer,buses,police,policeRenderer,roadblock; // shared riders and police in every city
 let multiplayer=null; // Temp default: auto-join demo (anonymous ok); HUD toggles leave/rejoin
 let stolenSirenOn=false;const stolenSiren=createSiren();
@@ -305,6 +305,14 @@ function rememberCharacter(choice){
  if(input&&input.value!==choice.name)input.value=choice.name;
  if(car)car.roadster=!!choice.flies;
  playerCars.setLook(choice.type,'');
+ if(!started&&data?.landmarks&&startPoint&&city?.id==='prague'){
+  const next=placeForCharacter(choice);
+  const heading=startHeading(next.start,choice,car?.heading??0);
+  if(next.start&&(next.start.name!==startPoint.name||Math.abs(heading-(car?.heading??0))>.02)){
+   setStart(next.start);
+   startPicker?.set(startPoint);
+  }
+ }
 }
 writeStoredPlayerName(chosenCharacter.name);
 const nameInput=$('player-name');
@@ -317,6 +325,7 @@ multiplayer=createMultiplayerSession(scene,{
  getRoadblock:()=>roadblock,
  getCar:()=>car,
  getSiren:()=>stolenSirenOn,
+ getAmbulances:()=>(pavlova?.units||[]).map(unit=>({x:unit.x,z:unit.z,heading:unit.heading})),
 });
 const travelRenderer=createPlayerTravelRenderer(scene);
 const travelUI=createTravelUI({interact:interactTravel,toggleRun:()=>{if(travel?.mode==='walk')travel.sprint=!travel.sprint;},focusWorld:()=>$('world').focus()});
@@ -663,7 +672,13 @@ function policeCarSources(){
   return {...source,blockers(){return [...(own?.()||[]),...police.units.filter(u=>u!==source.actor&&!u.playerTaken),...(travel?.parked?.()||[])];}};
  })];
 }
-function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,l.heading??(l.name==='Senate Square'?0:-Math.PI/2+.17));car.roadster=!!chosenCharacter.flies;car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);playerCars.setLook(chosenCharacter.type,'');focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
+function placeForCharacter(choice=chosenCharacter){
+ const requestedStart=new URLSearchParams(location.search).get('start');
+ const chosen=resolveDriverStart(data.landmarks,requestedStart,null,city.id,choice,unpinnedStart);
+ unpinnedStart=chosen.unpinned;
+ return chosen;
+}
+function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,startHeading(l,chosenCharacter,l.name==='Senate Square'?0:-Math.PI/2+.17));car.roadster=!!chosenCharacter.flies;car.distance=distance;if(travel)travel.reset(car,world);else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);playerCars.setLook(chosenCharacter.type,'');focus.set(car.x,0,car.z);cameraHeading=car.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
 function handleTileError(e){console.error(e);if(!document.body.classList.contains('booting'))toast('Some scenery could not load. Nearby streets will retry.');} // not over the welcome card
 const touchScreen=matchMedia('(pointer:coarse)').matches; // phones and tablets: no keyboard, so the HUD and touch buttons stay on
 if(touchScreen){document.body.classList.remove('clean-capture');document.body.classList.add('touch');}
@@ -891,7 +906,7 @@ function frame(now){
  {const pose=roadblock?.cameraPose()||finale.cameraPose(car);if(pose){camera.position.set(...pose.position);camera.lookAt(...pose.target);}} // arrest cinematic orbit
  const wantFov=chaseCamera&&started&&!inspectionCamera?cameraFov:DRIVE_FOV.min;if(camera.fov!==wantFov){camera.fov=wantFov;camera.updateProjectionMatrix();}
  playerCars.setVisible(!inspectionCamera);
-  if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode,ram:!!chosenCharacter.pavlova},dt);ambulance?.update(pavlova,dt);}
+  if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode,ram:!!chosenCharacter.pavlova},dt);for(const impulse of pavlova.impulses||[])applyAmbulanceRam(car,impulse);ambulance?.update(pavlova,dt);}
   travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null});
   if(ready&&!paused&&!mapOpen&&!police?.busted){
    const birdStep=Math.min(.1,dt); // keep encounter pressure and bird motion on the same clock at low frame rates
@@ -982,7 +997,7 @@ async function boot(){
    if(helsinki)data.landmarks.push({...HARBOUR_START});
    for(const e of extensions)data.landmarks.push(...(e.starts||[]));
    areaLabel=areaCaption(city.id==='prague'?[...PRAGUE_AREAS,...data.landmarks]:helsinki?[...HELSINKI_AREAS,...extensions.flatMap(e=>e.starts||[])]:data.landmarks,city.name);
-   const requestedStart=new URLSearchParams(location.search).get('start'),chosen=bootStart(data.landmarks,requestedStart,null,city.id),firstStart=chosen.start||pickStart(data.landmarks,city.defaultStart)||(helsinki?HARBOUR_START:data.landmarks[0]);
+   const requestedStart=new URLSearchParams(location.search).get('start'),chosen=placeForCharacter(),firstStart=chosen.start||pickStart(data.landmarks,city.defaultStart)||(helsinki?HARBOUR_START:data.landmarks[0]);
    treeTrunks=createTreeTrunks({lanes:mobilityData.roads.edges});
    const regionStages=new Map(),transitQueue=[],addTransit=e=>{if(!tramSim||!buses)transitQueue.push(e);else installTransit(e.transitLines,{trams:tramSim,tramRenderer,buses:buses.simulation});};
    extensionStreamer=createExtensionStreamer({entries:extensions,load:e=>loadExtension(e,json,unpack),onError:handleTileError,install:async e=>{
@@ -1095,9 +1110,9 @@ async function boot(){
    world.collisionBuildings=world.cameraBuildings;
    world.objects=new WorldObjects([...streetObstacles,...ads.obstacles,...breakableSigns.bodies]);
    cityModel.traverse(object=>{if(object.worldObjects)world.objects.add(object.worldObjects);});
-   // ?start=<name> pins that place. With no start param, bootStart already chose
-   // the next named place and remembered it. Leave that choice off the query
-   // string so a later visit of this page advances instead of pinning it.
+   // ?start=<name> pins that place. With no start param, Elon and Dave take the
+   // next named place and leave it off the query so the following visit advances.
+   // Filip does not take that step: he opens at the museum until a start= is set.
    setStart(firstStart);
    if(requestedStart){try{history.replaceState(null,'',startUrl(location,city,firstStart));}catch(e){console.warn('Could not update the start URL:',e);}}
    progress(58,'Preparing the driving map');await new Promise(r=>setTimeout(r,30));drawMapBase();
@@ -1109,7 +1124,7 @@ async function boot(){
    cyclists=new Cyclists(data);cyclistRenderer=createCyclistRenderer(scene,cyclists);cyclistRenderer.update(car);
    npcScooters=new ScooterRiders(mobility.walks,world);npcScooters.reset(car);npcScooterRenderer=createScooterRiderRenderer(scene,npcScooters);npcScooterRenderer.update(car);
    birds=createBirds(data,{colonies:birdColonies,gulls:city.id!=='prague'});cityModel.add(birds.group);
-   if(city.id==='prague'){waterfowl=createWaterfowl(cityModel,data.water);ambulance=createPavlovaAmbulance(scene);}
+   if(city.id==='prague'){waterfowl=createWaterfowl(cityModel,data.water);const spots=placeWaitingAmbulances(mobility.roads,pavlovaCenter(data.landmarks));pavlova={phase:'idle',spots};ambulance=createPavlovaAmbulance(scene,spots.length);}
    safeBirdFlight=createBirdFlightClearance({buildings:world.cameraBuildings,stalls:market.stalls||[],water:world.water});
    marketShop=new MarketShop({stalls:market.stalls||[]});if(marketShop.stalls.length)marketShopRenderer=createMarketShopRenderer(cityModel,marketShop.stalls); // only where the city has market stalls
    // Bystanders react to a pedestrian hit: graph walkers through mobility, free crowds directly (crowd-reaction.js).
