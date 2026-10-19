@@ -58,9 +58,10 @@ test('?driver= pins Elon, Turek, or Dave and an unknown value stays on the Roads
   assert.equal(resolveDriver('?driver=filip', saved).label, 'Mercedes G — Filip Turek');
   assert.equal(resolveDriver('?driver=dave', saved).label, 'Škoda Scala — Dave N.');
   assert.equal(resolveDriver('?driver=dave-n', saved).type, 'scala');
-  assert.equal(resolveDriver('', saved).name, 'Elon Musk');
-  assert.equal(resolveDriver('', saved).type, 'roadster');
-  assert.equal(resolveDriver('?city=prague&start=petrin', saved).id, 'elon');
+  assert.equal(resolveDriver('?driver=elon', saved).id, 'elon');
+  assert.equal(resolveDriver('', saved).id, 'dave');
+  assert.equal(resolveDriver('?city=prague&start=petrin', saved).id, 'dave');
+  assert.equal(resolveDriver('', memoryStorage()).id, 'elon');
   assert.equal(resolveDriver('?driver=nobody', saved).id, 'elon');
   assert.equal(resolveDriver('?driver=', memoryStorage()).id, 'elon');
   assert.equal(driverFromSearch(''), null);
@@ -180,7 +181,7 @@ test('the welcome card puts the car on the same arrow row as the district, outsi
   assert.doesNotMatch(hud, /body\.touch \.right-tools\{display:\s*none\}/);
 });
 
-test('a saved character does not replace the Roadster when the address names no driver', () => {
+test('a saved driver stays when the address names none, and Elon is only the empty fallback', () => {
   const storage = memoryStorage();
   writeCharacterId(storage, 'filip');
   const doc = pickerDoc();
@@ -191,10 +192,14 @@ test('a saved character does not replace the Roadster when the address names no 
     initial: resolveDriver('', storage).id,
     onChange: (choice) => picked.push(choice.id),
   });
-  assert.equal(picker.get().label, 'Roadster — Elon Musk');
-  assert.equal(doc.nodes.get('character-label').textContent, 'Roadster — Elon Musk');
-  assert.deepEqual(picked, ['elon']);
+  assert.equal(resolveDriver('?driver=turek', storage).id, 'filip');
+  assert.equal(picker.get().label, 'Mercedes G — Filip Turek');
+  assert.equal(doc.nodes.get('character-label').textContent, 'Mercedes G — Filip Turek');
+  assert.deepEqual(picked, ['filip']);
   assert.equal(storage.getItem('gta-praha-character'), 'filip');
+  assert.equal(resolveDriver('?driver=elon', storage).id, 'elon');
+  assert.equal(storage.getItem('gta-praha-character'), 'filip');
+  assert.equal(resolveDriver('', memoryStorage()).name, 'Elon Musk');
 });
 
 function pickerDoc() {

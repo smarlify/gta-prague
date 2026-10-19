@@ -88,13 +88,13 @@ export function driverFromSearch(search = '') {
 }
 
 /**
- * A known ?driver= pins that choice, even when a previous visit saved someone else.
- * A missing param is the Roadster. Saved Filip or Dave does not override an address
- * that does not name a driver. An unknown value stays on the Roadster.
+ * A known ?driver= pins that choice and wins over whoever was saved.
+ * A missing param keeps the saved driver. With nothing valid saved, that is the Roadster.
+ * An unknown value does not guess: it stays on the Roadster.
  */
-export function resolveDriver(search = '') {
+export function resolveDriver(search = '', storage) {
   const params = new URLSearchParams(search);
-  if (!params.has('driver')) return characterById(DEFAULT_CHARACTER_ID);
+  if (!params.has('driver')) return readCharacter(storage);
   return driverFromSearch(search) || characterById(DEFAULT_CHARACTER_ID);
 }
 
