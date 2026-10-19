@@ -234,7 +234,7 @@ export function buildPresence({
   };
   if (row.afk) row.afkSince = finiteNumber(afkSince, row.updatedAt) || row.updatedAt;
   if (row.mode === 'car') {
-    row.vehicle = parseVehicle(vehicle) || { type: 'crossover' };
+    row.vehicle = parseVehicle(vehicle) || { type: 'gwagen' };
   } else {
     row.vehicle = null;
   }

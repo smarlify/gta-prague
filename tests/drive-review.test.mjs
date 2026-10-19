@@ -23,8 +23,21 @@ test('Olympia separate carriageways only route north on east, south on west', {s
  for(const id of ['1058:1057','1056:1058','1055:1056','785:1055']){assert.ok(ids.has(id));assert.equal(corrected.roads.edges.find(e=>`${e.from}:${e.to}`===id).lane,0);}
  assert.equal(original.roads.edges.length,corrected.roads.edges.length+13);
 });
-test('player crossover proportions, steering and wheels differ from traffic body styles',()=>{
- const player=createVehicle(0,true);assert.equal(player.userData.type,'crossover');assert.equal(player.userData.spec.l,4.172);assert.equal(player.userData.spec.wb,2.56);
+test('player G-Class is a boxy upright SUV and traffic body styles stay distinct',()=>{
+ const player=createVehicle(0,true);
+ assert.equal(player.userData.type,'gwagen');assert.equal(player.name,'Mercedes G');
+ assert.equal(player.userData.spec.l,4.825);assert.equal(player.userData.spec.w,1.931);assert.equal(player.userData.spec.h,1.969);assert.equal(player.userData.spec.wb,2.89);
+ assert.equal(player.userData.spec.boxy,true);
+ assert.equal(player.getObjectByName('paint').material.color.getHexString(),'111111','default G is black');
+ assert.equal(createVehicle(0,false,'sedan').getObjectByName('paint').material.color.getHexString(),'b8bcb8','other bodies keep the shared palette');
+ assert.equal(player.getObjectByName('head-beams').children.filter(o=>o.isSpotLight).length,2);
+ const sedan=createVehicle(0,false,'sedan');
+ const playerBox=new THREE.Box3().setFromObject(player).getSize(new THREE.Vector3());
+ const sedanBox=new THREE.Box3().setFromObject(sedan).getSize(new THREE.Vector3());
+ assert.ok(playerBox.y>sedanBox.y+.4,'the G stands taller than the sedan');
+ assert.ok(playerBox.y/playerBox.z>sedanBox.y/sedanBox.z,'upright, not a long low sedan');
+ player.traverse(o=>{if(o.isMesh)assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));});
+ assert.ok(!VEHICLE_TYPES.includes('gwagen'),'NPC traffic keeps its existing types');
  animateVehicle(player,-3,.5,.5);assert.ok(player.userData.wheels[0].spin.rotation.x>0);assert.ok(player.userData.wheels[0].pivot.rotation.y>0);
  const sizes=VEHICLE_TYPES.map(type=>{const m=createVehicle(2,false,type),b=new THREE.Box3().setFromObject(m),s=b.getSize(new THREE.Vector3());assert.ok(s.x<2.2&&s.z<4.7);m.traverse(o=>{if(o.isMesh)assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));});return s.toArray().map(n=>n.toFixed(2)).join(',');});assert.ok(new Set(sizes).size>=6);
 });
