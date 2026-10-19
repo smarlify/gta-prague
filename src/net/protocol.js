@@ -29,6 +29,63 @@ function cleanString(value, max = 64) {
   return value.trim().slice(0, max);
 }
 
+/** RTDB keys reject . # $ / [ ]. */
+function rtdbKey(value, max = 128) {
+  return cleanString(String(value ?? ''), max).replace(/[.#$/[\]]/g, '');
+}
+
+/**
+ * A new id for this tab. localStorage is shared by every window of a profile,
+ * and so is the anonymous Firebase user, so the id stays in memory only.
+ */
+export function presenceSessionId() {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (uuid) return rtdbKey(uuid, 64);
+  return rtdbKey(`s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`, 64);
+}
+
+/** Presence uid for one tab. The auth uid stays the parent key the rules allow. */
+export function presenceIdentity(authUid, sessionId) {
+  const auth = rtdbKey(authUid, 128);
+  const session = rtdbKey(sessionId, 64);
+  if (!auth || !session) return '';
+  return `${auth}~${session}`;
+}
+
+/**
+ * Where this tab writes. A second tab of the same anonymous user gets its own
+ * child, so set() cannot replace the other player. The room is always demo.
+ * The driver name is not part of the path.
+ */
+export function playerPresencePath(authUid, sessionId) {
+  const auth = rtdbKey(authUid, 128);
+  const session = rtdbKey(sessionId, 64);
+  if (!auth || !session) return '';
+  return `${PLAYERS_PATH}/${auth}/${session}`;
+}
+
+function isPresenceRow(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return typeof value.uid === 'string' || typeof value.mode === 'string' || typeof value.updatedAt === 'number';
+}
+
+/** Flat rows (one auth uid) and per-tab children under that uid. */
+export function eachPresence(map) {
+  const entries = [];
+  if (!map || typeof map !== 'object') return entries;
+  for (const [key, value] of Object.entries(map)) {
+    if (isPresenceRow(value)) {
+      entries.push([key, value]);
+      continue;
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    for (const [sessionId, row] of Object.entries(value)) {
+      if (isPresenceRow(row)) entries.push([`${key}/${sessionId}`, row]);
+    }
+  }
+  return entries;
+}
+
 export function isAnonymousProvider(user) {
   if (!user) return true;
   if (user.isAnonymous) return true;
@@ -304,8 +361,7 @@ export function parsePresence(raw, uidHint = '') {
 /** Drop stale or self rows from a players map. */
 export function remotePlayersFromMap(map, selfUid, now = Date.now()) {
   const remotes = [];
-  if (!map || typeof map !== 'object') return remotes;
-  for (const [key, value] of Object.entries(map)) {
+  for (const [key, value] of eachPresence(map)) {
     if (isIdleDriverRecord(value)) continue;
     const row = parsePresence(value, key);
     if (!row || row.uid === selfUid) continue;
@@ -318,15 +374,19 @@ export function remotePlayersFromMap(map, selfUid, now = Date.now()) {
 /** Rows for the Online list. Idle Driver leftovers are omitted; every other name stays. */
 export function listedPlayers(map, selfUid = '') {
   const out = [];
-  if (!map || typeof map !== 'object') return out;
   const self = typeof selfUid === 'string' ? selfUid : '';
-  for (const [key, value] of Object.entries(map)) {
+  for (const [key, value] of eachPresence(map)) {
     if (isIdleDriverRecord(value)) continue;
     const row = parsePresence(value, key);
     if (!row) continue;
     out.push({ name: row.name, uid: row.uid, you: !!self && row.uid === self });
   }
   return out;
+}
+
+/** The Online button uses this length, including yourself. */
+export function onlinePlayerCount(map, selfUid = '') {
+  return listedPlayers(map, selfUid).length;
 }
 
 /** Strip undefined (RTDB rejects undefined). */
