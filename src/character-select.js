@@ -1,7 +1,7 @@
 // Welcome-card choice: which car is parked for the camera and for Start, and
-// which name the local player publishes. Nothing chosen means the Roadster.
+// which name the local player publishes. Nothing in the address rolls one of the three.
 // The card cycles that choice with the same ‹ › row as the district and street.
-import {slug} from './cities.js';
+import {rollIndex, slug} from './cities.js';
 import {cycleIndex} from './start-picker.js';
 import {locationPageTitle} from './worldhood-brand.js';
 
@@ -88,13 +88,14 @@ export function driverFromSearch(search = '') {
 }
 
 /**
- * A known ?driver= pins that choice and wins over whoever was saved.
- * A missing param keeps the saved driver. With nothing valid saved, that is the Roadster.
- * An unknown value does not guess: it stays on the Roadster.
+ * A known ?driver= pins that choice.
+ * A missing param rolls Filip, Elon, or Dave once and does not read the saved driver.
+ * An unknown value stays on the Roadster.
  */
-export function resolveDriver(search = '', storage) {
+export function resolveDriver(search = '', storage, roll = Math.random) {
+  void storage;
   const params = new URLSearchParams(search);
-  if (!params.has('driver')) return readCharacter(storage);
+  if (!params.has('driver')) return CHARACTERS[rollIndex(CHARACTERS.length, roll)];
   return driverFromSearch(search) || characterById(DEFAULT_CHARACTER_ID);
 }
 

@@ -90,10 +90,30 @@ function matchQuery(map,raw){
 }
 
 // ?time= and ?weather= from the same query string as ?city= and ?start=.
-// A missing or unknown value is null: that half stays on the live clock or forecast.
+// A missing or unknown value is null. The visit roll fills that half; it does not mean auto.
 export function sceneQuery(search=''){
  const params=new URLSearchParams(search);
  return {time:matchQuery(TIME_FROM_SLUG,params.get('time')),weather:matchQuery(WEATHER_FROM_SLUG,params.get('weather'))};
+}
+
+// `roll` is Math.random, or a function that returns an index. A value in [0, 1) is a
+// fraction of the list. 0 is the first item either way. 1 and above are indexes.
+export function rollIndex(length, roll = Math.random){
+ if(!(length>0))return 0;
+ const raw=typeof roll==='function'?roll(length):roll;
+ const n=Number(raw);
+ if(!Number.isFinite(n))return 0;
+ const index=n>=0&&n<1?Math.floor(n*length):Math.trunc(n);
+ return Math.min(length-1,Math.max(0,index));
+}
+
+// A known param pins that half. A missing or unknown half is one concrete look, chosen once.
+// Auto is not in the roll. `roll` is called once per unpinned half, time first.
+export function visitScene(search='',roll=Math.random){
+ const query=sceneQuery(search);
+ const time=query.time||LOOK_ORDER[rollIndex(LOOK_ORDER.length,roll)];
+ const weather=query.weather||WEATHER_ORDER[rollIndex(WEATHER_ORDER.length,roll)];
+ return {time,weather,timePinned:!!query.time,weatherPinned:!!query.weather};
 }
 
 // Turn off automatic daytime or weather only for the halves the URL named.

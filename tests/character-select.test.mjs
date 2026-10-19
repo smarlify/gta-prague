@@ -59,9 +59,10 @@ test('?driver= pins Elon, Turek, or Dave and an unknown value stays on the Roads
   assert.equal(resolveDriver('?driver=dave', saved).label, 'Škoda Scala — Dave N.');
   assert.equal(resolveDriver('?driver=dave-n', saved).type, 'scala');
   assert.equal(resolveDriver('?driver=elon', saved).id, 'elon');
-  assert.equal(resolveDriver('', saved).id, 'dave');
-  assert.equal(resolveDriver('?city=prague&start=petrin', saved).id, 'dave');
-  assert.equal(resolveDriver('', memoryStorage()).id, 'elon');
+  assert.equal(resolveDriver('', saved, () => 0).id, 'filip');
+  assert.equal(saved.getItem('gta-praha-character'), 'dave');
+  assert.equal(resolveDriver('?city=prague&start=petrin', saved, () => 2).id, 'dave');
+  assert.equal(resolveDriver('', memoryStorage(), () => 1).id, 'elon');
   assert.equal(resolveDriver('?driver=nobody', saved).id, 'elon');
   assert.equal(resolveDriver('?driver=', memoryStorage()).id, 'elon');
   assert.equal(driverFromSearch(''), null);
@@ -181,25 +182,25 @@ test('the welcome card puts the car on the same arrow row as the district, outsi
   assert.doesNotMatch(hud, /body\.touch \.right-tools\{display:\s*none\}/);
 });
 
-test('a saved driver stays when the address names none, and Elon is only the empty fallback', () => {
+test('a missing driver rolls once and does not keep the saved choice', () => {
   const storage = memoryStorage();
-  writeCharacterId(storage, 'filip');
+  writeCharacterId(storage, 'dave');
   const doc = pickerDoc();
   const picked = [];
   const picker = bindCharacterPicker({
     doc,
     storage,
-    initial: resolveDriver('', storage).id,
+    initial: resolveDriver('', storage, () => 0).id,
     onChange: (choice) => picked.push(choice.id),
   });
   assert.equal(resolveDriver('?driver=turek', storage).id, 'filip');
   assert.equal(picker.get().label, 'Mercedes G — Filip Turek');
   assert.equal(doc.nodes.get('character-label').textContent, 'Mercedes G — Filip Turek');
   assert.deepEqual(picked, ['filip']);
-  assert.equal(storage.getItem('gta-praha-character'), 'filip');
+  assert.equal(storage.getItem('gta-praha-character'), 'dave');
   assert.equal(resolveDriver('?driver=elon', storage).id, 'elon');
-  assert.equal(storage.getItem('gta-praha-character'), 'filip');
-  assert.equal(resolveDriver('', memoryStorage()).name, 'Elon Musk');
+  assert.equal(storage.getItem('gta-praha-character'), 'dave');
+  assert.equal(resolveDriver('', memoryStorage(), () => 1).name, 'Elon Musk');
 });
 
 function pickerDoc() {
