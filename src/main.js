@@ -309,7 +309,7 @@ function rememberCharacter(choice){
 writeStoredPlayerName(chosenCharacter.name);
 const nameInput=$('player-name');
 if(nameInput)nameInput.value=chosenCharacter.name;
-bindCharacterPicker({onChange:rememberCharacter});
+bindCharacterPicker({initial:chosenCharacter.id,onChange:rememberCharacter});
 multiplayer=createMultiplayerSession(scene,{
  getTravel:()=>travel,
  getPolice:()=>police,

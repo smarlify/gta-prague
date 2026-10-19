@@ -8,8 +8,12 @@
  body.mobile-controls-ready .topbar .wordmark{display:flex;gap:7px;padding:4px 11px 4px 4px;min-height:44px;border-radius:8px;background:#f8f5eeee;font-size:21px;letter-spacing:-.025em;pointer-events:auto}
  body.mobile-controls-ready .topbar .wordmark .brand-icon{width:36px;height:36px;background:none;border-radius:0}
  body.mobile-controls-ready .topbar .wordmark .brand-name{display:block}
- body.mobile-controls-ready .topbar nav{display:none}
- body.mobile-controls-ready :is(.location-tag,.bottomline,.right-tools,.landmark-label,#location-readout,.controls-hint){display:none}
+ body.mobile-controls-ready .topbar nav{display:flex;flex-wrap:wrap;justify-content:flex-end;pointer-events:auto;max-width:100%}
+ body.mobile-controls-ready.driving .topbar{padding-right:calc(var(--mobile-right) + 102px)}
+ body.mobile-controls-ready :is(.location-tag,.bottomline,.landmark-label,#location-readout,.controls-hint){display:none}
+ body.mobile-controls-ready .right-tools{right:var(--mobile-right);top:42%;z-index:24}
+ body.mobile-controls-ready .right-tools .compass{display:none}
+ body.mobile-controls-ready .zoom button{width:44px;height:44px}
  body.mobile-controls-ready.driving #touch-aux{display:block;position:absolute;right:var(--mobile-right);left:auto;top:var(--mobile-top);bottom:auto;z-index:27}
  body.mobile-controls-ready #touch-aux #touch-menu{display:flex;align-items:center;justify-content:center;gap:7px;width:auto;min-width:86px;height:44px;padding:0 12px;font:600 12px 'DM Sans',sans-serif;letter-spacing:0;background:#f8f5eeee;color:#30312e;border:1px solid #e3ded2;border-radius:8px;box-shadow:0 3px 14px #30312e15;touch-action:manipulation}
  #touch-menu svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}

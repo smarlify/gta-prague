@@ -137,7 +137,7 @@ body.framed canvas{position:absolute;left:0;top:0}
 #touch-aux,.boot-touch,.pause-touch{display:none}
 #pause-overlay{z-index:40}
 @media(pointer:coarse){
-.boot-controls,#boot-launch .boot-enter,body.touch .controls-hint,body.touch #location-readout,body.touch .right-tools,#pause-overlay .pause-controls{display:none}
+.boot-controls,#boot-launch .boot-enter,body.touch .controls-hint,body.touch #location-readout,body.touch .right-tools .compass,#pause-overlay .pause-controls{display:none}
 .boot-touch,.pause-touch{display:block;font-size:14px;line-height:1.6;max-width:320px;text-align:center;margin:10px auto 0}
 .pause-touch{padding:0 18px}
 .driving #touch-aux{display:flex;flex-direction:column;gap:10px;position:absolute;right:14px;top:96px;z-index:15}
@@ -179,7 +179,6 @@ body.tilt-steer #touch-controls>div:first-child{visibility:hidden}
 @media(pointer:coarse) and (max-width:760px){
 .topbar{padding:12px 14px;gap:10px}
 .wordmark>span:not(.brand-icon){display:none}
-#view-btn{display:none}
 .topbar nav{gap:8px}
 .topbar nav .nav-btn,.topbar nav .icon-btn{width:44px;height:44px;padding:0;justify-content:center;font-size:0;background:#f8f5ec;border:1px solid #e3ded2;border-radius:12px;box-shadow:0 3px 12px #293b3626}
 .topbar nav .nav-btn>span:first-child,.topbar nav .icon-btn{font-size:18px}
