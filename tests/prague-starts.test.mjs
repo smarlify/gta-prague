@@ -140,6 +140,18 @@ test('Újezd starts on the road beside the Malá Strana tram stop', () => {
   assert.ok(carSamples(makeCar(start.x, start.z, start.heading)).every(([x, z]) => roads.at(x, z)), 'the whole car is on the road');
 });
 
+test('Malostranské nábřeží starts on the quay roadway, off the tram rails', () => {
+  const start = byName('Malostranské nábřeží');
+  assert.equal(roads.at(start.x, start.z)?.name, 'Malostranské nábřeží');
+  const rails = trackDistance(start.x, start.z);
+  assert.ok(rails > 2, `car is ${rails.toFixed(1)} m from the rail centre`);
+  assert.ok(rails < 12, `car is ${rails.toFixed(1)} m from the tracks on this quay`);
+  assert.equal(buildings.at(start.x, start.z), undefined);
+  assert.equal(clear(start.x, start.z, start.heading), true);
+  assert.equal(city.water.some(w => pointInPolygon(start.x, start.z, w.rings)), false);
+  assert.ok(carSamples(makeCar(start.x, start.z, start.heading)).every(([x, z]) => roads.at(x, z)?.name === 'Malostranské nábřeží'), 'the whole car sits on the quay');
+});
+
 test('Anděl starts on the road beside the Smíchov tram stop, off the tracks', () => {
   const start = byName('Anděl');
   const stops = trams.stops.filter(s => s.name === 'Anděl');

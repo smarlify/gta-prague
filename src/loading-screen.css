@@ -33,7 +33,8 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
 #intro .district-picker[hidden]{display:none}
 #intro .start-district{flex:1;min-width:0;text-align:center;font:600 var(--t-14)/20px var(--ui);letter-spacing:.04em;color:var(--ink)}
 #intro.has-districts .district-picker .start-arrow{width:40px;height:40px}
-/* ‹ Place name ›: a control the same width and radius as the button below it. */
+/* Car and driver uses that same ‹ › row. It stays on the card, including on a phone. */
+#character-picker .start-district{letter-spacing:0;white-space:normal;text-wrap:balance}
 #intro .start-picker{display:flex;align-items:center}
 #intro.has-picker .start-picker{min-height:56px;margin:0 0 var(--s-12);padding:3px var(--s-4);border:1px solid #30312e1f;border-radius:8px;background:#fffdf8b3}
 /* A long name wraps to two balanced lines (2 × 24 px + 3 px padding + border = the 56 px box), so it is never cut off. */
@@ -103,6 +104,8 @@ body.game-failed #intro{z-index:1000;pointer-events:auto}
 /* Phones (portrait) */
 @media(max-width:700px){
  #intro.boot-screen{--pad:24px;left:16px;bottom:max(16px,env(safe-area-inset-bottom));width:358px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);padding-bottom:var(--s-16)}
+ /* A phone cannot press M, T, Y or the other letter keys. Hide those hints and the name field so the car choices and Start stay on the card. */
+ body .player-name,body .topbar kbd,#intro .boot-controls,body.booting .topbar{display:none}
 }
 @media(pointer:coarse){
  .boot-footer a{display:inline-flex;align-items:center;min-height:44px}

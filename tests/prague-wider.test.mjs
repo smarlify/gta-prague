@@ -80,15 +80,21 @@ test('municipal uniform titles split into string lines, not nested arrays',()=>{
  assert.deepEqual(uniformLabelLines('POLICIE'),['POLICIE']);
 });
 
-test('the museum-to-Pavlova run faces south and the ambulance cuts in',()=>{
+test('the museum-to-Pavlova run faces south and ambulances drive into Filip only',()=>{
  assert.equal(onPavlovaRun(670,1100,Math.PI),true);
  assert.equal(onPavlovaRun(670,1100,0),false);
  assert.equal(onPavlovaRun(20,20,Math.PI),false);
- const cut=stepPavlova({phase:'idle'},{x:670,z:1200,heading:Math.PI,speed:8,mode:'car'},.5);
+ const quiet=stepPavlova({phase:'idle'},{x:670,z:1200,heading:Math.PI,speed:8,mode:'car'},.5);
+ assert.equal(quiet.phase,'idle');
+ assert.equal(quiet.driver,false);
+ const filip={x:670,z:1200,heading:Math.PI,speed:8,mode:'car',ram:true};
+ const cut=stepPavlova({phase:'idle'},filip,.5);
  assert.equal(cut.phase,'cut');
- assert.equal(cut.driver,true);
- const done=stepPavlova({phase:'cut',x:670,z:1180,heading:Math.PI},{x:670,z:1200,heading:Math.PI,speed:8,mode:'car'},2);
+ assert.equal(cut.driver,false);
+ assert.equal(cut.units.length,2);
+ const done=stepPavlova({phase:'cut',units:cut.units,x:cut.x,z:cut.z,heading:cut.heading},filip,2);
  assert.equal(done.phase,'done');
+ assert.ok(done.units.some(unit=>Math.hypot(unit.x-filip.x,unit.z-filip.z)<2.2));
 });
 
 test('ducks and geese are placed inside water',()=>{

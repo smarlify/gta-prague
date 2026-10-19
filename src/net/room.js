@@ -11,6 +11,7 @@ import {
 } from 'firebase/database';
 import { ensureAuthUser, getFirebaseAuth } from '../firebase.js';
 import { displayNameFor } from '../high-score.js';
+import { publishablePlayerName } from '../character-select.js';
 import { currentPresenceName } from './player-name.js';
 import { getFirebaseRtdb, rtdbConfigured } from './firebase-rtdb.js';
 import {
@@ -82,7 +83,7 @@ export class PresenceRoom {
 
 /**
  * Join demo room when the current user has a uid and RTDB is configured.
- * `name` seeds presence.name (typed / localStorage / Google); defaults to Driver.
+ * `name` seeds presence.name (typed / localStorage / the chosen character).
  * @returns {Promise<{ kind: 'solo' } | { kind: 'joined', room: PresenceRoom }>}
  */
 export async function joinDemoRoom(user = getFirebaseAuth().currentUser, { name } = {}) {
@@ -93,9 +94,11 @@ export async function joinDemoRoom(user = getFirebaseAuth().currentUser, { name 
     const uid = user.uid;
     const room = new PresenceRoom(db, DEMO_ROOM, uid);
     const rowRef = ref(db, playerPath(uid));
-    const seedName = (typeof name === 'string' && name.trim())
-      ? name.trim().slice(0, 48)
-      : (currentPresenceName(displayNameFor(user) || '') || 'Driver');
+    const seedName = publishablePlayerName(
+      (typeof name === 'string' && name.trim())
+        ? name
+        : currentPresenceName(displayNameFor(user) || ''),
+    );
     await onDisconnect(rowRef).remove();
     // Seed a minimal row so peers see the join immediately.
     await set(rowRef, toRtdb({

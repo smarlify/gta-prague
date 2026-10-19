@@ -3,7 +3,7 @@ import {createVehicle,animateVehicle} from './vehicles.js';
 import {groundAt} from './terrain.js';
 
 // A small white van with a red stripe. It is not a named service or a person.
-export function createPavlovaAmbulance(scene){
+function makeAmbulance(){
  const model=createVehicle(0,false,'van');
  model.traverse(mesh=>{
   if(mesh.isMesh&&mesh.material?.name==='paint'){
@@ -19,13 +19,23 @@ export function createPavlovaAmbulance(scene){
   mark(.045,.1,.46,side*.97,1.52,-.2);
  }
  model.visible=false;
- scene.add(model);
- return {model,update(state,dt){
-  const show=state?.phase==='cut';
-  model.visible=!!show;
-  if(!show)return;
-  model.position.set(state.x,.12+groundAt(state.x,state.z),state.z);
-  model.rotation.set(0,state.heading||Math.PI,0);
-  animateVehicle(model,14,0,dt,false);
+ return model;
+}
+
+export function createPavlovaAmbulance(scene){
+ const models=[makeAmbulance(),makeAmbulance()];
+ for(const model of models)scene.add(model);
+ return {models,update(state,dt){
+  const units=state?.phase==='cut'
+   ?(state.units?.length?state.units:[{x:state.x,z:state.z,heading:state.heading}])
+   :[];
+  models.forEach((model,index)=>{
+   const unit=units[index];
+   model.visible=!!unit;
+   if(!unit)return;
+   model.position.set(unit.x,.12+groundAt(unit.x,unit.z),unit.z);
+   model.rotation.set(0,unit.heading||Math.PI,0);
+   animateVehicle(model,14,0,dt,false);
+  });
  }};
 }
