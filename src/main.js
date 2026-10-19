@@ -23,7 +23,7 @@ import {createStreetLife} from './street-life.js';
 import {SKODA_PAINT,policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
 import {nearestWaterDistance} from './water-proximity.js';
 import {createWaterfowl} from './waterfowl.js';
-import {stepPavlova,placeWaitingAmbulances,pavlovaCenter,resolveDriverStart,startHeading} from './pavlova.js';
+import {stepPavlova,placeWaitingAmbulances,pavlovaCenter,resolveDriverStart,startHeading,applyAmbulanceRam} from './pavlova.js';
 import {createPavlovaAmbulance} from './pavlova-scene.js';
 import {passageDeck,stripBoredTunnels,bridgeDeckHeight,bridgeDriveHeight,isBridgeSurface,isFeaturedBridge} from './passage.js';
 import {pragueSceneryTrees,pragueParkPlanting,createParkFlowers,createCharlesStatues} from './prague-scenery.js';
@@ -325,6 +325,7 @@ multiplayer=createMultiplayerSession(scene,{
  getRoadblock:()=>roadblock,
  getCar:()=>car,
  getSiren:()=>stolenSirenOn,
+ getAmbulances:()=>(pavlova?.units||[]).map(unit=>({x:unit.x,z:unit.z,heading:unit.heading})),
 });
 const travelRenderer=createPlayerTravelRenderer(scene);
 const travelUI=createTravelUI({interact:interactTravel,toggleRun:()=>{if(travel?.mode==='walk')travel.sprint=!travel.sprint;},focusWorld:()=>$('world').focus()});
@@ -905,7 +906,7 @@ function frame(now){
  {const pose=roadblock?.cameraPose()||finale.cameraPose(car);if(pose){camera.position.set(...pose.position);camera.lookAt(...pose.target);}} // arrest cinematic orbit
  const wantFov=chaseCamera&&started&&!inspectionCamera?cameraFov:DRIVE_FOV.min;if(camera.fov!==wantFov){camera.fov=wantFov;camera.updateProjectionMatrix();}
  playerCars.setVisible(!inspectionCamera);
-  if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode,ram:!!chosenCharacter.pavlova},dt);ambulance?.update(pavlova,dt);}
+  if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode,ram:!!chosenCharacter.pavlova},dt);for(const impulse of pavlova.impulses||[])applyAmbulanceRam(car,impulse);ambulance?.update(pavlova,dt);}
   travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null});
   if(ready&&!paused&&!mapOpen&&!police?.busted){
    const birdStep=Math.min(.1,dt); // keep encounter pressure and bird motion on the same clock at low frame rates

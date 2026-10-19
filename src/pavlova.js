@@ -1,6 +1,7 @@
 // Ambulances wait at the crossroads of I. P. Pavlova and pull out only for Filip Turek.
 // The driver is not a real person. Coordinates are local metres (x east, z south).
 import {bootStart,pickStart,slug} from './cities.js';
+import {applyCrashImpulse} from './crash-physics.js';
 
 // Southbound corridor from Národní muzeum toward the square. Side streets are the
 // approaches that do not run along this line.
@@ -17,6 +18,9 @@ const MUSEUM_SLUG='narodni-muzeum';
 const PARK_SHORT=3;
 const HIT=2.2;
 const HOME=1.2;
+// Metres per second of the shove. Strong enough that applyCrashImpulse moves
+// the car instead of treating the contact as a brush.
+const RAM_SPEED=11;
 
 function corridorOffset(x,z){
  const {ax,az,bx,bz}=PAVLOVA_RUN;
@@ -135,6 +139,36 @@ function face(from,to){
  return Math.atan2(-(to.x-from.x),-(to.z-from.z));
 }
 
+// Unit vector from the ambulance toward the car. A chase that lands on the
+// player has no leftover offset, so the heading it arrived on still counts.
+function approachNormal(from,player){
+ const dx=(player.x||0)-(from.x||0),dz=(player.z||0)-(from.z||0),len=Math.hypot(dx,dz);
+ if(len>.2)return {nx:dx/len,nz:dz/len};
+ return {nx:-Math.sin(from.heading||0),nz:-Math.cos(from.heading||0)};
+}
+
+function ramImpulse(from,player){
+ const {nx,nz}=approachNormal(from,player);
+ const hx=-Math.sin(player.heading||0),hz=-Math.cos(player.heading||0);
+ const side=nx*hz-nz*hx;
+ return {nx,nz,speed:RAM_SPEED,spin:Math.max(-1.4,Math.min(1.4,side*1.6))};
+}
+
+// The published crash impulse shoves and spins the car. A hit square on the
+// doors barely changes speed along the nose, so that case also takes the
+// ram's velocity.
+export function applyAmbulanceRam(car,impulse){
+ const applied=applyCrashImpulse(car,impulse);
+ if(!applied)return null;
+ const h=car.heading||0,fx=-Math.sin(h),fz=-Math.cos(h);
+ const along=applied.nx*fx+applied.nz*fz;
+ if(Math.abs(along)<.45){
+  car.heading=Math.atan2(-applied.nx,-applied.nz);
+  car.speed=Math.max(Math.abs(car.speed||0),applied.dv*.55);
+ }
+ return {...applied,carSpeed:car.speed};
+}
+
 function chase(from,to,dt){
  const step=Math.min(1,Math.max(0,dt)*1.8);
  const x=from.x+(to.x-from.x)*step,z=from.z+(to.z-from.z)*step;
@@ -151,9 +185,10 @@ function homeOf(spot){
 export function stepPavlova(state,player,dt=0){
  const spots=state?.spots||[];
  const armed=!!player?.ram&&player?.mode==='car';
- const base={phase:'idle',x:0,z:0,heading:MUSEUM_HEADING,units:[],spots,driver:false};
+ const base={phase:'idle',x:0,z:0,heading:MUSEUM_HEADING,units:[],spots,driver:false,impulses:[]};
  if(!armed||!spots.length)return base;
  const previous=state?.units||[];
+ const impulses=[];
  const units=spots.map((spot,index)=>{
   const prior=previous[index];
   const home=homeOf(spot);
@@ -163,9 +198,16 @@ export function stepPavlova(state,player,dt=0){
   if(!near)spent=false;
   if(phase==='wait'&&near&&!spent)phase='pull';
   if(phase==='pull'){
-   const moved=chase(prior?.x==null?home:prior,player,dt);
-   const hit=Math.hypot(moved.x-player.x,moved.z-player.z)<HIT;
-   return {...home,...moved,phase:hit?'return':'pull',spent:true,junction:spot.junction};
+   const from=prior?.x==null?home:prior;
+   const moved=chase(from,player,dt);
+   const dist=Math.hypot(moved.x-(player.x||0),moved.z-(player.z||0));
+   if(dist<HIT){
+    const impulse=ramImpulse(from,player);
+    impulses.push(impulse);
+    const x=(player.x||0)-impulse.nx*HIT,z=(player.z||0)-impulse.nz*HIT;
+    return {...home,x,z,heading:face({x,z},player),phase:'return',spent:true,junction:spot.junction};
+   }
+   return {...home,...moved,phase:'pull',spent:true,junction:spot.junction};
   }
   if(phase==='return'){
    const moved=chase(prior?.x==null?home:prior,home,dt);
@@ -176,5 +218,5 @@ export function stepPavlova(state,player,dt=0){
  });
  const lead=units[0];
  const phase=units.some(unit=>unit.phase!=='wait')?'out':'wait';
- return {phase,x:lead.x,z:lead.z,heading:lead.heading,units,spots,driver:false};
+ return {phase,x:lead.x,z:lead.z,heading:lead.heading,units,spots,driver:false,impulses};
 }

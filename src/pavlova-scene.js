@@ -41,6 +41,12 @@ function makeAmbulance(){
  return model;
 }
 
+export function createAmbulanceMesh(){
+ const model=makeAmbulance();
+ model.visible=true;
+ return model;
+}
+
 export function createPavlovaAmbulance(scene,count=0){
  const models=Array.from({length:count},()=>makeAmbulance());
  for(const model of models)scene.add(model);
