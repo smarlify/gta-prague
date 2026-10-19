@@ -88,8 +88,8 @@ export function driverFromSearch(search = '') {
 }
 
 /**
- * A known ?driver= pins that choice, even when the saved visit is someone else.
- * A missing param keeps the saved choice, which is the Roadster when nothing is saved.
+ * A known ?driver= pins that choice and wins over whoever was saved.
+ * A missing param keeps the saved driver. With nothing valid saved, that is the Roadster.
  * An unknown value does not guess: it stays on the Roadster.
  */
 export function resolveDriver(search = '', storage) {
@@ -135,10 +135,11 @@ export function playerPageTitle(name, place) {
 export function bindCharacterPicker({
   doc = document,
   storage,
+  initial,
   onChange,
 } = {}) {
   const root = doc.getElementById?.('character-picker');
-  let current = readCharacter(storage);
+  let current = initial ? characterById(initial) : readCharacter(storage);
   const buttons = root ? [...root.querySelectorAll('[data-character]')] : [];
   const label = doc.getElementById?.('character-label');
   const prev = doc.getElementById?.('character-prev');

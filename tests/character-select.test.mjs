@@ -50,9 +50,18 @@ test('?driver= pins Elon, Turek, or Dave and an unknown value stays on the Roads
   assert.equal(driverFromSearch('?driver=turek').type, 'gwagen');
   assert.equal(driverFromSearch('?driver=dave').name, 'Dave N.');
   assert.equal(driverFromSearch('?driver=Dave').flies, false);
+  assert.equal(driverFromSearch('?driver=filip').type, 'gwagen');
+  assert.equal(driverFromSearch('?driver=filip-turek').name, 'Filip Turek');
+  assert.equal(driverFromSearch('?driver=dave-n').name, 'Dave N.');
   assert.equal(driverFromSearch('?city=prague&start=petrin&driver=turek&time=white-night').id, 'filip');
   assert.equal(resolveDriver('?driver=turek', saved).name, 'Filip Turek');
-  assert.equal(resolveDriver('', saved).name, 'Dave N.');
+  assert.equal(resolveDriver('?driver=filip', saved).label, 'Mercedes G — Filip Turek');
+  assert.equal(resolveDriver('?driver=dave', saved).label, 'Škoda Scala — Dave N.');
+  assert.equal(resolveDriver('?driver=dave-n', saved).type, 'scala');
+  assert.equal(resolveDriver('?driver=elon', saved).id, 'elon');
+  assert.equal(resolveDriver('', saved).id, 'dave');
+  assert.equal(resolveDriver('?city=prague&start=petrin', saved).id, 'dave');
+  assert.equal(resolveDriver('', memoryStorage()).id, 'elon');
   assert.equal(resolveDriver('?driver=nobody', saved).id, 'elon');
   assert.equal(resolveDriver('?driver=', memoryStorage()).id, 'elon');
   assert.equal(driverFromSearch(''), null);
@@ -160,8 +169,37 @@ test('the welcome card puts the car on the same arrow row as the district, outsi
   assert.ok(html.indexOf('id="start-next"') < html.indexOf('id="character-prev"'), 'the car row sits under the street arrows');
   assert.ok(html.indexOf('id="character-next"') < html.indexOf('id="boot-launch"'), 'the car row is not inside the hidden launch block');
   assert.match(html, /id="character-picker"[^>]*class="district-picker"|class="district-picker"[^>]*id="character-picker"/);
-  assert.match(css, /body \.player-name,body \.topbar kbd,#intro \.boot-controls/);
+  assert.match(css, /body \.player-name,body \.topbar kbd,#intro \.boot-controls\{display:none\}/);
+  assert.doesNotMatch(css, /body\.booting \.topbar\{display:\s*none\}/);
   assert.doesNotMatch(css, /#character-picker\{[^}]*display:\s*none/);
+  assert.doesNotMatch(css, /#character-prev\{[^}]*display:\s*none/);
+  assert.doesNotMatch(css, /#start-btn\{[^}]*display:\s*none/);
+  const hud = await readFile(new URL('../src/style.css', import.meta.url), 'utf8');
+  const touch = await readFile(new URL('../src/mobile-controls.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(hud, /#view-btn\{display:\s*none\}/);
+  assert.doesNotMatch(touch, /\.topbar nav\{display:\s*none\}/);
+  assert.doesNotMatch(hud, /body\.touch \.right-tools\{display:\s*none\}/);
+});
+
+test('a saved driver stays when the address names none, and Elon is only the empty fallback', () => {
+  const storage = memoryStorage();
+  writeCharacterId(storage, 'filip');
+  const doc = pickerDoc();
+  const picked = [];
+  const picker = bindCharacterPicker({
+    doc,
+    storage,
+    initial: resolveDriver('', storage).id,
+    onChange: (choice) => picked.push(choice.id),
+  });
+  assert.equal(resolveDriver('?driver=turek', storage).id, 'filip');
+  assert.equal(picker.get().label, 'Mercedes G — Filip Turek');
+  assert.equal(doc.nodes.get('character-label').textContent, 'Mercedes G — Filip Turek');
+  assert.deepEqual(picked, ['filip']);
+  assert.equal(storage.getItem('gta-praha-character'), 'filip');
+  assert.equal(resolveDriver('?driver=elon', storage).id, 'elon');
+  assert.equal(storage.getItem('gta-praha-character'), 'filip');
+  assert.equal(resolveDriver('', memoryStorage()).name, 'Elon Musk');
 });
 
 function pickerDoc() {

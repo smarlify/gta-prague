@@ -104,8 +104,8 @@ body.game-failed #intro{z-index:1000;pointer-events:auto}
 /* Phones (portrait) */
 @media(max-width:700px){
  #intro.boot-screen{--pad:24px;left:16px;bottom:max(16px,env(safe-area-inset-bottom));width:358px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);padding-bottom:var(--s-16)}
- /* A phone cannot press M, T, Y or the other letter keys. Hide those hints and the name field so the car choices and Start stay on the card. */
- body .player-name,body .topbar kbd,#intro .boot-controls,body.booting .topbar{display:none}
+ /* A phone cannot press M, T, or Y. Hide those letter hints and the name field. The arrow buttons, Start, and the rest of the controls stay. */
+ body .player-name,body .topbar kbd,#intro .boot-controls{display:none}
 }
 @media(pointer:coarse){
  .boot-footer a{display:inline-flex;align-items:center;min-height:44px}
