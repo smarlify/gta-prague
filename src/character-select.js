@@ -1,6 +1,8 @@
 // Welcome-card choice: which car is parked for the camera and for Start, and
 // which name the local player publishes. Nothing chosen means the Roadster.
+// The card cycles that choice with the same ‹ › row as the district and street.
 import {slug} from './cities.js';
+import {cycleIndex} from './start-picker.js';
 import {locationPageTitle} from './worldhood-brand.js';
 
 export const CHARACTER_STORAGE_KEY = 'gta-praha-character';
@@ -36,6 +38,12 @@ export const DEFAULT_CHARACTER_ID = 'elon';
 
 export function characterById(id) {
   return CHARACTERS.find((choice) => choice.id === id) || CHARACTERS.find((choice) => choice.id === DEFAULT_CHARACTER_ID);
+}
+
+/** The choice `step` places away. -1 from Filip is Dave, and +1 from Dave is Filip. */
+export function cycleCharacter(id, step) {
+  const index = CHARACTERS.findIndex((choice) => choice.id === id);
+  return CHARACTERS[cycleIndex(CHARACTERS.length, index, step)];
 }
 
 function storageOf(storage) {
@@ -132,12 +140,16 @@ export function bindCharacterPicker({
   const root = doc.getElementById?.('character-picker');
   let current = readCharacter(storage);
   const buttons = root ? [...root.querySelectorAll('[data-character]')] : [];
+  const label = doc.getElementById?.('character-label');
+  const prev = doc.getElementById?.('character-prev');
+  const next = doc.getElementById?.('character-next');
 
   function paint() {
     for (const button of buttons) {
       const on = button.dataset.character === current.id;
       button.setAttribute('aria-checked', on ? 'true' : 'false');
     }
+    if (label) label.textContent = current.label;
   }
 
   function choose(id) {
@@ -147,13 +159,39 @@ export function bindCharacterPicker({
     return current;
   }
 
+  function step(direction) {
+    if (!direction) return current;
+    return choose(cycleCharacter(current.id, direction).id);
+  }
+
   for (const button of buttons) {
     if (button.dataset.bound) continue;
     button.dataset.bound = '1';
     button.addEventListener('click', () => choose(button.dataset.character));
   }
 
+  // Same as the place arrows: a click (detail > 0) blurs so Enter still starts
+  // the game. ←/→ on a focused car arrow cycles the car and stops, so the
+  // place row keeps its own arrows.
+  const arrow = (button, direction) => {
+    if (!button || button.dataset.bound) return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', (event) => {
+      if (event?.detail > 0) button.blur?.();
+      step(direction);
+    });
+    button.addEventListener('keydown', (event) => {
+      const keyStep = event.code === 'ArrowLeft' ? -1 : event.code === 'ArrowRight' ? 1 : 0;
+      if (!keyStep) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) step(keyStep);
+    });
+  };
+  arrow(prev, -1);
+  arrow(next, 1);
+
   paint();
   onChange?.(current);
-  return { get: () => current, choose };
+  return { get: () => current, choose, step };
 }

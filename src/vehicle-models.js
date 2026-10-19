@@ -13,7 +13,9 @@ import {PAINT_FLAKE_UNIFORM,PAINT_FLAKE_SCALE_UNIFORM} from './surface-textures.
 // stay out of VEHICLE_TYPES so NPC traffic keeps its existing styles.
 export const PLAYER_CAR_TYPE='roadster';
 export const GWAGEN_PAINT='#111111';
-export const SCALA_PAINT='#0c4da2';
+// Škoda Phoenix Orange, paint code 2X / LA2Z — the energy orange. The black G
+// and the Ano White Roadster keep their own finishes.
+export const SCALA_PAINT='#ee5a1c';
 export const VEHICLE_TYPES=['crossover','hatchback','sedan','estate','suv','van','taxi'];
 const specs={
  crossover:{l:4.172,w:1.765,h:1.595,wb:2.56,rf:-.46,rr:1.18,rg:1.76,belt:1.02,r:.335,clad:true,blackRoof:true},
