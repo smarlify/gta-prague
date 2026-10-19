@@ -25,6 +25,14 @@ test('getting out leaves the car parked and walking never moves or drains it',()
  assert.deepEqual(car,parked);assert.ok(travel.parkedBodies().some(b=>b.x===0&&b.z===0));
 });
 
+test('a flying Roadster has to land before the driver can step out',()=>{
+ const car=makeCar(0,0);car.flying=true;car.alt=4;car.speed=0;
+ const travel=new PlayerTravel(car,world());
+ const blocked=travel.interact();
+ assert.equal(blocked.ok,false);assert.match(blocked.message,/Land/);assert.equal(travel.mode,'car');
+ car.flying=false;car.alt=0;assert.equal(travel.interact().ok,true);assert.equal(travel.mode,'walk');
+});
+
 test('rides need proximity; bicycle and scooter remain where dismounted and can be used again',()=>{
  const travel=new PlayerTravel(makeCar(0,0),world());travel.interact();
  Object.assign(travel.actor,{x:100,z:100});assert.equal(travel.interact('car').ok,false);

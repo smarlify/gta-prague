@@ -19,8 +19,9 @@ const paintMesh=model=>model.getObjectByName('paint');
 
 test('switching cars preserves each appearance and parked position and selects the correct wheel/body references',()=>{
  const scene=new Scene(),renderer=createPlayerCarRenderer(scene),home=car(12,34),travel=state(home);renderer.sync(travel);
+ assert.equal(renderer.group.userData.type,'roadster');
  const original=renderer.group.children[0];
- assert.equal(original.userData.type,'gwagen');assert.equal(original.name,'Mercedes G');
+ assert.equal(original.userData.type,'roadster');assert.equal(original.name,'Roadster');
  assert.equal(original.userData.beams.children.filter(o=>o.isSpotLight).length,2);
  const taken=car(-7,60,'taxi','#376487');travel.cars.push(taken);travel.car=travel.actor=taken;renderer.sync(travel);
  const active=renderer.group.children[0],parked=scene.getObjectByName('Player parked cars');

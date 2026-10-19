@@ -5,6 +5,7 @@ import {cornerSpeedLimit,edgeCruise,approachCruise,edgeTopSpeed,carLane} from '.
 import {sweptContact} from './contact-geometry.js';
 import {annotateJunctions,annotateCrossings,annotateTramRelations,annotateTramSignals,signalGreen as phaseGreen,tramThreat,boxesOverlap,carBox,oncomingPasses,CAR_HALF_LENGTH} from './lane-model.js';
 import {mergeGraph} from './graph-extension.js';
+import {carIsAirborne} from './roadster-flight.js';
 export const TRAFFIC_MAX_SPEED=50/3.6;
 export const nearStation=p=>Math.hypot(p.x+620,p.z+45)<430;
 export const inStationTrafficArea=p=>p.x>-885&&p.x<-440&&p.z>-145&&p.z<55;
@@ -404,7 +405,7 @@ export class Mobility {
   // into a second, differently sized envelope and lock them there. Existing
   // overlap can retreat; only motion farther into traffic is stopped here.
   const next={...player,x:player.x-Math.sin(player.heading||0)*player.speed*dt,z:player.z-Math.cos(player.heading||0)*player.speed*dt};
-  for(const a of this.cars)if(a.edge&&trafficFootprintsOverlap(player,a)&&sweptContact(player,next,a)){
+  if(!carIsAirborne(player))for(const a of this.cars)if(a.edge&&trafficFootprintsOverlap(player,a)&&sweptContact(player,next,a)){
    if(a.knocked&&a.knocked.at>=this.time-dt)continue; // the impact pass already shoved it this frame
    // Both cars move: shove the other one and let the player keep the rest of the speed (crash-physics.js).
    const impulse=player.travelMode&&player.travelMode!=='car'?null:this.knock(a,player,next);

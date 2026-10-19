@@ -1,6 +1,7 @@
 import {routePoint} from './mobility.js';
 import {safeVehicleSegment,vehicleFitsRoad,trafficFootprintsOverlap} from './road-safety.js';
 import {cornerSpeedLimit} from './traffic-driving.js';
+import {carIsAirborne} from './roadster-flight.js';
 
 // Star thresholds: 1★≥3, 2★≥6, 3★≥10, 4★≥16, 5★≥24.
 // Traffic / speed / collision heat is capped below 3★ so only lethal pedestrian
@@ -138,6 +139,7 @@ export class PoliceSimulation{
   this.recklessSeconds=0;this.recklessAt=this.time+RECKLESS.cooldown;return true;
  }
  observe(from,player,cars,people){
+  if(carIsAirborne(player))return;
   const moving=Math.abs(player.speed)>=2&&this.time>=this.grace;
   for(const a of cars)if(moving&&a.edge&&distance(player,a)<distance(from,player)+8&&sweptContact(from,player,a))this.report('vehicle',a.id,closingSpeed(from,a));
   for(const a of people)if(moving&&a.edge&&distance(player,a)<distance(from,player)+6&&sweptContact(from,player,a,true)){

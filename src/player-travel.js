@@ -126,6 +126,7 @@ export class PlayerTravel{
  sinkInWater(){return {ok:false};}
  interact(id=null,obstacles=this.obstacles()){
   if(!onFoot(this.mode)){
+   if(this.mode==='car'&&(this.actor.flying||(this.actor.alt||0)>.4))return {ok:false,message:'Land before getting out.'};
    if(Math.abs(this.actor.speed)>1.2)return {ok:false,message:'Stop before getting off.'};
    const position=exitPosition(this.actor,this.mode,this.world,[...this.parked(),...obstacles]);
    if(!position)return {ok:false,message:'There is no room to get off here. Move to a clear spot.'};

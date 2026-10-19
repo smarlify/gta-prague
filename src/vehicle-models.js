@@ -6,11 +6,11 @@ import {PAINT_FLAKE_UNIFORM,PAINT_FLAKE_SCALE_UNIFORM} from './surface-textures.
 
 // Original geometry, not manufacturer CAD. Crossover dimensions are based on
 // Toyota Finland MY26 Yaris Cross: 4.172 x 1.765 x 1.595 m, wheelbase 2.560 m.
-// The player starter (gwagen) follows published Mercedes-Benz G-Class (W463)
-// proportions: 4.825 x 1.931 x 1.969 m, wheelbase 2.890 m. The default finish
-// is black. It stays out of VEHICLE_TYPES so NPC traffic keeps its existing
-// body styles.
-export const PLAYER_CAR_TYPE='gwagen';
+// The Mercedes G (gwagen) follows published G-Class (W463) proportions:
+// 4.825 x 1.931 x 1.969 m, wheelbase 2.890 m, and its default finish is black.
+// The starter is the Roadster. Both stay out of VEHICLE_TYPES so NPC traffic
+// keeps its existing body styles.
+export const PLAYER_CAR_TYPE='roadster';
 export const GWAGEN_PAINT='#111111';
 export const VEHICLE_TYPES=['crossover','hatchback','sedan','estate','suv','van','taxi'];
 const specs={
@@ -23,7 +23,13 @@ const specs={
  taxi:{l:4.60,w:1.81,h:1.49,wb:2.70,rf:-.46,rr:1.60,rg:2.05,belt:.96,r:.32,rails:true,taxi:true},
  offroad:{l:4.55,w:1.92,h:1.86,wb:2.72,rf:-.7,rr:1.45,rg:2.0,belt:1.15,r:.4,clad:true},
  gwagen:{l:4.825,w:1.931,h:1.969,wb:2.89,gf:-1.02,rf:-.84,rr:1.38,rg:1.55,belt:1.30,r:.40,clad:true,rails:true,boxy:true},
+ // October 2026 Rocket trim: published wheelbase 2.825 m and width about 2.00 m.
+ // Length is not published; 4.55 m is the overhang that fits that wheelbase.
+ roadster:{l:4.55,w:1.98,h:1.14,wb:2.825,rf:.2,rr:1.25,rg:1.55,belt:.62,r:.34},
 };
+// Ano White, the rocket-coating colour shown on the 2026 car. Original mesh,
+// not manufacturer CAD — Tesla does not publish a reusable body model.
+export const ROADSTER_PAINT='#f2efe6';
 const palette=['#b8bcb8','#e5e7e1','#284c65','#be3529','#344a3e','#393b41','#a29b8b','#577383','#794537'];
 const templates=new Map();
 // Showroom finishes: clearcoated paint, dark reflective glazing, polished
@@ -167,14 +173,91 @@ function build(type,detailed){
  if(detailed)body.add(headBeams(s));
  return group;
 }
+// Stylised T. Proportions follow the familiar nose badge; the curves are drawn
+// here and are not a traced brand file.
+function teslaMark(){
+ const s=new THREE.Shape();
+ // Flared top bar and a narrow stem. Drawn here; not a traced badge file.
+ s.moveTo(-.88,.18);s.lineTo(-.62,.74);s.lineTo(.62,.74);s.lineTo(.88,.18);
+ s.lineTo(.20,.18);s.lineTo(.26,-.78);s.lineTo(-.26,-.78);s.lineTo(-.20,.18);s.closePath();
+ return new THREE.ExtrudeGeometry(s,{depth:.06,bevelEnabled:false,curveSegments:1});
+}
+function buildRoadster(detailed){
+ const s=specs.roadster,L=s.l/2,W=s.w/2,group=new THREE.Group(),batches=new Map();
+ const mats=createVehicleMaterials();
+ mats.glass.color.set('#6a542c');mats.glass.metalness=.74;mats.glass.roughness=.07;
+ const nozzle=new THREE.MeshBasicMaterial({color:'#3e5158',toneMapped:false,fog:false});nozzle.name='nozzle';mats.nozzle=nozzle;
+ function add(g,mat,x=0,y=0,z=0,rx=0,ry=0,rz=0){g.rotateX(rx);g.rotateY(ry);g.rotateZ(rz);g.translate(x,y,z);if(g.index)g=g.toNonIndexed();g.deleteAttribute('uv');if(!batches.has(mat))batches.set(mat,[]);batches.get(mat).push(g);}
+ function box(w,h,d,mat,x,y,z,rx=0,ry=0,rz=0){add(new THREE.BoxGeometry(w,h,d),mat,x,y,z,rx,ry,rz);}
+ // Low wedge, cab set back, wide rear haunches. The chase camera sits behind
+ // this tail, so the lamps, nozzles and wing have to read from there.
+ add(loft([
+  [-L,.30,.24,.40],[-L+.40,.58,.18,.48],[-L+.95,.84,.14,.56],[-s.wb/2,W*.92,.14,.60],[-.45,W*.96,.14,.56],
+  [.05,W*.94,.16,.64],[.55,W*.90,.22,.78],[1.05,W*.94,.20,.74],[1.55,W*1.04,.18,.66],[L-.18,W*.96,.24,.62],[L,W*.86,.28,.58],
+ ]),'paint');
+ add(loft([[.05,W*.62,.58,.64],[.48,W*.56,.62,1.04],[1.02,W*.50,.66,.98],[1.38,W*.46,.58,.70]]),'glass');
+ box(W*1.15,.04,.62,'black',0,1.02,.78);
+ box(W*1.55,.06,.55,'black',0,.20,-L+.28);box(W*1.35,.07,.42,'black',0,.22,L-.28);
+ for(const side of [-1,1]){
+  box(.06,.08,s.l*.62,'black',side*(W-.01),.36,.1);
+  box(.14,.06,.20,'black',side*(W+.06),.72,.35);box(.09,.04,.012,'glass',side*(W+.08),.73,.46);
+  box(.035,.03,1.35,'chrome',side*(W*.62),.62,-.35);
+  for(const z of [-s.wb/2,s.wb/2])add(new THREE.TorusGeometry(s.r+.04,.045,5,detailed?12:8,Math.PI),'paint',side*(W+.02),s.r,z,0,Math.PI/2);
+ }
+ box(W*1.05,.03,.035,'head',0,.42,-L+.02);
+ box(W*1.62,.04,.025,'tail',0,.50,L+.01);
+ box(.42,.07,.018,'plate',0,.34,L+.02);
+ for(const x of [-.52,-.18,.18,.52]){
+  const shell=new THREE.CylinderGeometry(.07,.09,.16,8);shell.rotateX(Math.PI/2);add(shell,'black',x,.34,L-.02);
+  const core=new THREE.CylinderGeometry(.038,.05,.1,7);core.rotateX(Math.PI/2);add(core,'nozzle',x,.34,L+.06);
+ }
+ for(const x of [-1,1]){
+  const shell=new THREE.CylinderGeometry(.04,.05,.1,7);shell.rotateX(Math.PI/2);add(shell,'black',x*.62,.32,-L+.06);
+  const core=new THREE.CylinderGeometry(.02,.028,.06,6);core.rotateX(Math.PI/2);add(core,'nozzle',x*.62,.32,-L+.01);
+ }
+ for(const x of [-1,1])for(const z of [-1.2,1.35]){
+  add(new THREE.CylinderGeometry(.055,.07,.08,7),'black',x*(W-.08),.14,z);
+  add(new THREE.CylinderGeometry(.028,.036,.05,6),'nozzle',x*(W-.08),.09,z);
+ }
+ for(const side of [-1,1])for(const z of [-s.wb/2,s.wb/2]){
+  const pivot=new THREE.Group();pivot.position.set(side*(W+.02),s.r,z);group.add(pivot);const spin=new THREE.Group();pivot.add(spin);
+  const tire=new THREE.Mesh(new THREE.CylinderGeometry(s.r,s.r,.24,detailed?16:12),mats.rubber);tire.rotation.z=Math.PI/2;spin.add(tire);
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(s.r*.58,s.r*.58,.25,detailed?12:8),mats.chrome);hub.rotation.z=Math.PI/2;spin.add(hub);
+  if(detailed)for(let i=0;i<5;i++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.016,.028,s.r*1.05),mats.black);spoke.rotation.x=i*Math.PI/5;spin.add(spoke);}
+  const cap=teslaMark();cap.scale(.08,.08,.08);cap.rotateY(side>0?-Math.PI/2:Math.PI/2);cap.translate(side*.13,0,0);const capMesh=new THREE.Mesh(cap,mats.black);capMesh.name='tesla-mark';spin.add(capMesh);
+  spin.children.forEach(m=>{if(m.isMesh)m.castShadow=true;});
+ }
+ const body=new THREE.Group();body.name='body';group.add(body);
+ for(const [name,gs]of batches){const mesh=new THREE.Mesh(mergeGeometries(gs),mats[name]);mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;body.add(mesh);gs.forEach(g=>g.dispose());}
+ function badge(x,y,z,scale,rx,ry){const g=teslaMark();g.scale(scale,scale,scale);g.rotateX(rx);g.rotateY(ry);g.translate(x,y,z);const mesh=new THREE.Mesh(g,mats.black);mesh.name='tesla-mark';mesh.castShadow=true;body.add(mesh);}
+ // Hood lies flat. The tail mark faces the chase camera. The deck mark is tilted up toward that same camera.
+ badge(0,.50,-1.25,.11,-Math.PI/2,0);
+ badge(0,.50,L+.05,.16,0,0);
+ badge(0,.78,1.42,.30,-.65,0);
+ const wing=new THREE.Group();wing.name='wing';wing.position.set(0,1.02,1.92);
+ const plane=new THREE.Mesh(new THREE.BoxGeometry(1.72,.045,.38),mats.paint);plane.castShadow=true;wing.add(plane);
+ for(const x of [-.78,.78]){const end=new THREE.Mesh(new THREE.BoxGeometry(.03,.16,.38),mats.black);end.position.set(x,-.02,0);wing.add(end);}
+ for(const x of [-.42,.42]){const strut=new THREE.Mesh(new THREE.BoxGeometry(.03,.28,.04),mats.black);strut.position.set(x,-.16,-.02);wing.add(strut);}
+ body.add(wing);
+ const fans=new THREE.Group();fans.name='fans';
+ for(const [x,z]of [[-.34,-.4],[.34,-.4],[-.34,.62],[.34,.62]]){
+  const pivot=new THREE.Group();pivot.position.set(x,.12,z);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.16,.018,4,10),mats.black);ring.rotation.x=Math.PI/2;pivot.add(ring);
+  const blade=new THREE.Mesh(new THREE.BoxGeometry(.28,.012,.04),mats.chrome);pivot.add(blade);
+  fans.add(pivot);
+ }
+ body.add(fans);
+ if(detailed)body.add(headBeams(s));
+ return group;
+}
 export function createDetailedVehicle(colour=0,detailed=false,type=detailed?PLAYER_CAR_TYPE:'sedan'){
  if(!specs[type])throw Error(`Unknown vehicle type: ${type}`);
- if(!templates.has(type))templates.set(type,build(type,false));
- const model=detailed?build(type,true):templates.get(type).clone(true);
- const finish=type==='gwagen'?GWAGEN_PAINT:palette[colour%palette.length];
+ if(!templates.has(type))templates.set(type,type==='roadster'?buildRoadster(false):build(type,false));
+ const model=detailed?(type==='roadster'?buildRoadster(true):build(type,true)):templates.get(type).clone(true);
+ const finish=type==='gwagen'?GWAGEN_PAINT:type==='roadster'?ROADSTER_PAINT:palette[colour%palette.length];
  model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(finish);}});
- model.name=type==='gwagen'?'Mercedes G':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
- model.userData={type,spec:{...specs[type]},wheels:model.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:specs[type].r})),body:model.getObjectByName('body'),head:detailed?model.getObjectByName('head').material:null,tail:detailed?model.getObjectByName('tail').material:null,beams:detailed?model.getObjectByName('head-beams'):null};
+ model.name=type==='gwagen'?'Mercedes G':type==='roadster'?'Roadster':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
+ model.userData={type,spec:{...specs[type]},wheels:model.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:specs[type].r})),body:model.getObjectByName('body'),head:detailed?model.getObjectByName('head').material:null,tail:detailed?model.getObjectByName('tail').material:null,beams:detailed?model.getObjectByName('head-beams'):null,nozzleMat:model.getObjectByName('nozzle')?.material||null,wing:model.getObjectByName('wing')||null,fanPivots:model.getObjectByName('fans')?.children||null};
  return model;
 }
 export const PAINT_PALETTE=palette;

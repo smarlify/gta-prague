@@ -3,6 +3,7 @@ import {prepareGraph,routePoint} from './mobility.js';
 import {SpatialIndex,segmentDistance} from './geo.js';
 import {BUS_DIMENSIONS} from './bus-simulation.js';
 import {boxesOverlap,carBox,oncomingPasses,signalGreen,untilGreen} from './lane-model.js';
+import {carIsAirborne} from './roadster-flight.js';
 export const TRAM_DIMENSIONS={length:27.6,width:2.4,height:3.83,gauge:1,sections:[9.7,7.6,9.7],centres:[0,-8.95,-17.9],front:4.85,rear:22.75};
 // Raide-Jokeri (line 15): Škoda ForCity Smart Artic X54, five modules, 34 m, cabs at both ends.
 export const JOKERI_DIMENSIONS={length:34.3,width:2.4,height:3.7,gauge:1,sections:[7.9,5.5,6.3,5.5,7.9],centres:[0,-7,-13.2,-19.4,-26.4],front:3.95,rear:30.35,stopAhead:13};
@@ -227,7 +228,8 @@ export class TramSimulation{
   // A player backing clearly away from the section keeps that speed: nose-on
   // against a tram with the platform on the free side, the sideways nudge
   // below has nowhere to go and the car would otherwise be stuck for good.
-  for(const t of this.trams){const D=tramDims(t.path);for(let i=0;i<D.centres.length;i++){const p=routePoint(t.path,t.s+D.centres[i],0),c=Math.cos(p.heading),s=Math.sin(p.heading),dx=player.x-p.x,dz=player.z-p.z,side=dx*c-dz*s,along=dx*s+dz*c;
+  // Above the roofs the flying Roadster is clear of the 2D footprint.
+  if(!carIsAirborne(player))for(const t of this.trams){const D=tramDims(t.path);for(let i=0;i<D.centres.length;i++){const p=routePoint(t.path,t.s+D.centres[i],0),c=Math.cos(p.heading),s=Math.sin(p.heading),dx=player.x-p.x,dz=player.z-p.z,side=dx*c-dz*s,along=dx*s+dz*c;
    const sideClear=D.width/2+(player.halfWidth??.95),endClear=player.halfLength??2.2;
    if(Math.abs(side)<sideClear&&Math.abs(along)<D.sections[i]/2+endClear){
     // A real knock (not resting against it) jolts the passengers; trams.js animates them from hitAt/hitSide.
