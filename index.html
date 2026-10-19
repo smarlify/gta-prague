@@ -70,6 +70,11 @@
         <p id="start-status" class="visually-hidden" role="status" aria-live="polite"></p>
         <div id="boot-loader"><div class="boot-progress-heading"><span id="load-detail" role="status">Loading resources</span><span id="load-percent">0%</span></div><div class="load-progress" role="progressbar" aria-label="Game setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="load-fill"></div></div></div>
         <div id="boot-launch" hidden>
+          <div id="character-picker" class="character-picker" role="radiogroup" aria-label="Car and driver">
+            <button type="button" role="radio" data-character="filip" aria-checked="false">Mercedes G — Filip Turek</button>
+            <button type="button" role="radio" data-character="elon" aria-checked="true">Roadster — Elon Musk</button>
+            <button type="button" role="radio" data-character="dave" aria-checked="false">Škoda Scala — Dave N.</button>
+          </div>
           <button id="start-btn" class="primary-btn" disabled><span id="start-label">Let’s explore</span><span aria-hidden="true">↗</span></button>
           <span class="boot-enter">or press <kbd>ENTER</kbd></span>
           <details class="boot-help"><summary>How to play <span aria-hidden="true">+</span></summary>

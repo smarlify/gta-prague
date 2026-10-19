@@ -8,10 +8,12 @@ import {PAINT_FLAKE_UNIFORM,PAINT_FLAKE_SCALE_UNIFORM} from './surface-textures.
 // Toyota Finland MY26 Yaris Cross: 4.172 x 1.765 x 1.595 m, wheelbase 2.560 m.
 // The Mercedes G (gwagen) follows published G-Class (W463) proportions:
 // 4.825 x 1.931 x 1.969 m, wheelbase 2.890 m, and its default finish is black.
-// The starter is the Roadster. Both stay out of VEHICLE_TYPES so NPC traffic
-// keeps its existing body styles.
+// The starter is the Roadster. The Škoda Scala follows published Scala
+// proportions: 4.362 x 1.793 x 1.471 m, wheelbase 2.649 m. These player bodies
+// stay out of VEHICLE_TYPES so NPC traffic keeps its existing styles.
 export const PLAYER_CAR_TYPE='roadster';
 export const GWAGEN_PAINT='#111111';
+export const SCALA_PAINT='#0c4da2';
 export const VEHICLE_TYPES=['crossover','hatchback','sedan','estate','suv','van','taxi'];
 const specs={
  crossover:{l:4.172,w:1.765,h:1.595,wb:2.56,rf:-.46,rr:1.18,rg:1.76,belt:1.02,r:.335,clad:true,blackRoof:true},
@@ -26,6 +28,7 @@ const specs={
  // October 2026 Rocket trim: published wheelbase 2.825 m and width about 2.00 m.
  // Length is not published; 4.55 m is the overhang that fits that wheelbase.
  roadster:{l:4.55,w:1.98,h:1.14,wb:2.825,rf:.2,rr:1.25,rg:1.55,belt:.62,r:.34},
+ scala:{l:4.362,w:1.793,h:1.471,wb:2.649,rf:-.42,rr:1.05,rg:1.72,belt:.96,r:.31},
 };
 // Ano White, the rocket-coating colour shown on the 2026 car. Original mesh,
 // not manufacturer CAD — Tesla does not publish a reusable body model.
@@ -254,9 +257,9 @@ export function createDetailedVehicle(colour=0,detailed=false,type=detailed?PLAY
  if(!specs[type])throw Error(`Unknown vehicle type: ${type}`);
  if(!templates.has(type))templates.set(type,type==='roadster'?buildRoadster(false):build(type,false));
  const model=detailed?(type==='roadster'?buildRoadster(true):build(type,true)):templates.get(type).clone(true);
- const finish=type==='gwagen'?GWAGEN_PAINT:type==='roadster'?ROADSTER_PAINT:palette[colour%palette.length];
+ const finish=type==='gwagen'?GWAGEN_PAINT:type==='roadster'?ROADSTER_PAINT:type==='scala'?SCALA_PAINT:palette[colour%palette.length];
  model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(finish);}});
- model.name=type==='gwagen'?'Mercedes G':type==='roadster'?'Roadster':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
+ model.name=type==='gwagen'?'Mercedes G':type==='roadster'?'Roadster':type==='scala'?'Škoda Scala':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
  model.userData={type,spec:{...specs[type]},wheels:model.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:specs[type].r})),body:model.getObjectByName('body'),head:detailed?model.getObjectByName('head').material:null,tail:detailed?model.getObjectByName('tail').material:null,beams:detailed?model.getObjectByName('head-beams'):null,nozzleMat:model.getObjectByName('nozzle')?.material||null,wing:model.getObjectByName('wing')||null,fanPivots:model.getObjectByName('fans')?.children||null};
  return model;
 }

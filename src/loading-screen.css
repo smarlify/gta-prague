@@ -34,6 +34,9 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
 #intro .start-district{flex:1;min-width:0;text-align:center;font:600 var(--t-14)/20px var(--ui);letter-spacing:.04em;color:var(--ink)}
 #intro.has-districts .district-picker .start-arrow{width:40px;height:40px}
 /* ‹ Place name ›: a control the same width and radius as the button below it. */
+#intro .character-picker{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
+#intro .character-picker button{text-align:left;background:#fffdf8cc;border:1px solid #30312e1f;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:550}
+#intro .character-picker button[aria-checked="true"]{border-color:#d95e3b;background:#fff7f2}
 #intro .start-picker{display:flex;align-items:center}
 #intro.has-picker .start-picker{min-height:56px;margin:0 0 var(--s-12);padding:3px var(--s-4);border:1px solid #30312e1f;border-radius:8px;background:#fffdf8b3}
 /* A long name wraps to two balanced lines (2 × 24 px + 3 px padding + border = the 56 px box), so it is never cut off. */

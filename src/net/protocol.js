@@ -2,6 +2,7 @@
  * GTA Praha presence schema for the demo RTDB room.
  * Visual presence only — city/traffic stay local; no host election.
  */
+import { isIdleDriverRecord, publishablePlayerName } from '../character-select.js';
 
 export const PLAYER_HZ = 10;
 /** AFK tabs heartbeat about once a second instead of the live 10 Hz pose stream. */
@@ -218,7 +219,7 @@ export function buildPresence({
   const showForce = wantedRow.level > 0 || wantedRow.busted || arrestRow.active;
   const row = {
     uid: cleanUid,
-    name: cleanString(name, 48) || 'Driver',
+    name: publishablePlayerName(cleanString(name, 48)),
     x: finiteNumber(x),
     z: finiteNumber(z),
     heading: finiteNumber(heading),
@@ -280,12 +281,27 @@ export function remotePlayersFromMap(map, selfUid, now = Date.now()) {
   const remotes = [];
   if (!map || typeof map !== 'object') return remotes;
   for (const [key, value] of Object.entries(map)) {
+    if (isIdleDriverRecord(value)) continue;
     const row = parsePresence(value, key);
     if (!row || row.uid === selfUid) continue;
     if (now - row.updatedAt > presenceStaleMs(row)) continue;
     remotes.push(row);
   }
   return remotes;
+}
+
+/** Rows for the Online list. Idle Driver leftovers are omitted; every other name stays. */
+export function listedPlayers(map, selfUid = '') {
+  const out = [];
+  if (!map || typeof map !== 'object') return out;
+  const self = typeof selfUid === 'string' ? selfUid : '';
+  for (const [key, value] of Object.entries(map)) {
+    if (isIdleDriverRecord(value)) continue;
+    const row = parsePresence(value, key);
+    if (!row) continue;
+    out.push({ name: row.name, uid: row.uid, you: !!self && row.uid === self });
+  }
+  return out;
 }
 
 /** Strip undefined (RTDB rejects undefined). */

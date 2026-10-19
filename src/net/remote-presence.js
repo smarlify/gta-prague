@@ -81,7 +81,9 @@ function vehicleKey(vehicle) {
 }
 
 function labelFor(net) {
-  const name = String(net?.name || 'Driver').slice(0, 18);
+  const raw = String(net?.name || '').replace(/\s+/g, ' ').trim();
+  if (!raw || raw.toLowerCase() === 'driver') return '';
+  const name = raw.slice(0, 18);
   return net?.afk ? `😴 ${name}` : name;
 }
 
@@ -107,7 +109,7 @@ function createCarMesh(vehicle) {
     model.name = 'Remote player car';
     return model;
   }
-  const type = vehicle?.type && ['crossover', 'hatchback', 'sedan', 'estate', 'suv', 'van', 'taxi', 'offroad', 'gwagen', 'roadster'].includes(vehicle.type)
+  const type = vehicle?.type && ['crossover', 'hatchback', 'sedan', 'estate', 'suv', 'van', 'taxi', 'offroad', 'gwagen', 'roadster', 'scala'].includes(vehicle.type)
     ? vehicle.type
     : 'roadster';
   const model = createVehicle(0, false, type);

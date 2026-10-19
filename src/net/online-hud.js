@@ -3,22 +3,10 @@
  * The button does not leave the demo room.
  */
 import { rtdbConfigured } from './firebase-rtdb.js';
-
-function presenceName(row) {
-  const name = typeof row?.name === 'string' ? row.name.trim() : '';
-  return name || 'Driver';
-}
+import { listedPlayers } from './protocol.js';
 
 function snapshotRows(players, selfUid) {
-  const map = players && typeof players === 'object' ? players : {};
-  const self = typeof selfUid === 'string' ? selfUid : '';
-  return Object.entries(map).map(([key, row]) => {
-    const uid = (row && typeof row.uid === 'string' && row.uid) || key;
-    return {
-      name: presenceName(row),
-      you: !!self && uid === self,
-    };
-  });
+  return listedPlayers(players, selfUid);
 }
 
 function rowLabel(row) {
@@ -55,8 +43,10 @@ export function bindOnlineHud(root = document, {
   let busy = false;
   let open = false;
 
+  const rowsNow = () => snapshotRows(players(), selfUid());
+
   const paintList = () => {
-    renderPlayers(panel, root, snapshotRows(players(), selfUid()));
+    renderPlayers(panel, root, rowsNow());
   };
 
   const setOpen = (next) => {
@@ -71,7 +61,7 @@ export function bindOnlineHud(root = document, {
     btn.hidden = !configured;
     if (!configured) return;
     const online = isOnline();
-    const n = onlineCount();
+    const n = rowsNow().length;
     btn.disabled = busy;
     btn.dataset.online = online ? '1' : '0';
     btn.setAttribute('aria-pressed', online ? 'true' : 'false');

@@ -51,7 +51,8 @@ test('presence row publishes the typed name instead of Driver', () => {
   });
   assert.equal(row.name, 'Dave 2');
   assert.equal(parsePresence(row).name, 'Dave 2');
-  assert.equal(buildPresence({ uid: 'uid-empty', name: cleanPlayerName('') }).name, 'Driver');
+  assert.equal(buildPresence({ uid: 'uid-empty', name: cleanPlayerName('') }).name, 'Elon Musk');
+  assert.equal(buildPresence({ uid: 'uid-driver', name: 'Driver' }).name, 'Elon Musk');
 });
 
 test('live input wins over empty localStorage so remotes never see Driver', () => {

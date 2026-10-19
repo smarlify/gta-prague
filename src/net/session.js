@@ -4,6 +4,7 @@
 import { onAuthStateChanged } from 'firebase/auth';
 import { ensureAuthUser, getFirebaseAuth } from '../firebase.js';
 import { displayNameFor } from '../high-score.js';
+import { publishablePlayerName } from '../character-select.js';
 import { bindPlayerNameField, rememberGoogleName } from './player-name.js';
 import { applyCrashImpulse } from '../crash-physics.js';
 import {
@@ -116,7 +117,7 @@ export function createMultiplayerSession(scene, {
     },
     onNameChange: () => { requestNamePublish(); },
   });
-  const presenceName = () => names.getName() || 'Driver';
+  const presenceName = () => publishablePlayerName(names.getName());
 
   const api = {
     isOnline,
