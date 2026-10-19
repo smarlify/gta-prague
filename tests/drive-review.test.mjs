@@ -28,6 +28,8 @@ test('player G-Class is a boxy upright SUV and traffic body styles stay distinct
  assert.equal(player.userData.type,'gwagen');assert.equal(player.name,'Mercedes G');
  assert.equal(player.userData.spec.l,4.825);assert.equal(player.userData.spec.w,1.931);assert.equal(player.userData.spec.h,1.969);assert.equal(player.userData.spec.wb,2.89);
  assert.equal(player.userData.spec.boxy,true);
+ assert.equal(player.getObjectByName('paint').material.color.getHexString(),'111111','default G is black');
+ assert.equal(createVehicle(0,false,'sedan').getObjectByName('paint').material.color.getHexString(),'b8bcb8','other bodies keep the shared palette');
  assert.equal(player.getObjectByName('head-beams').children.filter(o=>o.isSpotLight).length,2);
  const sedan=createVehicle(0,false,'sedan');
  const playerBox=new THREE.Box3().setFromObject(player).getSize(new THREE.Vector3());

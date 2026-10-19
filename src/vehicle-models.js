@@ -7,9 +7,11 @@ import {PAINT_FLAKE_UNIFORM,PAINT_FLAKE_SCALE_UNIFORM} from './surface-textures.
 // Original geometry, not manufacturer CAD. Crossover dimensions are based on
 // Toyota Finland MY26 Yaris Cross: 4.172 x 1.765 x 1.595 m, wheelbase 2.560 m.
 // The player starter (gwagen) follows published Mercedes-Benz G-Class (W463)
-// proportions: 4.825 x 1.931 x 1.969 m, wheelbase 2.890 m. It stays out of
-// VEHICLE_TYPES so NPC traffic keeps its existing body styles.
+// proportions: 4.825 x 1.931 x 1.969 m, wheelbase 2.890 m. The default finish
+// is black. It stays out of VEHICLE_TYPES so NPC traffic keeps its existing
+// body styles.
 export const PLAYER_CAR_TYPE='gwagen';
+export const GWAGEN_PAINT='#111111';
 export const VEHICLE_TYPES=['crossover','hatchback','sedan','estate','suv','van','taxi'];
 const specs={
  crossover:{l:4.172,w:1.765,h:1.595,wb:2.56,rf:-.46,rr:1.18,rg:1.76,belt:1.02,r:.335,clad:true,blackRoof:true},
@@ -169,7 +171,8 @@ export function createDetailedVehicle(colour=0,detailed=false,type=detailed?PLAY
  if(!specs[type])throw Error(`Unknown vehicle type: ${type}`);
  if(!templates.has(type))templates.set(type,build(type,false));
  const model=detailed?build(type,true):templates.get(type).clone(true);
- model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(palette[colour%palette.length]);}});
+ const finish=type==='gwagen'?GWAGEN_PAINT:palette[colour%palette.length];
+ model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(finish);}});
  model.name=type==='gwagen'?'Mercedes G':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
  model.userData={type,spec:{...specs[type]},wheels:model.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:specs[type].r})),body:model.getObjectByName('body'),head:detailed?model.getObjectByName('head').material:null,tail:detailed?model.getObjectByName('tail').material:null,beams:detailed?model.getObjectByName('head-beams'):null};
  return model;
