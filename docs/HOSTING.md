@@ -4,6 +4,8 @@ Worldhood builds to a **static site**: HTML, JavaScript, fonts and city data, wi
 database or accounts. Deploy the contents of `dist/` to a static host. Each player's browser runs
 the simulation; a CDN serves the files.
 
+Billboard checkout is not part of that static host. The webhook lives in `firebase/functions` and runs as a Firebase Cloud Function. A `functions` directory at the repo root would instead be a Cloudflare Pages Function, which `tests/hosting.test.mjs` rejects.
+
 ## Downloads and device performance
 
 Building tiles and surface chunks load around the player. Exploring farther downloads more data;

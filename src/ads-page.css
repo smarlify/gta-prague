@@ -1,0 +1,72 @@
+:root {
+  color: #1c2422;
+  background: #f3f0e9;
+  font-family: Georgia, "Iowan Old Style", serif;
+}
+body {
+  margin: 0;
+}
+.ads-page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+}
+.ads-page h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin: 0.4rem 0 0.6rem;
+}
+.ads-kicker, .ads-note, .ads-status {
+  color: #3d4a46;
+}
+.ads-card {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+  padding: 1.2rem;
+  background: #fffdf8;
+  border: 1px solid #d9d3c6;
+}
+.ads-balance {
+  display: flex;
+  gap: 1.5rem;
+}
+.ads-balance span {
+  display: block;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ads-balance strong {
+  font-size: 1.8rem;
+}
+.ads-page label {
+  display: grid;
+  gap: 0.3rem;
+}
+.ads-page select, .ads-page input[type="file"] {
+  font: inherit;
+}
+.ads-preview {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  object-fit: cover;
+  background: #14181c;
+}
+.primary-btn, .ghost-btn {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  padding: 0.7rem 1rem;
+}
+.primary-btn {
+  background: #24312e;
+  color: #f4efe6;
+}
+.ghost-btn {
+  background: transparent;
+  border: 1px solid #24312e;
+}
+.ads-back {
+  color: inherit;
+}
