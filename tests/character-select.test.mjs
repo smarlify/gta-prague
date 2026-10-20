@@ -167,6 +167,8 @@ test('the welcome card puts the car on the same arrow row as the district, outsi
   assert.match(district, /M15 5l-7 7 7 7/);
   assert.match(html, /id="character-next"[^>]*class="start-arrow"/);
   assert.match(html, /id="character-label"[^>]*>Roadster — Elon Musk</);
+  assert.ok(html.indexOf('id="boot-title"') < html.indexOf('id="load-detail"'), 'the loading line sits under the heading');
+  assert.ok(html.indexOf('id="load-detail"') < html.indexOf('id="character-prev"'), 'the car row sits under the loading line');
   assert.ok(html.indexOf('id="start-next"') < html.indexOf('id="character-prev"'), 'the car row sits under the street arrows');
   assert.ok(html.indexOf('id="character-next"') < html.indexOf('id="boot-launch"'), 'the car row is not inside the hidden launch block');
   assert.match(html, /id="character-picker"[^>]*class="district-picker"|class="district-picker"[^>]*id="character-picker"/);
