@@ -126,9 +126,11 @@ export function createPragueBillboards(sites = storedSites) {
     obstacles.push(...supportObstacles(site));
     const materials = [];
     for (const back of [0, Math.PI]) {
+      const yaw = site.yaw + back;
       const geometry = new THREE.PlaneGeometry(BOARD_WIDTH, BOARD_HEIGHT);
-      geometry.rotateY(site.yaw + back);
-      geometry.translate(site.x, BOARD_BOTTOM + BOARD_HEIGHT / 2, site.z);
+      geometry.rotateY(yaw);
+      // The frame is a thin box on the site. The poster has to sit on the outside, or the metal hides the words.
+      geometry.translate(site.x + Math.sin(yaw) * 0.12, BOARD_BOTTOM + BOARD_HEIGHT / 2, site.z + Math.cos(yaw) * 0.12);
       const material = new THREE.MeshBasicMaterial({map: placeholder, toneMapped: false, side: THREE.FrontSide});
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = site.id;
