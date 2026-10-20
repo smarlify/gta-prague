@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {SpatialIndex} from '../src/geo.js';
-import {placePragueBillboards} from '../src/prague-billboards.js';
+import {PRAGUE_AREAS} from '../src/area-caption.js';
+import {BOARDS_PER_DISTRICT, placePragueBillboards} from '../src/prague-billboards.js';
 import storedSites from '../src/prague-billboard-sites.json' with {type: 'json'};
 import {
   CREDIT_PACKS,
@@ -60,7 +61,10 @@ test('a placed board sits on the pavement and outside buildings', () => {
 
 test('stored Prague boards are on the pavement and not inside a building', () => {
   const data = JSON.parse(gunzipSync(readFileSync('public/cities/prague/city.pack')).toString('utf8'));
-  assert.equal(storedSites.length, 16);
+  assert.equal(storedSites.length, PRAGUE_AREAS.length * BOARDS_PER_DISTRICT);
+  const counts = new Map();
+  for (const site of storedSites) counts.set(site.district, (counts.get(site.district) || 0) + 1);
+  for (const area of PRAGUE_AREAS) assert.equal(counts.get(area.district), BOARDS_PER_DISTRICT, area.district);
   const buildings = new SpatialIndex(data.buildings);
   const pavement = new SpatialIndex(data.pavement);
   const roads = new SpatialIndex(data.roads.filter((road) => (road.kind || '').startsWith('Ajorata') && !(road.kind || '').includes('Tunel')));
@@ -68,6 +72,10 @@ test('stored Prague boards are on the pavement and not inside a building', () =>
     assert.equal(buildings.at(site.x, site.z), undefined, site.id);
     assert.ok(pavement.at(site.x, site.z), site.id);
     assert.equal(roads.at(site.x, site.z), undefined, site.id);
+  }
+  for (const start of data.landmarks) {
+    const nearest = Math.min(...storedSites.map((site) => Math.hypot(site.x - start.x, site.z - start.z)));
+    assert.ok(nearest < 200, `${start.name} is ${Math.round(nearest)} m from the nearest board`);
   }
 });
 

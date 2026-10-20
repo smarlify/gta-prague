@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {SpatialIndex} from './geo.js';
 import {solidBox} from './world-objects.js';
+import {PRAGUE_AREAS} from './area-caption.js';
 import {paintPlaceholder, facesForDay, pragueDayKey} from '../firebase/functions/ad-credits.js';
 import storedSites from './prague-billboard-sites.json' with {type: 'json'};
 
-export const BILLBOARD_COUNT = 16;
+export const BOARDS_PER_DISTRICT = 10;
+export const BILLBOARD_COUNT = BOARDS_PER_DISTRICT;
 const BOARD_WIDTH = 7.2;
 const BOARD_HEIGHT = 3.6;
 const BOARD_BOTTOM = 2.5;
@@ -25,8 +27,53 @@ function mulberry32(seed) {
   };
 }
 
-// Stable roadside sites. The same city data and seed always return the same boards.
-export function placePragueBillboards(data, {count = BILLBOARD_COUNT, step = 48, minGap = 320, seed = 0x5e1f0ad, radius} = {}) {
+function nearestArea(x, z, areas) {
+  let best = areas[0];
+  let distance = Infinity;
+  for (const area of areas) {
+    const gap = Math.hypot(area.x - x, area.z - z);
+    if (gap < distance) {
+      distance = gap;
+      best = area;
+    }
+  }
+  return best;
+}
+
+function districtSlug(name) {
+  return String(name).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function closestSite(pool, x, z, maxDistance) {
+  let best = null;
+  let distance = maxDistance;
+  for (const site of pool) {
+    const gap = Math.hypot(site.x - x, site.z - z);
+    if (gap < distance) {
+      distance = gap;
+      best = site;
+    }
+  }
+  return best;
+}
+
+function spreadSites(pool, count, minGap, seed, already = []) {
+  const rand = mulberry32(seed);
+  const shuffled = pool
+    .map((item, index) => ({item, index, n: rand()}))
+    .sort((a, b) => a.n - b.n || a.index - b.index)
+    .map((row) => row.item);
+  const picked = [...already];
+  for (const site of shuffled) {
+    if (picked.some((other) => Math.hypot(other.x - site.x, other.z - site.z) < minGap)) continue;
+    picked.push(site);
+    if (picked.length >= count) break;
+  }
+  return picked;
+}
+
+// Ten boards in each named Prague district. One sits near every start. The same city data keeps the same sites.
+export function placePragueBillboards(data, {count = BOARDS_PER_DISTRICT, step = 16, minGap = 48, seed = 0x5e1f0ad, radius, areas = PRAGUE_AREAS, nearStarts = 200} = {}) {
   const roads = new SpatialIndex((data.roads || []).filter(driveable));
   const pavement = new SpatialIndex(data.pavement || []);
   const buildings = new SpatialIndex(data.buildings || []);
@@ -51,26 +98,72 @@ export function placePragueBillboards(data, {count = BILLBOARD_COUNT, step = 48,
       const along = BOARD_WIDTH * 0.38;
       const posts = [1, -1].map((side) => [x + Math.cos(yaw) * along * side, z - Math.sin(yaw) * along * side]);
       if (posts.some(([px, pz]) => !clear(px, pz))) continue;
-      candidates.push({x, z, yaw});
+      const area = nearestArea(x, z, areas);
+      candidates.push({x, z, yaw, district: area.district});
     }
   }
-  const rand = mulberry32(seed);
-  const shuffled = candidates
-    .map((item, index) => ({item, index, n: rand()}))
-    .sort((a, b) => a.n - b.n || a.index - b.index)
-    .map((row) => row.item);
-  const picked = [];
-  for (const site of shuffled) {
-    if (picked.some((other) => Math.hypot(other.x - site.x, other.z - site.z) < minGap)) continue;
-    picked.push(site);
-    if (picked.length >= count) break;
+  const byDistrict = new Map(areas.map((area) => [area.district, []]));
+  for (const site of candidates) {
+    const list = byDistrict.get(site.district);
+    if (list) list.push(site);
   }
-  return picked.map((site, index) => ({
-    id: `board-${String(index + 1).padStart(2, '0')}`,
-    x: Math.round(site.x * 100) / 100,
-    z: Math.round(site.z * 100) / 100,
-    yaw: Math.round(site.yaw * 10000) / 10000,
-  }));
+  for (const start of data.landmarks || []) {
+    let best = null;
+    let distance = Infinity;
+    for (let x = start.x - 220; x <= start.x + 220; x += 8) {
+      for (let z = start.z - 220; z <= start.z + 220; z += 8) {
+        if (!clear(x, z)) continue;
+        let yaw = null;
+        for (let turn = 0; turn < 8; turn++) {
+          const face = turn * Math.PI / 4;
+          if (roads.at(x + Math.sin(face) * 8, z + Math.cos(face) * 8)) {
+            yaw = face;
+            break;
+          }
+        }
+        if (yaw === null) continue;
+        const along = BOARD_WIDTH * 0.38;
+        const posts = [1, -1].map((side) => [x + Math.cos(yaw) * along * side, z - Math.sin(yaw) * along * side]);
+        if (posts.some(([px, pz]) => !clear(px, pz))) continue;
+        const gap = Math.hypot(x - start.x, z - start.z);
+        if (gap < distance) {
+          distance = gap;
+          best = {x, z, yaw};
+        }
+      }
+    }
+    if (!best) continue;
+    const area = nearestArea(best.x, best.z, areas);
+    const list = byDistrict.get(area.district);
+    if (list) list.push({...best, district: area.district});
+  }
+  const reserved = new Map(areas.map((area) => [area.district, []]));
+  const taken = new Set();
+  for (const start of data.landmarks || []) {
+    const area = nearestArea(start.x, start.z, areas);
+    const pool = byDistrict.get(area.district) || [];
+    const site = closestSite(pool.filter((item) => !taken.has(item)), start.x, start.z, nearStarts);
+    if (!site) continue;
+    taken.add(site);
+    reserved.get(area.district).push(site);
+  }
+  const picked = [];
+  for (const area of areas) {
+    const held = reserved.get(area.district) || [];
+    const room = Math.max(count, held.length);
+    const slug = districtSlug(area.district);
+    const sites = spreadSites(byDistrict.get(area.district) || [], room, minGap, seed + slug.length * 97, held);
+    sites.forEach((site, index) => {
+      picked.push({
+        id: `${slug}-${String(index + 1).padStart(2, '0')}`,
+        district: area.district,
+        x: Math.round(site.x * 100) / 100,
+        z: Math.round(site.z * 100) / 100,
+        yaw: Math.round(site.yaw * 10000) / 10000,
+      });
+    });
+  }
+  return picked;
 }
 
 function placeholderTexture() {
