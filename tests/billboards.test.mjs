@@ -4,11 +4,13 @@ import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {SpatialIndex} from '../src/geo.js';
 import {PRAGUE_AREAS} from '../src/area-caption.js';
-import {BOARDS_PER_DISTRICT, placePragueBillboards} from '../src/prague-billboards.js';
+import {BILLBOARD_BUY_REACH, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, billboardPurchaseUrl, nearestBillboard, placePragueBillboards} from '../src/prague-billboards.js';
 import storedSites from '../src/prague-billboard-sites.json' with {type: 'json'};
 import {
   CREDIT_PACKS,
   PACK_CREDITS,
+  boardId,
+  checkoutMetadata,
   PLACEHOLDER_CS,
   PLACEHOLDER_EN,
   checkoutAmount,
@@ -110,14 +112,68 @@ test('currency changes the Checkout price and not the credit count', () => {
 
 test('a board returns to the placeholder when credits run out', () => {
   const sites = [{id: 'board-01'}, {id: 'board-02'}];
-  const live = settleCredits({...emptyAccount(), credits: 40, feePaid: true, imageUrl: 'https://example.test/ad.jpg', paused: true}, '2026-10-20');
+  const live = settleCredits({...emptyAccount(), credits: 40, feePaid: true, imageUrl: 'https://example.test/ad.jpg', paused: true, selectedBoardId: 'board-01'}, '2026-10-20');
   assert.equal(live.credits, 39);
-  const faces = facesForDay(sites, [{uid: 'ada', imageUrl: live.imageUrl, credits: live.credits}], '2026-10-20');
-  assert.equal(faces.filter((face) => face.imageUrl).length, 1);
+  assert.equal(live.selectedBoardId, 'board-01');
+  const buyer = {uid: 'ada', imageUrl: live.imageUrl, credits: live.credits, selectedBoardId: 'board-01'};
+  const faces = facesForDay(sites, [buyer], '2026-10-20');
+  assert.equal(faces[0].imageUrl, live.imageUrl);
+  assert.equal(faces[1].imageUrl, null);
   const gone = settleCredits({...live, lastSettledDay: '2026-10-20', paused: false}, '2026-11-28');
   assert.equal(gone.credits, 0);
   assert.equal(gone.paused, true);
-  const empty = facesForDay(sites, [{uid: 'ada', imageUrl: gone.imageUrl, credits: gone.credits}], '2026-11-28');
+  assert.equal(gone.selectedBoardId, 'board-01');
+  const empty = facesForDay(sites, [{...buyer, credits: gone.credits}], '2026-11-28');
   assert.deepEqual(empty.map((face) => face.imageUrl), [null, null]);
   assert.equal(pragueDayKey(new Date('2026-01-15T23:30:00Z')), '2026-01-16');
+});
+
+test('the buy button is on the page and names the nearest board', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  assert.match(html, /<button id="buy-billboard" type="button" hidden>Buy this billboard<\/button>/);
+  assert.equal(BUY_BILLBOARD_LABEL, 'Buy this billboard');
+  assert.doesNotMatch(html, /<kbd>[^<]*Buy this billboard/);
+  assert.ok(html.indexOf('id="buy-billboard"') > html.indexOf('id="zoom-out"'), 'the action sits with the play HUD, not on the welcome card');
+  assert.doesNotMatch(css, /#buy-billboard\{[^}]*display:\s*none/);
+  assert.match(css, /@media\(pointer:coarse\)\{#buy-billboard\{[^}]*touch-action:manipulation/);
+  assert.equal(BILLBOARD_BUY_REACH, 18);
+  const sites = [
+    {id: 'praha-1-stare-mesto-02', x: 12, z: 0},
+    {id: 'praha-1-stare-mesto-01', x: -4, z: 0},
+    {id: 'praha-2-vysehrad-01', x: 40, z: 0},
+  ];
+  const onFoot = nearestBillboard({x: 0, z: 0, travelMode: 'walk'}, sites);
+  const driving = nearestBillboard({x: 0, z: 0, travelMode: 'car'}, sites);
+  assert.equal(onFoot.id, 'praha-1-stare-mesto-01');
+  assert.equal(driving.id, onFoot.id);
+  assert.equal(billboardPurchaseUrl(onFoot.id), '/ads.html?board=praha-1-stare-mesto-01');
+  assert.equal(nearestBillboard({x: 18, z: 0}, [{id: 'edge', x: 0, z: 0}]).id, 'edge');
+  assert.equal(nearestBillboard({x: 18.2, z: 0}, [{id: 'edge', x: 0, z: 0}]), null);
+  assert.equal(nearestBillboard({x: 0, z: 0}, [{id: 'praha-b', x: 5, z: 0}, {id: 'praha-a', x: -5, z: 0}]).id, 'praha-a');
+});
+
+test('a selected board id paints that site rather than a random one', () => {
+  const sites = [
+    {id: 'praha-1-stare-mesto-01'},
+    {id: 'praha-1-stare-mesto-02'},
+    {id: 'praha-2-vysehrad-01'},
+  ];
+  const ada = {uid: 'ada', imageUrl: 'https://example.test/ada.jpg', credits: 12, selectedBoardId: 'praha-2-vysehrad-01'};
+  const owned = facesForDay(sites, [ada], '2026-10-20');
+  assert.deepEqual(owned.map((face) => face.imageUrl), [null, null, ada.imageUrl]);
+  const loose = facesForDay(sites, [{...ada, selectedBoardId: ''}], '2026-10-21');
+  assert.deepEqual(loose.map((face) => face.imageUrl), [null, null, null]);
+  const bob = {uid: 'bob', imageUrl: 'https://example.test/bob.jpg', credits: 4, selectedBoardId: 'praha-2-vysehrad-01'};
+  const shared = facesForDay(sites, [bob, ada], '2026-10-22');
+  assert.equal(shared[2].imageUrl, ada.imageUrl);
+  const broke = {uid: 'amy', imageUrl: 'https://example.test/amy.jpg', credits: 0, selectedBoardId: 'praha-1-stare-mesto-01'};
+  const funded = {uid: 'zoe', imageUrl: 'https://example.test/zoe.jpg', credits: 2, selectedBoardId: 'praha-1-stare-mesto-01'};
+  const kept = facesForDay(sites, [broke, funded, ada], '2026-10-20');
+  assert.equal(kept[0].imageUrl, funded.imageUrl);
+  assert.equal(kept[1].imageUrl, null);
+  assert.equal(boardId('praha-1-stare-mesto-01'), 'praha-1-stare-mesto-01');
+  assert.equal(boardId('../credits'), '');
+  const amount = checkoutAmount('eur', {feePaid: false});
+  assert.equal(checkoutMetadata('ada', amount, 'praha-1-stare-mesto-01').boardId, 'praha-1-stare-mesto-01');
 });

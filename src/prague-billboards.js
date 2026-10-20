@@ -8,6 +8,8 @@ import storedSites from './prague-billboard-sites.json' with {type: 'json'};
 
 export const BOARDS_PER_DISTRICT = 10;
 export const BILLBOARD_COUNT = BOARDS_PER_DISTRICT;
+export const BILLBOARD_BUY_REACH = 18;
+export const BUY_BILLBOARD_LABEL = 'Buy this billboard';
 const BOARD_WIDTH = 7.2;
 const BOARD_HEIGHT = 3.6;
 const BOARD_BOTTOM = 2.5;
@@ -42,6 +44,29 @@ function nearestArea(x, z, areas) {
 
 function districtSlug(name) {
   return String(name).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+export function billboardPurchaseUrl(siteId) {
+  return `/ads.html?board=${encodeURIComponent(siteId)}`;
+}
+
+// Player position is the same x/z on foot and in a car. Equal distances keep the earlier site id.
+export function nearestBillboard(player, sites, reach = BILLBOARD_BUY_REACH) {
+  if (!player || !Number.isFinite(player.x) || !Number.isFinite(player.z)) return null;
+  let best = null;
+  let bestDistance = reach;
+  for (const site of sites || []) {
+    if (!site || !Number.isFinite(site.x) || !Number.isFinite(site.z)) continue;
+    const gap = Math.hypot(site.x - player.x, site.z - player.z);
+    if (gap > reach) continue;
+    const closer = gap < bestDistance - 1e-9;
+    const tied = Math.abs(gap - bestDistance) <= 1e-9 && best && String(site.id) < String(best.id);
+    if (!best || closer || tied) {
+      best = site;
+      bestDistance = gap;
+    }
+  }
+  return best;
 }
 
 function closestSite(pool, x, z, maxDistance) {

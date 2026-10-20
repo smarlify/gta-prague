@@ -51,7 +51,7 @@ import {inHarbour} from './harbour-layout.js';
 import {Cyclists,createCyclistRenderer} from './cyclists.js';
 import {ScooterRiders,createScooterRiderRenderer} from './scooter-riders.js';
 import {createBindAds} from './bind-ads.js';
-import {createPragueBillboards} from './prague-billboards.js';
+import {createPragueBillboards,nearestBillboard,billboardPurchaseUrl} from './prague-billboards.js';
 import {fetchLiveCreatives} from './billboard-feed.js';
 import {createLasipalatsiStops} from './lasipalatsi-stop.js';
 import {createKauppatoriTramStops} from './kauppatori-tram-stops.js';
@@ -165,6 +165,7 @@ const driveCamera=createDriveCameraState();let cameraFov=DRIVE_FOV.min,cameraRol
 const roadRumble=createRumbleState();let cameraRumble=[0,0,0],surfaceNow={surface:'off',roughness:0},rumbleNow={bob:0,roll:0,pitch:0,intensity:0};
 let treeTrunks=null,cityModelPromise,surfaceStreamer=null,extensionStreamer=null,switchingStart=false,startVisitVersion=0,places=[],speciesTrees=null;const placeHidden=new Set();
 let birds=null,birdColonies=[],crowd=null,waterfowl=null; // gulls, pigeons, crows and sparrows from the city's map data (birds.js)
+let pragueBoards=null;
 let pavlova={phase:'idle'},ambulance=null,unpinnedStart=null;
 let cyclists,cyclistRenderer,npcScooters,npcScooterRenderer,buses,police,policeRenderer,roadblock; // shared riders and police in every city
 let multiplayer=null; // Temp default: auto-join demo (anonymous ok); HUD toggles leave/rejoin
@@ -332,6 +333,18 @@ const travelRenderer=createPlayerTravelRenderer(scene);
 const travelUI=createTravelUI({interact:interactTravel,toggleRun:()=>{if(travel?.mode==='walk')travel.sprint=!travel.sprint;},focusWorld:()=>$('world').focus()});
 const peopleUI=createPeopleInteractionUI({interact:talkToPerson,choose:replyToPerson,toggleVoice:()=>$('sound-btn').click(),focusWorld:()=>$('world').focus()});
 const marketUI=createMarketShopUI({action:marketAction,buy:buyAtStall,close:()=>{marketShop?.close();refreshMarketUI();},focusWorld:()=>$('world').focus()});
+const buyBillboardBtn=$('buy-billboard');
+function refreshBillboardBuy(){
+ const site=started&&!paused&&!mapOpen&&!police?.busted&&!captureMode?nearestBillboard(car,pragueBoards?.sites):null;
+ if(!buyBillboardBtn)return;
+ buyBillboardBtn.hidden=!site;
+ buyBillboardBtn.dataset.board=site?.id||'';
+}
+buyBillboardBtn?.addEventListener('click',()=>{
+ const id=buyBillboardBtn.dataset.board;
+ if(!id)return;
+ location.assign(billboardPurchaseUrl(id));
+});
 const marker=new THREE.Mesh(new THREE.RingGeometry(3.3,3.55,48),new THREE.MeshBasicMaterial({color:'#d95e3b',transparent:true,opacity:.5,depthWrite:false}));marker.rotation.x=-Math.PI/2;marker.position.y=.15;scene.add(marker);marker.visible=false;
 const mapCache=document.createElement('canvas');mapCache.width=1800;mapCache.height=1800;
 // Map frame in local metres; widened at boot when map extensions are installed.
@@ -704,7 +717,7 @@ const highScore=bindHighScoreUI(document,{
 function setBusted(active){
  // The arrest starts with a short cinematic (finale.cameraPose); the end screen appears when finale.cinematicStep says so.
  if(!active)$('busted-overlay').hidden=true;document.body.classList.toggle('busted',active);mobileControls?.release();keys.clear();
- for(const el of document.querySelectorAll('.topbar,.dashboard,.right-tools,#touch-controls,#touch-aux,#travel-controls'))el.inert=active;
+ for(const el of document.querySelectorAll('.topbar,.dashboard,.right-tools,#touch-controls,#touch-aux,#travel-controls,#buy-billboard'))el.inert=active;
  if(active){gullEncounter.reset();birds?.clearEncounter();paused=false;$('pause-overlay').hidden=true;roadblock?.startArrest(car);finale.arrest({car,police,knockables});}else{highScore.reset();roadblock?.clearArrest();$('busted-overlay').classList.remove('live');finale.dismiss();$('world').focus();}
 }
 function reset(){if(!ready)return;setBusted(false);setStart(startPoint);toast('Back on the road.');}
@@ -935,7 +948,7 @@ function frame(now){
   stableShadowTarget({x:focus.x-Math.sin(cameraHeading)*50,y:groundAt(focus.x,focus.z),z:focus.z-Math.cos(cameraHeading)*50},{width:sf.halfWidth*2,height:sf.halfHeight*2},2048,sun.target.position,sunOffset);sun.position.copy(sun.target.position).add(sunOffset);}
  const cp=new THREE.Vector3(0,photoMode?0:65,-31).project(camera);$('cathedral-label').style.left=`${(cp.x*.5+.5)*captureFrame.w}px`;$('cathedral-label').style.top=`${(-cp.y*.5+.5)*captureFrame.h-15}px`;$('cathedral-label').style.opacity=car&&Math.hypot(car.x,car.z+31)<280&&cp.x>-1&&cp.x<1&&cp.y>-.65&&cp.y<.8&&cp.z<1?1:0;
  if(ready){const busted=!!police?.busted,afk=(!!paused||document.hidden)&&!busted;multiplayer?.step(dt,{paused:afk,afk,busted});}
- if(now-lastUI>140&&ready){updateHUD(now);travelUI.update(travel,{started,paused,mapOpen,busted:police?.busted,hidden:captureMode});peopleUI.update(peopleInteraction?.snapshot(),{hidden:!canTalk()||captureMode||gullEncounter.snapshot().phase==='chase'});refreshMarketUI();noticeGulls();lastUI=now;}
+ if(now-lastUI>140&&ready){updateHUD(now);travelUI.update(travel,{started,paused,mapOpen,busted:police?.busted,hidden:captureMode});peopleUI.update(peopleInteraction?.snapshot(),{hidden:!canTalk()||captureMode||gullEncounter.snapshot().phase==='chase'});refreshMarketUI();refreshBillboardBuy();noticeGulls();lastUI=now;}
  uploads.step(); // rationed GPU uploads for streamed tiles
  if(now-lastTile>1200&&ready&&!switchingStart){surfaceStreamer?.update(car,{radius:1000,aheadSeconds:12});extensionStreamer?.update(car);updateTiles().catch(handleTileError);lastTile=now;}
  cityAudio.update(audioContext,{enabled:sound,active:started&&!paused&&!mapOpen,driving:travel?.mode==='car',car,surface:surfaceNow,people:[...(mobility?.people||[]).filter(p=>p.edge),...detailPeople.filter(p=>Number.isFinite(p.x))],trams:tramSim?.trams||[],heading:car?.heading??cameraHeading,throttle:keys.has('KeyW')||keys.has('ArrowUp'),reverse:keys.has('KeyS')||keys.has('ArrowDown'),brake:keys.has('Space'),waterDistance:car&&world?.water?nearestWaterDistance(car.x,car.z,world.water):Infinity,precipitation:look.weather==='rain'||look.weather==='thunder',snow:look.weather==='snow'});
@@ -1094,11 +1107,11 @@ async function boot(){
    progress(30,`Loading ${city.name} streets`);
    const scenery=helsinki?await buildHelsinkiScenery():genericScenery();
    if(city.id==='prague'){
-    const boards=createPragueBillboards();
-    cityModel.add(boards.group);
-    scenery.ads=boards;
-    scenery.streetObstacles.push(...boards.obstacles);
-    fetchLiveCreatives().then(list=>boards.setCreatives(list)).catch(()=>{});
+    pragueBoards=createPragueBillboards();
+    cityModel.add(pragueBoards.group);
+    scenery.ads=pragueBoards;
+    scenery.streetObstacles.push(...pragueBoards.obstacles);
+    fetchLiveCreatives().then(list=>pragueBoards.setCreatives(list)).catch(()=>{});
    }
    const {streetObstacles,ads,crossingSigns,routeCrossingSigns,roadworks,senateProps,furniture,micromobility,market,kaivokatuDetails}=scenery;
    staticCars=[...(furniture.enterableCars||[]),...(harbour.enterableCars||[]),...(stationStreetLife?.enterableCars||[])];

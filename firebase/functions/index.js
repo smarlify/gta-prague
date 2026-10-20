@@ -4,7 +4,7 @@ import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import Stripe from 'stripe';
-import {PACK_CREDITS, checkoutAmount, emptyAccount, grantPurchase, pragueDayKey, settleCredits} from './ad-credits.js';
+import {PACK_CREDITS, boardId, checkoutAmount, checkoutMetadata, emptyAccount, grantPurchase, pragueDayKey, settleCredits} from './ad-credits.js';
 
 initializeApp();
 
@@ -60,6 +60,8 @@ async function applyPaidSession(session) {
       return;
     }
     const next = grantPaid(account, includesFee);
+    const chosen = boardId(session.metadata?.boardId);
+    if (chosen) next.selectedBoardId = chosen;
     tx.set(accountRef, next, {merge: true});
     tx.set(paymentRef, {uid});
     credits = next.credits;
@@ -87,8 +89,11 @@ export const createBillboardCheckout = onRequest({region, cors: true, secrets: [
     const uid = await uidFromRequest(req);
     const account = await readSettled(uid);
     const amount = checkoutAmount(req.body?.currency, {feePaid: account.feePaid});
+    const chosen = boardId(req.body?.boardId) || boardId(account.selectedBoardId);
+    if (chosen && account.selectedBoardId !== chosen) await accounts().doc(uid).set({selectedBoardId: chosen}, {merge: true});
     const stripe = new Stripe(stripeSecret.value());
     const origin = publicOrigin();
+    const boardQuery = chosen ? `&board=${encodeURIComponent(chosen)}` : '';
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       client_reference_id: uid,
@@ -100,9 +105,9 @@ export const createBillboardCheckout = onRequest({region, cors: true, secrets: [
           product_data: {name: amount.includesFee ? 'GTA Praha billboard fee and 40 credits' : 'GTA Praha 40 billboard credits'},
         },
       }],
-      metadata: {uid, includesFee: amount.includesFee ? '1' : '0', credits: String(amount.credits)},
-      success_url: `${origin}/ads.html?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/ads.html?checkout=cancel`,
+      metadata: checkoutMetadata(uid, amount, chosen),
+      success_url: `${origin}/ads.html?checkout=success&session_id={CHECKOUT_SESSION_ID}${boardQuery}`,
+      cancel_url: `${origin}/ads.html?checkout=cancel${boardQuery}`,
     });
     res.json({url: session.url});
   } catch (error) {
@@ -178,7 +183,7 @@ export const listBillboardCreatives = onRequest({region, cors: true}, async (req
       if (settled.credits !== account.credits || settled.spent !== account.spent || settled.paused !== account.paused || settled.lastSettledDay !== account.lastSettledDay) {
         await doc.ref.set(settled, {merge: true});
       }
-      if (settled.imageUrl && settled.credits > 0) creatives.push({uid: doc.id, imageUrl: settled.imageUrl, credits: settled.credits});
+      if (settled.imageUrl && settled.credits > 0) creatives.push({uid: doc.id, imageUrl: settled.imageUrl, credits: settled.credits, selectedBoardId: boardId(settled.selectedBoardId)});
     }
     res.json({day: today, creatives});
   } catch (error) {

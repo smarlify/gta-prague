@@ -3,7 +3,7 @@ import {signInWithPopup, signOut} from 'firebase/auth';
 import {doc, getDoc, setDoc, updateDoc} from 'firebase/firestore';
 import {ref, uploadBytes, getDownloadURL} from 'firebase/storage';
 import {billboardFirebase} from './firebase.js';
-import {CREDIT_PACKS, checkoutAmount, creditPack, emptyAccount} from '../firebase/functions/ad-credits.js';
+import {CREDIT_PACKS, boardId, checkoutAmount, creditPack, emptyAccount} from '../firebase/functions/ad-credits.js';
 import {adsEndpoints} from './billboard-feed.js';
 
 const $ = (id) => document.getElementById(id);
@@ -18,6 +18,24 @@ function money(currencyId, unitAmount) {
 
 function selectedCurrency() {
   return $('ads-currency').value || 'eur';
+}
+
+function chosenBoard() {
+  return boardId(new URLSearchParams(location.search).get('board'));
+}
+
+function paintChosenBoard() {
+  const id = chosenBoard();
+  const node = $('ads-board');
+  if (!node) return;
+  node.hidden = !id;
+  node.textContent = id ? `This billboard: ${id}` : '';
+}
+
+async function saveSelectedBoard(uid) {
+  const selectedBoardId = chosenBoard();
+  if (!selectedBoardId) return;
+  await updateDoc(doc(services().firestore, 'billboardAccounts', uid), {selectedBoardId});
 }
 
 function paintPrice(account) {
@@ -83,6 +101,8 @@ async function showAccount(user) {
   $('ads-signed-out').hidden = true;
   $('ads-account').hidden = false;
   await ensureAccount(user.uid);
+  await saveSelectedBoard(user.uid);
+  paintChosenBoard();
   const params = new URLSearchParams(location.search);
   if (params.get('checkout') === 'success' && params.get('session_id')) {
     try {
@@ -124,6 +144,7 @@ async function uploadImage(user, file) {
 
 function bind() {
   fillCurrencies();
+  paintChosenBoard();
   $('ads-sign-in').addEventListener('click', async () => {
     $('ads-status').textContent = '';
     try {
@@ -154,7 +175,7 @@ function bind() {
     if (!user) return;
     $('ads-status').textContent = '';
     try {
-      const payload = await authedPost(adsEndpoints().checkout, {currency: selectedCurrency()});
+      const payload = await authedPost(adsEndpoints().checkout, {currency: selectedCurrency(), boardId: chosenBoard()});
       if (!payload.url) throw new Error('Checkout did not return a payment page');
       location.href = payload.url;
     } catch (error) {
