@@ -5,6 +5,7 @@ import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import Stripe from 'stripe';
 import {PACK_CREDITS, boardId, checkoutAmount, checkoutMetadata, emptyAccount, grantPurchase, pragueDayKey, settleCredits} from './ad-credits.js';
+import {billboardCheckoutUrls} from './checkout-urls.js';
 
 initializeApp();
 
@@ -93,8 +94,10 @@ export const createBillboardCheckout = onRequest({region, cors: true, secrets: [
     if (chosen && account.selectedBoardId !== chosen) await accounts().doc(uid).set({selectedBoardId: chosen}, {merge: true});
     const stripe = new Stripe(stripeSecret.value());
     const origin = publicOrigin();
-    const boardQuery = chosen ? `&board=${encodeURIComponent(chosen)}` : '';
-    const session = await stripe.checkout.sessions.create({
+    const surface = req.body?.surface === 'game' ? 'game' : 'page';
+    const embedded = req.body?.ui === 'embedded';
+    const urls = billboardCheckoutUrls({origin, boardId: chosen, surface, embedded});
+    const sessionBase = {
       mode: 'payment',
       client_reference_id: uid,
       line_items: [{
@@ -106,10 +109,18 @@ export const createBillboardCheckout = onRequest({region, cors: true, secrets: [
         },
       }],
       metadata: checkoutMetadata(uid, amount, chosen),
-      success_url: `${origin}/ads.html?checkout=success&session_id={CHECKOUT_SESSION_ID}${boardQuery}`,
-      cancel_url: `${origin}/ads.html?checkout=cancel${boardQuery}`,
+    };
+    const session = await stripe.checkout.sessions.create(embedded ? {
+      ...sessionBase,
+      ui_mode: 'embedded',
+      redirect_on_completion: 'never',
+      return_url: urls.returnUrl,
+    } : {
+      ...sessionBase,
+      success_url: urls.successUrl,
+      cancel_url: urls.cancelUrl,
     });
-    res.json({url: session.url});
+    res.json(embedded ? {clientSecret: session.client_secret} : {url: session.url});
   } catch (error) {
     sendError(res, error);
   }

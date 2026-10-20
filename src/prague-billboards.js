@@ -46,6 +46,7 @@ function districtSlug(name) {
   return String(name).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+// Standalone ads page. The in-game button opens a modal and does not assign this URL.
 export function billboardPurchaseUrl(siteId) {
   return `/ads.html?board=${encodeURIComponent(siteId)}`;
 }

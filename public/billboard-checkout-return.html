@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Payment</title>
+  </head>
+  <body>
+    <p>Returning to GTA Praha…</p>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const message = {
+        source: 'gta-praha-billboard-checkout',
+        checkout: params.get('checkout') || '',
+        sessionId: params.get('session_id') || '',
+      };
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(message, location.origin);
+        window.close();
+      } else {
+        const next = new URLSearchParams();
+        if (message.checkout) next.set('checkout', message.checkout);
+        if (message.sessionId) next.set('session_id', message.sessionId);
+        const board = params.get('board');
+        if (board) next.set('board', board);
+        location.replace(`/?${next.toString()}`);
+      }
+    </script>
+  </body>
+</html>

@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@dgreenheck/ez-tree": "^1.1.0",
+    "@stripe/stripe-js": "^8.11.0",
     "earcut": "^3.0.2",
     "fast-xml-parser": "^5.4.0",
     "firebase": "^12.19.0",

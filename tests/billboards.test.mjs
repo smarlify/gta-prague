@@ -148,6 +148,14 @@ test('the buy button is on the page and names the nearest board', () => {
   assert.equal(onFoot.id, 'praha-1-stare-mesto-01');
   assert.equal(driving.id, onFoot.id);
   assert.equal(billboardPurchaseUrl(onFoot.id), '/ads.html?board=praha-1-stare-mesto-01');
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const buy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(main, /location\.assign\(billboardPurchaseUrl/);
+  assert.match(main, /billboardBuy\.open\(id\)/);
+  assert.match(buy, /billboard-buy-close/);
+  assert.match(buy, /textContent = 'Close'/);
+  assert.doesNotMatch(buy, /location\.assign|location\.href/);
+  assert.doesNotMatch(buy, /Escape|keydown/);
   assert.equal(nearestBillboard({x: 18, z: 0}, [{id: 'edge', x: 0, z: 0}]).id, 'edge');
   assert.equal(nearestBillboard({x: 18.2, z: 0}, [{id: 'edge', x: 0, z: 0}]), null);
   assert.equal(nearestBillboard({x: 0, z: 0}, [{id: 'praha-b', x: 5, z: 0}, {id: 'praha-a', x: -5, z: 0}]).id, 'praha-a');

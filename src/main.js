@@ -51,7 +51,8 @@ import {inHarbour} from './harbour-layout.js';
 import {Cyclists,createCyclistRenderer} from './cyclists.js';
 import {ScooterRiders,createScooterRiderRenderer} from './scooter-riders.js';
 import {createBindAds} from './bind-ads.js';
-import {createPragueBillboards,nearestBillboard,billboardPurchaseUrl} from './prague-billboards.js';
+import {createPragueBillboards,nearestBillboard} from './prague-billboards.js';
+import {createBillboardBuy} from './billboard-buy.js';
 import {fetchLiveCreatives} from './billboard-feed.js';
 import {createLasipalatsiStops} from './lasipalatsi-stop.js';
 import {createKauppatoriTramStops} from './kauppatori-tram-stops.js';
@@ -340,11 +341,16 @@ function refreshBillboardBuy(){
  buyBillboardBtn.hidden=!site;
  buyBillboardBtn.dataset.board=site?.id||'';
 }
+const billboardBuy=createBillboardBuy({
+ root:document.querySelector('#app'),
+ onOpen(){keys.clear();mobileControls?.release();setPaused(true);},
+ onClose(){if(started&&!mapOpen&&!police?.busted)setPaused(false);},
+});
 buyBillboardBtn?.addEventListener('click',()=>{
  const id=buyBillboardBtn.dataset.board;
- if(!id)return;
- location.assign(billboardPurchaseUrl(id));
+ if(id)billboardBuy.open(id);
 });
+queueMicrotask(()=>billboardBuy.consumeLocationReturn());
 const marker=new THREE.Mesh(new THREE.RingGeometry(3.3,3.55,48),new THREE.MeshBasicMaterial({color:'#d95e3b',transparent:true,opacity:.5,depthWrite:false}));marker.rotation.x=-Math.PI/2;marker.position.y=.15;scene.add(marker);marker.visible=false;
 const mapCache=document.createElement('canvas');mapCache.width=1800;mapCache.height=1800;
 // Map frame in local metres; widened at boot when map extensions are installed.
@@ -709,7 +715,7 @@ function start(){if(!ready)return;if(previewing){startAfterPreview=true;return;}
 function focusWorldControls(){if(started&&!paused&&!mapOpen&&!police?.busted&&!gameIsStopped())$('world').focus({preventScroll:true});}
 function showDialog(id){if(!ready||police?.busted)return;peopleInteraction?.close();mobileControls?.release();keys.clear();$(id).showModal();mapOpen=true;if(id==='map-dialog')drawCityMap();}
 function closeDialogs(){if($('map-dialog').open)startVisitVersion++;document.querySelectorAll('dialog[open]').forEach(d=>d.close());mapOpen=!!document.querySelector('dialog[open]');mobileControls?.release();keys.clear();focusWorldControls();}
-function setPaused(value){if(value)peopleInteraction?.close();if(!started||mapOpen||police?.busted)return;paused=value;mobileControls?.release();keys.clear();$('pause-overlay').hidden=!paused;if(!paused)focusWorldControls();}
+function setPaused(value){if(value)peopleInteraction?.close();if(!started||mapOpen||police?.busted)return;paused=value;mobileControls?.release();keys.clear();$('pause-overlay').hidden=!paused||billboardBuy.isOpen();if(!paused)focusWorldControls();}
 const highScore=bindHighScoreUI(document,{
  getDistance:()=>finale?.summary?.raw?.distance??car?.distance??distance,
  onGoogleSignedIn:()=>multiplayer?.onGoogleSignedIn?.(),
@@ -752,6 +758,7 @@ window.addEventListener('keydown',e=>{
  const pick=startPicker&&pickerStep(e.code,{ready:ready&&!gameIsStopped(),started,blocked:mapOpen||!!police?.busted});
  if(pick){e.preventDefault();if(!e.repeat)startPicker.step(pick);return;} // before the start ←/→ choose the place; afterwards they steer
  if(e.code!=='Escape'&&e.target.closest?.('button,a,summary,input,select,textarea,[contenteditable="true"]'))return;
+ if(billboardBuy?.isOpen()&&e.code!=='Escape')return; // Close is a button. Esc still pauses.
  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)&&!mapOpen)e.preventDefault();
  if(e.repeat)return;
  if(police?.busted){if(finale.ended&&e.code==='Tab')return;e.preventDefault();if(!finale.ended)return;if(e.code==='Enter'||e.code==='Escape')continueDriving();else if(e.code==='KeyR')restart();return;} // BUSTED screen: Enter/Esc continue, R restarts; Tab moves between its two buttons (the HUD is inert)

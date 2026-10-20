@@ -1,0 +1,50 @@
+#billboard-buy {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: #243b3680;
+}
+#billboard-buy[hidden] {
+  display: none;
+}
+.billboard-buy-panel {
+  width: min(40rem, 100%);
+  max-height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #f3f0e9;
+  border-radius: 16px;
+  box-shadow: 0 18px 60px #1c282460;
+}
+.billboard-buy-bar {
+  display: flex;
+  justify-content: flex-end;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 8px 0;
+  background: #f3f0e9;
+}
+#billboard-buy-close {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 16px;
+  touch-action: manipulation;
+  border-radius: 8px;
+  border: 1px solid #24312e;
+  background: #fffdf8;
+  color: #24312e;
+  font: 600 14px "DM Sans", sans-serif;
+}
+#billboard-buy .ads-page {
+  padding-top: 0.4rem;
+}
+@media (min-width: 720px) {
+  #billboard-buy {
+    align-items: center;
+  }
+}
