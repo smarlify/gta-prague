@@ -1,0 +1,772 @@
+[
+  {
+    "id": "praha-1-stare-mesto-01",
+    "district": "Praha 1 - Staré Město",
+    "x": -518.32,
+    "z": 723.93,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-1-stare-mesto-02",
+    "district": "Praha 1 - Staré Město",
+    "x": -613.1,
+    "z": 667.36,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-stare-mesto-03",
+    "district": "Praha 1 - Staré Město",
+    "x": -577.2,
+    "z": 407.18,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-1-stare-mesto-04",
+    "district": "Praha 1 - Staré Město",
+    "x": -464,
+    "z": 784,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-stare-mesto-05",
+    "district": "Praha 1 - Staré Město",
+    "x": 832,
+    "z": 144,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-stare-mesto-06",
+    "district": "Praha 1 - Staré Město",
+    "x": 64,
+    "z": 496,
+    "yaw": 5.4978
+  },
+  {
+    "id": "praha-1-stare-mesto-07",
+    "district": "Praha 1 - Staré Město",
+    "x": -416,
+    "z": 784,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-stare-mesto-08",
+    "district": "Praha 1 - Staré Město",
+    "x": 880,
+    "z": -272,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-stare-mesto-09",
+    "district": "Praha 1 - Staré Město",
+    "x": -592,
+    "z": 560,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-1-stare-mesto-10",
+    "district": "Praha 1 - Staré Město",
+    "x": -16,
+    "z": -48,
+    "yaw": 3.927
+  },
+  {
+    "id": "praha-1-josefov-01",
+    "district": "Praha 1 - Josefov",
+    "x": -656,
+    "z": -368,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-josefov-02",
+    "district": "Praha 1 - Josefov",
+    "x": -368,
+    "z": -208,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-josefov-03",
+    "district": "Praha 1 - Josefov",
+    "x": 720,
+    "z": -528,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-josefov-04",
+    "district": "Praha 1 - Josefov",
+    "x": -480,
+    "z": -32,
+    "yaw": 2.3562
+  },
+  {
+    "id": "praha-1-josefov-05",
+    "district": "Praha 1 - Josefov",
+    "x": 304,
+    "z": -560,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-josefov-06",
+    "district": "Praha 1 - Josefov",
+    "x": 0,
+    "z": -496,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-josefov-07",
+    "district": "Praha 1 - Josefov",
+    "x": 464,
+    "z": -656,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-josefov-08",
+    "district": "Praha 1 - Josefov",
+    "x": -688,
+    "z": -528,
+    "yaw": 3.927
+  },
+  {
+    "id": "praha-1-josefov-09",
+    "district": "Praha 1 - Josefov",
+    "x": 336,
+    "z": -864,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-josefov-10",
+    "district": "Praha 1 - Josefov",
+    "x": -192,
+    "z": -144,
+    "yaw": 3.927
+  },
+  {
+    "id": "praha-1-mala-strana-01",
+    "district": "Praha 1 - Malá Strana",
+    "x": -1623.8,
+    "z": 501.3,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-1-mala-strana-02",
+    "district": "Praha 1 - Malá Strana",
+    "x": -848,
+    "z": 80,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-1-mala-strana-03",
+    "district": "Praha 1 - Malá Strana",
+    "x": -960,
+    "z": 672,
+    "yaw": 0.7854
+  },
+  {
+    "id": "praha-1-mala-strana-04",
+    "district": "Praha 1 - Malá Strana",
+    "x": -1208.61,
+    "z": 680.58,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-1-mala-strana-05",
+    "district": "Praha 1 - Malá Strana",
+    "x": -1328,
+    "z": -112,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-1-mala-strana-06",
+    "district": "Praha 1 - Malá Strana",
+    "x": -720,
+    "z": -272,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-mala-strana-07",
+    "district": "Praha 1 - Malá Strana",
+    "x": -1136,
+    "z": -272,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-1-mala-strana-08",
+    "district": "Praha 1 - Malá Strana",
+    "x": -1424,
+    "z": -128,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-mala-strana-09",
+    "district": "Praha 1 - Malá Strana",
+    "x": -1792,
+    "z": -112,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-mala-strana-10",
+    "district": "Praha 1 - Malá Strana",
+    "x": -1216,
+    "z": -64,
+    "yaw": 0.7854
+  },
+  {
+    "id": "praha-1-hradcany-01",
+    "district": "Praha 1 - Hradčany",
+    "x": -1192.65,
+    "z": -572.53,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-1-hradcany-02",
+    "district": "Praha 1 - Hradčany",
+    "x": -1116.64,
+    "z": -1134.86,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-hradcany-03",
+    "district": "Praha 1 - Hradčany",
+    "x": -1248,
+    "z": -1152,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-1-hradcany-04",
+    "district": "Praha 1 - Hradčany",
+    "x": -1296,
+    "z": -720,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-hradcany-05",
+    "district": "Praha 1 - Hradčany",
+    "x": -1056,
+    "z": -944,
+    "yaw": 0.7854
+  },
+  {
+    "id": "praha-1-hradcany-06",
+    "district": "Praha 1 - Hradčany",
+    "x": -2224,
+    "z": -16,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-1-hradcany-07",
+    "district": "Praha 1 - Hradčany",
+    "x": -2272,
+    "z": -16,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-hradcany-08",
+    "district": "Praha 1 - Hradčany",
+    "x": -1440,
+    "z": -688,
+    "yaw": 0
+  },
+  {
+    "id": "praha-1-hradcany-09",
+    "district": "Praha 1 - Hradčany",
+    "x": -1152,
+    "z": -1024,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-1-hradcany-10",
+    "district": "Praha 1 - Hradčany",
+    "x": -1136,
+    "z": -1184,
+    "yaw": 3.927
+  },
+  {
+    "id": "praha-2-nove-mesto-01",
+    "district": "Praha 2 - Nové Město",
+    "x": 632.95,
+    "z": 852.6,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-2-nove-mesto-02",
+    "district": "Praha 2 - Nové Město",
+    "x": -150.11,
+    "z": 1338.78,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-2-nove-mesto-03",
+    "district": "Praha 2 - Nové Město",
+    "x": 628.08,
+    "z": 1360.59,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-2-nove-mesto-04",
+    "district": "Praha 2 - Nové Město",
+    "x": 224,
+    "z": 2128,
+    "yaw": 0
+  },
+  {
+    "id": "praha-2-nove-mesto-05",
+    "district": "Praha 2 - Nové Město",
+    "x": -80,
+    "z": 1760,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-2-nove-mesto-06",
+    "district": "Praha 2 - Nové Město",
+    "x": 736,
+    "z": 1168,
+    "yaw": 2.3562
+  },
+  {
+    "id": "praha-2-nove-mesto-07",
+    "district": "Praha 2 - Nové Město",
+    "x": 528,
+    "z": 1136,
+    "yaw": 0
+  },
+  {
+    "id": "praha-2-nove-mesto-08",
+    "district": "Praha 2 - Nové Město",
+    "x": 48,
+    "z": 1536,
+    "yaw": 0
+  },
+  {
+    "id": "praha-2-nove-mesto-09",
+    "district": "Praha 2 - Nové Město",
+    "x": 720,
+    "z": 576,
+    "yaw": 3.927
+  },
+  {
+    "id": "praha-2-nove-mesto-10",
+    "district": "Praha 2 - Nové Město",
+    "x": 176,
+    "z": 1312,
+    "yaw": 0
+  },
+  {
+    "id": "praha-2-vinohrady-01",
+    "district": "Praha 2 - Vinohrady",
+    "x": 1188.65,
+    "z": 1346.65,
+    "yaw": 3.927
+  },
+  {
+    "id": "praha-2-vinohrady-02",
+    "district": "Praha 2 - Vinohrady",
+    "x": 880,
+    "z": 1648,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-2-vinohrady-03",
+    "district": "Praha 2 - Vinohrady",
+    "x": 1776,
+    "z": 992,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-2-vinohrady-04",
+    "district": "Praha 2 - Vinohrady",
+    "x": 1264,
+    "z": 1040,
+    "yaw": 2.3562
+  },
+  {
+    "id": "praha-2-vinohrady-05",
+    "district": "Praha 2 - Vinohrady",
+    "x": 1328,
+    "z": 1136,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-2-vinohrady-06",
+    "district": "Praha 2 - Vinohrady",
+    "x": 1760,
+    "z": 672,
+    "yaw": 0
+  },
+  {
+    "id": "praha-2-vinohrady-07",
+    "district": "Praha 2 - Vinohrady",
+    "x": 832,
+    "z": 1856,
+    "yaw": 0
+  },
+  {
+    "id": "praha-2-vinohrady-08",
+    "district": "Praha 2 - Vinohrady",
+    "x": 1008,
+    "z": 1216,
+    "yaw": 3.927
+  },
+  {
+    "id": "praha-2-vinohrady-09",
+    "district": "Praha 2 - Vinohrady",
+    "x": 2112,
+    "z": 688,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-2-vinohrady-10",
+    "district": "Praha 2 - Vinohrady",
+    "x": 1392,
+    "z": 1360,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-5-smichov-01",
+    "district": "Praha 5 - Smíchov",
+    "x": -475.85,
+    "z": 972.77,
+    "yaw": 0
+  },
+  {
+    "id": "praha-5-smichov-02",
+    "district": "Praha 5 - Smíchov",
+    "x": -1171.61,
+    "z": 1762.84,
+    "yaw": 0
+  },
+  {
+    "id": "praha-5-smichov-03",
+    "district": "Praha 5 - Smíchov",
+    "x": -1280,
+    "z": 1328,
+    "yaw": 0
+  },
+  {
+    "id": "praha-5-smichov-04",
+    "district": "Praha 5 - Smíchov",
+    "x": -896,
+    "z": 1440,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-5-smichov-05",
+    "district": "Praha 5 - Smíchov",
+    "x": -1440,
+    "z": 1488,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-5-smichov-06",
+    "district": "Praha 5 - Smíchov",
+    "x": -272,
+    "z": 2016,
+    "yaw": 0
+  },
+  {
+    "id": "praha-5-smichov-07",
+    "district": "Praha 5 - Smíchov",
+    "x": -1072,
+    "z": 1040,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-5-smichov-08",
+    "district": "Praha 5 - Smíchov",
+    "x": -1168,
+    "z": 1200,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-5-smichov-09",
+    "district": "Praha 5 - Smíchov",
+    "x": -976,
+    "z": 1440,
+    "yaw": 0
+  },
+  {
+    "id": "praha-5-smichov-10",
+    "district": "Praha 5 - Smíchov",
+    "x": -1744,
+    "z": 1472,
+    "yaw": 2.3562
+  },
+  {
+    "id": "praha-6-dejvice-01",
+    "district": "Praha 6 - Dejvice",
+    "x": -1894.2,
+    "z": -1422.84,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-6-dejvice-02",
+    "district": "Praha 6 - Dejvice",
+    "x": -1872,
+    "z": -1280,
+    "yaw": 0
+  },
+  {
+    "id": "praha-6-dejvice-03",
+    "district": "Praha 6 - Dejvice",
+    "x": -1328,
+    "z": -1264,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-6-dejvice-04",
+    "district": "Praha 6 - Dejvice",
+    "x": -1904,
+    "z": -1200,
+    "yaw": 0
+  },
+  {
+    "id": "praha-6-dejvice-05",
+    "district": "Praha 6 - Dejvice",
+    "x": -1504,
+    "z": -1568,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-6-dejvice-06",
+    "district": "Praha 6 - Dejvice",
+    "x": -1632,
+    "z": -1488,
+    "yaw": 0
+  },
+  {
+    "id": "praha-6-dejvice-07",
+    "district": "Praha 6 - Dejvice",
+    "x": -1392,
+    "z": -1328,
+    "yaw": 0
+  },
+  {
+    "id": "praha-6-dejvice-08",
+    "district": "Praha 6 - Dejvice",
+    "x": -2064,
+    "z": -800,
+    "yaw": 0
+  },
+  {
+    "id": "praha-6-dejvice-09",
+    "district": "Praha 6 - Dejvice",
+    "x": -1200,
+    "z": -1840,
+    "yaw": 3.927
+  },
+  {
+    "id": "praha-6-dejvice-10",
+    "district": "Praha 6 - Dejvice",
+    "x": -2128,
+    "z": -800,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-letna-01",
+    "district": "Praha 7 - Letná",
+    "x": -246.21,
+    "z": -1323.75,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-letna-02",
+    "district": "Praha 7 - Letná",
+    "x": 32,
+    "z": -1392,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-letna-03",
+    "district": "Praha 7 - Letná",
+    "x": 352,
+    "z": -1616,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-letna-04",
+    "district": "Praha 7 - Letná",
+    "x": 656,
+    "z": -1136,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-letna-05",
+    "district": "Praha 7 - Letná",
+    "x": -288,
+    "z": -1456,
+    "yaw": 3.927
+  },
+  {
+    "id": "praha-7-letna-06",
+    "district": "Praha 7 - Letná",
+    "x": 432,
+    "z": -1072,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-7-letna-07",
+    "district": "Praha 7 - Letná",
+    "x": 144,
+    "z": -1616,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-7-letna-08",
+    "district": "Praha 7 - Letná",
+    "x": 592,
+    "z": -1568,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-letna-09",
+    "district": "Praha 7 - Letná",
+    "x": 736,
+    "z": -1312,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-letna-10",
+    "district": "Praha 7 - Letná",
+    "x": -16,
+    "z": -1376,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-holesovice-01",
+    "district": "Praha 7 - Holešovice",
+    "x": 1229.78,
+    "z": -1294.07,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-holesovice-02",
+    "district": "Praha 7 - Holešovice",
+    "x": 976,
+    "z": -1696,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-7-holesovice-03",
+    "district": "Praha 7 - Holešovice",
+    "x": 1824,
+    "z": -1216,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-holesovice-04",
+    "district": "Praha 7 - Holešovice",
+    "x": 768,
+    "z": -1840,
+    "yaw": 0.7854
+  },
+  {
+    "id": "praha-7-holesovice-05",
+    "district": "Praha 7 - Holešovice",
+    "x": 1584,
+    "z": -1408,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-7-holesovice-06",
+    "district": "Praha 7 - Holešovice",
+    "x": 1760,
+    "z": -1216,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-holesovice-07",
+    "district": "Praha 7 - Holešovice",
+    "x": 816,
+    "z": -1280,
+    "yaw": 2.3562
+  },
+  {
+    "id": "praha-7-holesovice-08",
+    "district": "Praha 7 - Holešovice",
+    "x": 1520,
+    "z": -1296,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-7-holesovice-09",
+    "district": "Praha 7 - Holešovice",
+    "x": 928,
+    "z": -1264,
+    "yaw": 0
+  },
+  {
+    "id": "praha-7-holesovice-10",
+    "district": "Praha 7 - Holešovice",
+    "x": 992,
+    "z": -1776,
+    "yaw": 0
+  },
+  {
+    "id": "praha-8-karlin-01",
+    "district": "Praha 8 - Karlín",
+    "x": 1330.25,
+    "z": -338.36,
+    "yaw": 3.1416
+  },
+  {
+    "id": "praha-8-karlin-02",
+    "district": "Praha 8 - Karlín",
+    "x": 2176,
+    "z": 464,
+    "yaw": 1.5708
+  },
+  {
+    "id": "praha-8-karlin-03",
+    "district": "Praha 8 - Karlín",
+    "x": 2096,
+    "z": 336,
+    "yaw": 0
+  },
+  {
+    "id": "praha-8-karlin-04",
+    "district": "Praha 8 - Karlín",
+    "x": 2288,
+    "z": 0,
+    "yaw": 0
+  },
+  {
+    "id": "praha-8-karlin-05",
+    "district": "Praha 8 - Karlín",
+    "x": 2016,
+    "z": 320,
+    "yaw": 0
+  },
+  {
+    "id": "praha-8-karlin-06",
+    "district": "Praha 8 - Karlín",
+    "x": 1696,
+    "z": -208,
+    "yaw": 0
+  },
+  {
+    "id": "praha-8-karlin-07",
+    "district": "Praha 8 - Karlín",
+    "x": 1760,
+    "z": -336,
+    "yaw": 4.7124
+  },
+  {
+    "id": "praha-8-karlin-08",
+    "district": "Praha 8 - Karlín",
+    "x": 1840,
+    "z": 288,
+    "yaw": 0
+  },
+  {
+    "id": "praha-8-karlin-09",
+    "district": "Praha 8 - Karlín",
+    "x": 2016,
+    "z": -528,
+    "yaw": 0
+  },
+  {
+    "id": "praha-8-karlin-10",
+    "district": "Praha 8 - Karlín",
+    "x": 1824,
+    "z": 192,
+    "yaw": 0
+  }
+]

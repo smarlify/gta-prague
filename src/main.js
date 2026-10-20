@@ -51,6 +51,8 @@ import {inHarbour} from './harbour-layout.js';
 import {Cyclists,createCyclistRenderer} from './cyclists.js';
 import {ScooterRiders,createScooterRiderRenderer} from './scooter-riders.js';
 import {createBindAds} from './bind-ads.js';
+import {createPragueBillboards} from './prague-billboards.js';
+import {fetchLiveCreatives} from './billboard-feed.js';
 import {createLasipalatsiStops} from './lasipalatsi-stop.js';
 import {createKauppatoriTramStops} from './kauppatori-tram-stops.js';
 import {createStationStreetLife} from './station-street-life.js';
@@ -1090,7 +1092,15 @@ async function boot(){
      micromobility:{...empty(),knockables:{snapshot:()=>({})}},market:empty(),kaivokatuDetails:empty()};
    }
    progress(30,`Loading ${city.name} streets`);
-   const {streetObstacles,ads,crossingSigns,routeCrossingSigns,roadworks,senateProps,furniture,micromobility,market,kaivokatuDetails}=helsinki?await buildHelsinkiScenery():genericScenery();
+   const scenery=helsinki?await buildHelsinkiScenery():genericScenery();
+   if(city.id==='prague'){
+    const boards=createPragueBillboards();
+    cityModel.add(boards.group);
+    scenery.ads=boards;
+    scenery.streetObstacles.push(...boards.obstacles);
+    fetchLiveCreatives().then(list=>boards.setCreatives(list)).catch(()=>{});
+   }
+   const {streetObstacles,ads,crossingSigns,routeCrossingSigns,roadworks,senateProps,furniture,micromobility,market,kaivokatuDetails}=scenery;
    staticCars=[...(furniture.enterableCars||[]),...(harbour.enterableCars||[]),...(stationStreetLife?.enterableCars||[])];
    // Detected street furniture: solid boxes join the obstacles; posts, bins and barriers can be knocked down.
    const mapped=furnitureData&&await furnitureData;let mappedFurniture=null;

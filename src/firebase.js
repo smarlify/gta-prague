@@ -5,6 +5,7 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 function readConfig() {
   const env = import.meta.env || {};
@@ -22,7 +23,9 @@ function readConfig() {
 let app;
 let authInstance;
 let firestoreInstance;
+let storageInstance;
 let googleProviderInstance;
+let billboardServices;
 
 export function ensureApp() {
   if (app) return app;
@@ -51,9 +54,36 @@ export function getFirebaseFirestore() {
   return firestoreInstance;
 }
 
+export function getFirebaseStorage() {
+  ensureApp();
+  if (!storageInstance) storageInstance = getStorage(app);
+  return storageInstance;
+}
+
 export function getGoogleProvider() {
   ensureApp();
   return googleProviderInstance;
+}
+
+// A second app so a Google advertiser sign-in does not replace the game's anonymous player.
+export function billboardFirebase() {
+  if (billboardServices) return billboardServices;
+  const config = readConfig();
+  if (!config.apiKey || !config.projectId) {
+    throw new Error('Scoreboard backend is not configured. Set VITE_SCOREBOARD_* (see .env.example).');
+  }
+  const databaseURL = (import.meta.env || {}).VITE_SCOREBOARD_DATABASE_URL
+    || (import.meta.env || {}).VITE_MULTIPLAYER_DATABASE_URL;
+  if (databaseURL) config.databaseURL = databaseURL;
+  const existing = getApps().find((item) => item.name === 'billboards');
+  const secondary = existing || initializeApp(config, 'billboards');
+  billboardServices = {
+    auth: getAuth(secondary),
+    firestore: getFirestore(secondary),
+    storage: getStorage(secondary),
+    provider: new GoogleAuthProvider(),
+  };
+  return billboardServices;
 }
 
 /**
@@ -78,4 +108,4 @@ export const auth = {
   },
 };
 
-export default { ensureApp, getFirebaseAuth, getFirebaseFirestore, getGoogleProvider, ensureAuthUser, auth };
+export default { ensureApp, getFirebaseAuth, getFirebaseFirestore, getFirebaseStorage, getGoogleProvider, ensureAuthUser, auth };

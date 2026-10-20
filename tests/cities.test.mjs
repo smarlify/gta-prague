@@ -115,8 +115,9 @@ test('a bare visit rolls daytime and weather once, and auto stays off until cycl
  look.followDay('night');look.followWeather('clear');
  assert.equal(look.name,'morning');
  assert.equal(look.weather,'snow');
- for(let step=0;step<4;step++)look.cycle();
- assert.equal(look.name,'whitenight');
+ const cycled=[];
+ for(let step=0;step<4;step++){look.cycle();cycled.push(look.name);}
+ assert.deepEqual(cycled,['midday','golden','night','whitenight']);
  assert.equal(look.automatic,false);
  look.cycle();
  assert.equal(look.automatic,true);
@@ -137,6 +138,23 @@ test('a bare visit rolls daytime and weather once, and auto stays off until cycl
  assert.equal(unknown.weather,'overcast');
  assert.equal(unknown.timePinned,false);
  assert.equal(unknown.weatherPinned,false);
+});
+test('a missing ?time= never rolls night; white night and a pinned night still work',()=>{
+ const rolled=[];
+ for(let i=0;i<6;i++){
+  const scene=visitScene('',()=>i);
+  assert.notEqual(scene.time,'night');
+  assert.equal(scene.timePinned,false);
+  rolled.push(scene.time);
+ }
+ assert.deepEqual([...new Set(rolled)],['morning','midday','golden','whitenight']);
+ assert.equal(visitScene('',()=>0.99).time,'whitenight');
+ assert.equal(visitScene('',length=>length-1).time,'whitenight');
+ const pinned=visitScene('?time=night',()=>0);
+ assert.equal(pinned.time,'night');
+ assert.equal(pinned.timePinned,true);
+ assert.equal(visitScene('?time=Night',()=>2).time,'night');
+ assert.equal(visitScene('?time=night').weatherPinned,false);
 });
 test('the address bar keeps city and start shareable; data stays under the city root',()=>{
  const helsinkiFixture={id:'helsinki',name:'Helsinki',dataRoot:'/data'};

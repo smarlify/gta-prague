@@ -62,6 +62,7 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
 .boot-progress-heading{display:flex;justify-content:space-between;gap:var(--s-16);font:400 var(--t-14)/20px var(--ui);color:var(--muted)}
 #load-percent{font-variant-numeric:tabular-nums;white-space:nowrap}
 #intro .load-progress{display:block;height:3px;background:#30312e20;margin:var(--s-12) 0 var(--s-4);overflow:hidden}
+#intro:not(.ready) #boot-loader{margin:0 0 var(--s-12)}
 #intro #load-fill{width:0;background:var(--orange);transition:width .3s;height:100%}
 
 /* A deeper orange than the brand dot so the 16 px label reads at 4.5:1 or better. */

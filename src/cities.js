@@ -107,11 +107,14 @@ export function rollIndex(length, roll = Math.random){
  return Math.min(length-1,Math.max(0,index));
 }
 
+// Night stays on ?time= and on the T / look cycle (LOOK_ORDER). A bare visit does not roll it.
+const VISIT_TIME=Object.freeze(LOOK_ORDER.filter(name=>name!=='night'));
+
 // A known param pins that half. A missing or unknown half is one concrete look, chosen once.
-// Auto is not in the roll. `roll` is called once per unpinned half, time first.
+// Auto is not in the roll, and neither is night. `roll` is called once per unpinned half, time first.
 export function visitScene(search='',roll=Math.random){
  const query=sceneQuery(search);
- const time=query.time||LOOK_ORDER[rollIndex(LOOK_ORDER.length,roll)];
+ const time=query.time||VISIT_TIME[rollIndex(VISIT_TIME.length,roll)];
  const weather=query.weather||WEATHER_ORDER[rollIndex(WEATHER_ORDER.length,roll)];
  return {time,weather,timePinned:!!query.time,weatherPinned:!!query.weather};
 }
