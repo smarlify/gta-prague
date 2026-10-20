@@ -4,8 +4,9 @@ import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import Stripe from 'stripe';
-import {PACK_CREDITS, boardId, checkoutAmount, checkoutMetadata, emptyAccount, grantPurchase, pragueDayKey, settleCredits} from './ad-credits.js';
+import {boardId, checkoutAmount, emptyAccount, pragueDayKey, settleCredits} from './ad-credits.js';
 import {billboardCheckoutUrls} from './checkout-urls.js';
+import {acceptWebhook, createCheckoutSession, paidSessionAccount, retrieveOwnedSession, settlePaidSession} from './billboard-payment.js';
 
 initializeApp();
 
@@ -35,20 +36,9 @@ function sendError(res, error) {
   res.status(status).json({error: error.message || 'Payment failed'});
 }
 
-function grantPaid(account, includesFee) {
-  try {
-    return grantPurchase(account, {includesFee});
-  } catch (error) {
-    if (includesFee && account.feePaid) return {...account, credits: (account.credits || 0) + PACK_CREDITS};
-    throw error;
-  }
-}
-
 async function applyPaidSession(session) {
-  if (!session || session.payment_status !== 'paid') return {applied: false};
-  const uid = session.metadata?.uid;
-  if (!uid) throw new Error('Checkout is missing the account');
-  const includesFee = session.metadata.includesFee === '1';
+  const uid = paidSessionAccount(session);
+  if (!uid) return {applied: false};
   const paymentRef = getFirestore().collection('billboardPayments').doc(session.id);
   const accountRef = accounts().doc(uid);
   let credits = 0;
@@ -56,16 +46,14 @@ async function applyPaidSession(session) {
     const seen = await tx.get(paymentRef);
     const snap = await tx.get(accountRef);
     const account = snap.exists ? {...emptyAccount(), ...snap.data()} : emptyAccount();
-    if (seen.exists) {
-      credits = account.credits;
+    const result = settlePaidSession(account, session, {alreadyRecorded: seen.exists});
+    if (!result.record) {
+      credits = result.credits;
       return;
     }
-    const next = grantPaid(account, includesFee);
-    const chosen = boardId(session.metadata?.boardId);
-    if (chosen) next.selectedBoardId = chosen;
-    tx.set(accountRef, next, {merge: true});
+    tx.set(accountRef, result.account, {merge: true});
     tx.set(paymentRef, {uid});
-    credits = next.credits;
+    credits = result.credits;
   });
   return {applied: true, credits};
 }
@@ -97,30 +85,7 @@ export const createBillboardCheckout = onRequest({region, cors: true, secrets: [
     const surface = req.body?.surface === 'game' ? 'game' : 'page';
     const embedded = req.body?.ui === 'embedded';
     const urls = billboardCheckoutUrls({origin, boardId: chosen, surface, embedded});
-    const sessionBase = {
-      mode: 'payment',
-      client_reference_id: uid,
-      line_items: [{
-        quantity: 1,
-        price_data: {
-          currency: amount.currency,
-          unit_amount: amount.unitAmount,
-          product_data: {name: amount.includesFee ? 'GTA Praha billboard fee and 40 credits' : 'GTA Praha 40 billboard credits'},
-        },
-      }],
-      metadata: checkoutMetadata(uid, amount, chosen),
-    };
-    const session = await stripe.checkout.sessions.create(embedded ? {
-      ...sessionBase,
-      ui_mode: 'embedded',
-      redirect_on_completion: 'never',
-      return_url: urls.returnUrl,
-    } : {
-      ...sessionBase,
-      success_url: urls.successUrl,
-      cancel_url: urls.cancelUrl,
-    });
-    res.json(embedded ? {clientSecret: session.client_secret} : {url: session.url});
+    res.json(await createCheckoutSession(stripe, {uid, amount, boardId: chosen, urls, embedded}));
   } catch (error) {
     sendError(res, error);
   }
@@ -133,15 +98,8 @@ export const confirmBillboardCheckout = onRequest({region, cors: true, secrets: 
   }
   try {
     const uid = await uidFromRequest(req);
-    const sessionId = String(req.body?.sessionId || '');
-    if (!sessionId.startsWith('cs_')) throw new Error('Missing checkout session');
     const stripe = new Stripe(stripeSecret.value());
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.metadata?.uid !== uid) {
-      const error = new Error('That checkout belongs to another account');
-      error.status = 403;
-      throw error;
-    }
+    const session = await retrieveOwnedSession(stripe, {uid, sessionId: req.body?.sessionId});
     await applyPaidSession(session);
     const account = await readSettled(uid);
     res.json(account);
@@ -165,16 +123,14 @@ export const settleBillboardAccount = onRequest({region, cors: true}, async (req
 
 export const stripeBillboardWebhook = onRequest({region, secrets: [stripeSecret, webhookSecret]}, async (req, res) => {
   const stripe = new Stripe(stripeSecret.value());
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.rawBody, req.get('stripe-signature'), webhookSecret.value());
-  } catch (error) {
-    res.status(400).json({error: error.message});
+  const accepted = acceptWebhook(stripe, req.rawBody, req.get('stripe-signature'), webhookSecret.value());
+  if (!accepted.ok) {
+    res.status(400).json({error: accepted.error});
     return;
   }
-  if (event.type === 'checkout.session.completed') {
+  if (accepted.event.type === 'checkout.session.completed') {
     try {
-      await applyPaidSession(event.data.object);
+      await applyPaidSession(accepted.event.data.object);
     } catch (error) {
       res.status(500).json({error: error.message});
       return;
