@@ -9,8 +9,12 @@ import {adsEndpoints} from './billboard-feed.js';
 const IMAGE_LIMIT = 2 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
-function markup({showBack}) {
+function markup({showBack, showPageLink}) {
   const kicker = showBack ? '<p class="ads-kicker"><a class="ads-back" href="/">GTA Praha</a></p>' : '';
+  // The in-game Google popup is often blocked. This link is the advertiser page, where sign-in and payment already run.
+  const pageLink = showPageLink
+    ? '<p id="ads-page-fallback" class="ads-note" hidden><a id="ads-page-link" href="/ads.html">Open the advertiser page</a></p>'
+    : '';
   return `${kicker}
     <h1 id="billboard-ads-title">Your ad can be here</h1>
     <p>Zde může být vaše reklama. One landscape image goes on one board. The first payment is the listing fee plus 40 credits. After that, credits only. One credit keeps the image up for one day in Prague.</p>
@@ -18,6 +22,7 @@ function markup({showBack}) {
     <section class="ads-card" id="ads-signed-out">
       <p>Sign in with Google to upload an image and buy credits.</p>
       <button id="ads-sign-in" class="primary-btn" type="button">Sign in with Google</button>
+      ${pageLink}
     </section>
     <section class="ads-card" id="ads-account" hidden>
       <div class="ads-balance">
@@ -46,7 +51,7 @@ function money(currencyId, unitAmount) {
 }
 
 export function mountBillboardAds(root, options) {
-  root.innerHTML = markup({showBack: options.showBack !== false});
+  root.innerHTML = markup({showBack: options.showBack !== false, showPageLink: options.showPageLink === true});
   try {
     return bind(root, options);
   } catch (error) {
@@ -203,7 +208,17 @@ function bind(root, options) {
       const cred = await signInWithPopup(services().auth, services().provider);
       await showAccount(cred.user);
     } catch (error) {
-      q('ads-status').textContent = error.message;
+      const blocked = error?.code === 'auth/popup-blocked' || error?.code === 'auth/operation-not-supported-in-this-environment';
+      const fallback = q('ads-page-fallback');
+      const link = q('ads-page-link');
+      if (blocked && fallback && link) {
+        const id = chosenBoard();
+        link.href = id ? `/ads.html?board=${encodeURIComponent(id)}` : '/ads.html';
+        fallback.hidden = false;
+        q('ads-status').textContent = 'Google could not open from the game. Use the advertiser page to sign in and pay.';
+      } else {
+        q('ads-status').textContent = error.message;
+      }
     }
   });
   q('ads-sign-out').addEventListener('click', () => {

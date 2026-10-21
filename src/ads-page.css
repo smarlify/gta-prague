@@ -88,6 +88,11 @@ body.ads-standalone {
 }
 .ads-page .ads-card[hidden],
 .ads-page #ads-board[hidden],
-.ads-page #ads-preview[hidden] {
+.ads-page #ads-preview[hidden],
+.ads-page #ads-page-fallback[hidden] {
   display: none;
+}
+.ads-page #ads-page-link {
+  color: inherit;
+  text-underline-offset: 3px;
 }

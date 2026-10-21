@@ -51,7 +51,7 @@ import {inHarbour} from './harbour-layout.js';
 import {Cyclists,createCyclistRenderer} from './cyclists.js';
 import {ScooterRiders,createScooterRiderRenderer} from './scooter-riders.js';
 import {createBindAds} from './bind-ads.js';
-import {createPragueBillboards,nearestBillboard} from './prague-billboards.js';
+import {billboardFromPointer,createPragueBillboards,nearestBillboard} from './prague-billboards.js';
 import {createBillboardBuy} from './billboard-buy.js';
 import {fetchLiveCreatives} from './billboard-feed.js';
 import {createLasipalatsiStops} from './lasipalatsi-stop.js';
@@ -346,9 +346,19 @@ const billboardBuy=createBillboardBuy({
  onOpen(){keys.clear();mobileControls?.release();setPaused(true);},
  onClose(){if(started&&!mapOpen&&!police?.busted)setPaused(false);},
 });
-buyBillboardBtn?.addEventListener('click',()=>{
+function openBillboardBuy(id){if(!id||billboardBuy.isOpen())return;billboardBuy.open(id);}
+// pointerdown preventDefault drops the click that would otherwise land on the modal just opened under the cursor.
+buyBillboardBtn?.addEventListener('pointerdown',event=>{if(event.button===0)event.preventDefault();});
+buyBillboardBtn?.addEventListener('pointerup',event=>{
+ if(event.button!==0)return;
  const id=buyBillboardBtn.dataset.board;
- if(id)billboardBuy.open(id);
+ if(!id)return;
+ event.stopPropagation();
+ openBillboardBuy(id);
+});
+$('world').addEventListener('click',event=>{
+ if(!started||mapOpen||police?.busted||billboardBuy.isOpen())return;
+ openBillboardBuy(billboardFromPointer(event,camera,pragueBoards?.group,pragueBoards?.sites));
 });
 queueMicrotask(()=>billboardBuy.consumeLocationReturn());
 const marker=new THREE.Mesh(new THREE.RingGeometry(3.3,3.55,48),new THREE.MeshBasicMaterial({color:'#d95e3b',transparent:true,opacity:.5,depthWrite:false}));marker.rotation.x=-Math.PI/2;marker.position.y=.15;scene.add(marker);marker.visible=false;

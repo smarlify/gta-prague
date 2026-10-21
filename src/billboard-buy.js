@@ -28,6 +28,7 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
   root?.append(shell);
 
   let openFlag = false;
+  let suppressBackdrop = 0;
   let board = '';
   let flow = null;
   let stopWindow = () => {};
@@ -122,6 +123,7 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
     if (flow) return flow;
     flow = mountBillboardAds(flowRoot, {
       showBack: false,
+      showPageLink: true,
       getBoardId: () => board,
       readReturn: () => pendingReturn,
       clearReturn() {
@@ -146,6 +148,7 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
       status(error.message);
     }
     closeButton.focus();
+    suppressBackdrop = performance.now() + 500;
   }
 
   function close() {
@@ -159,7 +162,8 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
 
   closeButton.addEventListener('click', close);
   shell.addEventListener('click', (event) => {
-    if (event.target === shell) close();
+    if (event.target !== shell || performance.now() < suppressBackdrop) return;
+    close();
   });
 
   return {

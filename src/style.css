@@ -208,7 +208,7 @@ body.tilt-steer #touch-controls>div:first-child{visibility:hidden}
 body.clean-capture.driving #online-players{visibility:hidden;pointer-events:none}
 
 /* Same action-button treatment as the market prompt: a real control, including on a phone. */
-#buy-billboard{position:absolute;left:50%;bottom:220px;transform:translateX(-50%);z-index:28;min-height:44px;padding:10px 16px;border-radius:9px;background:#f8f5eef2;color:#30312e;border:1px solid #fffc;box-shadow:0 3px 14px #20362b26;font:600 13px 'DM Sans',sans-serif;white-space:nowrap}
+#buy-billboard{position:absolute;left:50%;bottom:220px;transform:translateX(-50%);z-index:46;min-height:44px;padding:10px 16px;border-radius:9px;background:#f8f5eef2;color:#30312e;border:1px solid #fffc;box-shadow:0 3px 14px #20362b26;font:600 13px 'DM Sans',sans-serif;white-space:nowrap}
 #buy-billboard[hidden]{display:none}
 #buy-billboard:focus-visible{outline:3px solid #28795f;outline-offset:2px}
 @media(max-width:700px) and (pointer:fine){#buy-billboard{bottom:240px}}

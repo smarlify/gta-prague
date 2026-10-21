@@ -4,7 +4,8 @@ import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {SpatialIndex} from '../src/geo.js';
 import {PRAGUE_AREAS} from '../src/area-caption.js';
-import {BILLBOARD_BUY_REACH, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, billboardPurchaseUrl, nearestBillboard, placePragueBillboards} from '../src/prague-billboards.js';
+import * as THREE from 'three';
+import {BILLBOARD_BUY_REACH, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, billboardFromPointer, billboardPurchaseUrl, nearestBillboard, placePragueBillboards} from '../src/prague-billboards.js';
 import storedSites from '../src/prague-billboard-sites.json' with {type: 'json'};
 import {
   CREDIT_PACKS,
@@ -131,12 +132,11 @@ test('a board returns to the placeholder when credits run out', () => {
 test('the buy button is on the page and names the nearest board', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
-  assert.match(html, /<button id="buy-billboard" type="button" hidden>Buy a banner<\/button>/);
-  assert.equal(BUY_BILLBOARD_LABEL, 'Buy a banner');
-  assert.doesNotMatch(html, /Buy this billboard/);
+  assert.match(html, /<button id="buy-billboard" type="button" hidden>Buy this billboard<\/button>/);
+  assert.equal(BUY_BILLBOARD_LABEL, 'Buy this billboard');
   assert.doesNotMatch(html, /href="\/ads\.html"/);
   assert.doesNotMatch(html, />Advertise</);
-  assert.doesNotMatch(html, /<kbd>[^<]*Buy a banner/);
+  assert.doesNotMatch(html, /<kbd>[^<]*Buy this billboard/);
   assert.ok(html.indexOf('id="buy-billboard"') > html.indexOf('id="zoom-out"'), 'the action sits with the play HUD, not on the welcome card');
   assert.doesNotMatch(css, /#buy-billboard\{[^}]*display:\s*none/);
   assert.match(css, /@media\(pointer:coarse\)\{#buy-billboard\{[^}]*touch-action:manipulation/);
@@ -155,6 +155,7 @@ test('the buy button is on the page and names the nearest board', () => {
   const buy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
   assert.doesNotMatch(main, /location\.assign\(billboardPurchaseUrl/);
   assert.match(main, /billboardBuy\.open\(id\)/);
+  assert.match(main, /billboardFromPointer\(event,camera,pragueBoards\?\.group,pragueBoards\?\.sites\)/);
   assert.match(buy, /billboard-buy-close/);
   assert.match(buy, /textContent = 'Close'/);
   assert.doesNotMatch(buy, /location\.assign|location\.href/);
@@ -162,6 +163,24 @@ test('the buy button is on the page and names the nearest board', () => {
   assert.equal(nearestBillboard({x: 18, z: 0}, [{id: 'edge', x: 0, z: 0}]).id, 'edge');
   assert.equal(nearestBillboard({x: 18.2, z: 0}, [{id: 'edge', x: 0, z: 0}]), null);
   assert.equal(nearestBillboard({x: 0, z: 0}, [{id: 'praha-b', x: 5, z: 0}, {id: 'praha-a', x: -5, z: 0}]).id, 'praha-a');
+});
+
+test('a click on the billboard face names that board', () => {
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 50);
+  camera.position.set(0, 0, 5);
+  camera.lookAt(0, 0, 0);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+  const group = new THREE.Group();
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial());
+  face.name = 'praha-1-stare-mesto-01';
+  group.add(face);
+  group.updateMatrixWorld(true);
+  const rect = {left: 0, top: 0, width: 100, height: 100};
+  const hit = billboardFromPointer({clientX: 50, clientY: 50, target: {getBoundingClientRect: () => rect}}, camera, group, []);
+  assert.equal(hit, 'praha-1-stare-mesto-01');
+  const miss = billboardFromPointer({clientX: 2, clientY: 2, target: {getBoundingClientRect: () => rect}}, camera, group, []);
+  assert.equal(miss, '');
 });
 
 test('a selected board id paints that site rather than a random one', () => {
