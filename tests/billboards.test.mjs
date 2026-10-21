@@ -131,9 +131,12 @@ test('a board returns to the placeholder when credits run out', () => {
 test('the buy button is on the page and names the nearest board', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
-  assert.match(html, /<button id="buy-billboard" type="button" hidden>Buy this billboard<\/button>/);
-  assert.equal(BUY_BILLBOARD_LABEL, 'Buy this billboard');
-  assert.doesNotMatch(html, /<kbd>[^<]*Buy this billboard/);
+  assert.match(html, /<button id="buy-billboard" type="button" hidden>Buy a banner<\/button>/);
+  assert.equal(BUY_BILLBOARD_LABEL, 'Buy a banner');
+  assert.doesNotMatch(html, /Buy this billboard/);
+  assert.doesNotMatch(html, /href="\/ads\.html"/);
+  assert.doesNotMatch(html, />Advertise</);
+  assert.doesNotMatch(html, /<kbd>[^<]*Buy a banner/);
   assert.ok(html.indexOf('id="buy-billboard"') > html.indexOf('id="zoom-out"'), 'the action sits with the play HUD, not on the welcome card');
   assert.doesNotMatch(css, /#buy-billboard\{[^}]*display:\s*none/);
   assert.match(css, /@media\(pointer:coarse\)\{#buy-billboard\{[^}]*touch-action:manipulation/);

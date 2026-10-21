@@ -9,7 +9,7 @@ import storedSites from './prague-billboard-sites.json' with {type: 'json'};
 export const BOARDS_PER_DISTRICT = 10;
 export const BILLBOARD_COUNT = BOARDS_PER_DISTRICT;
 export const BILLBOARD_BUY_REACH = 18;
-export const BUY_BILLBOARD_LABEL = 'Buy this billboard';
+export const BUY_BILLBOARD_LABEL = 'Buy a banner';
 const BOARD_WIDTH = 7.2;
 const BOARD_HEIGHT = 3.6;
 const BOARD_BOTTOM = 2.5;
