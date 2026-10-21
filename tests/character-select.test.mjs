@@ -18,6 +18,12 @@ import {
 import { listedPlayers } from '../src/net/protocol.js';
 import { createVehicle } from '../src/vehicles.js';
 import { GWAGEN_PAINT, ROADSTER_PAINT, SCALA_PAINT } from '../src/vehicle-models.js';
+import { makeCar } from '../src/physics.js';
+import { SpatialIndex } from '../src/geo.js';
+import { PlayerTravel } from '../src/player-travel.js';
+import { createRideVehicle } from '../src/player-ride-models.js';
+import { resolveDriverStart } from '../src/pavlova.js';
+import { startCycleKey } from '../src/cities.js';
 
 function memoryStorage() {
   const box = new Map();
@@ -28,20 +34,21 @@ function memoryStorage() {
   };
 }
 
-test('the welcome choices are the G, the Roadster, and the Scala, and the Roadster is preselected', () => {
+test('the welcome choices are the G, the Roadster, the Scala, and the bicycle, and the Roadster is preselected', () => {
   assert.deepEqual(CHARACTERS.map((choice) => choice.label), [
     'Mercedes G — Filip Turek',
     'Roadster — Elon Musk',
     'Škoda Scala — Dave N.',
+    'Bicycle — Zdeněk Hřib',
   ]);
-  assert.deepEqual(CHARACTERS.map((choice) => choice.name), ['Filip Turek', 'Elon Musk', 'Dave N.']);
+  assert.deepEqual(CHARACTERS.map((choice) => choice.name), ['Filip Turek', 'Elon Musk', 'Dave N.', 'Zdeněk Hřib']);
   assert.equal(DEFAULT_CHARACTER_ID, 'elon');
   assert.equal(readCharacter(memoryStorage()).name, 'Elon Musk');
   assert.equal(readCharacter(memoryStorage()).type, 'roadster');
   assert.equal(characterById('nope').id, 'elon');
 });
 
-test('?driver= pins Elon, Turek, or Dave and an unknown value stays on the Roadster', () => {
+test('?driver= pins Elon, Turek, Dave, or Zdeněk and an unknown value stays on the Roadster', () => {
   const saved = memoryStorage();
   writeCharacterId(saved, 'dave');
   assert.equal(driverFromSearch('?driver=elon').name, 'Elon Musk');
@@ -59,10 +66,21 @@ test('?driver= pins Elon, Turek, or Dave and an unknown value stays on the Roads
   assert.equal(resolveDriver('?driver=dave', saved).label, 'Škoda Scala — Dave N.');
   assert.equal(resolveDriver('?driver=dave-n', saved).type, 'scala');
   assert.equal(resolveDriver('?driver=elon', saved).id, 'elon');
+  assert.equal(driverFromSearch('?driver=hrib').name, 'Zdeněk Hřib');
+  assert.equal(driverFromSearch('?driver=Hrib').id, 'hrib');
+  assert.equal(driverFromSearch('?driver=zdenek').name, 'Zdeněk Hřib');
+  assert.equal(driverFromSearch('?driver=Zdeněk').id, 'hrib');
+  assert.equal(driverFromSearch('?driver=zdenek-hrib').type, 'bicycle');
+  assert.equal(driverFromSearch('?driver=Zdeněk Hřib').ride, 'bike');
+  assert.equal(resolveDriver('?driver=zdenek-hrib', saved).label, 'Bicycle — Zdeněk Hřib');
   assert.equal(resolveDriver('', saved, () => 0).id, 'filip');
   assert.equal(saved.getItem('gta-praha-character'), 'dave');
   assert.equal(resolveDriver('?city=prague&start=petrin', saved, () => 2).id, 'dave');
   assert.equal(resolveDriver('', memoryStorage(), () => 1).id, 'elon');
+  assert.equal(resolveDriver('', memoryStorage(), () => 3).id, 'hrib');
+  assert.deepEqual([0, 0.25, 0.5, 0.75].map((n) => resolveDriver('', memoryStorage(), () => n).id), ['filip', 'elon', 'dave', 'hrib']);
+  assert.equal(resolveDriver('', saved, () => 0.75).name, 'Zdeněk Hřib');
+  assert.equal(saved.getItem('gta-praha-character'), 'dave', 'a roll does not write the chosen id');
   assert.equal(resolveDriver('?driver=nobody', saved).id, 'elon');
   assert.equal(resolveDriver('?driver=', memoryStorage()).id, 'elon');
   assert.equal(driverFromSearch(''), null);
@@ -121,10 +139,11 @@ test('the three bodies stay distinct: black boxy G, Ano White Roadster, Phoenix 
   assert.ok(scala.getObjectByName('head-beams'), 'the Scala keeps headlights');
 });
 
-test('car arrows wrap Filip, Elon, and Dave, and a click does not keep focus', () => {
+test('car arrows wrap Filip, Elon, Dave, and Zdeněk, and a click does not keep focus', () => {
   assert.equal(cycleCharacter('elon', 1).label, 'Škoda Scala — Dave N.');
-  assert.equal(cycleCharacter('dave', 1).label, 'Mercedes G — Filip Turek');
-  assert.equal(cycleCharacter('filip', -1).name, 'Dave N.');
+  assert.equal(cycleCharacter('dave', 1).name, 'Zdeněk Hřib');
+  assert.equal(cycleCharacter('hrib', 1).label, 'Mercedes G — Filip Turek');
+  assert.equal(cycleCharacter('filip', -1).name, 'Zdeněk Hřib');
   assert.equal(cycleCharacter('elon', -1).type, 'gwagen');
   const doc = pickerDoc();
   const picked = [];
@@ -142,7 +161,7 @@ test('car arrows wrap Filip, Elon, and Dave, and a click does not keep focus', (
   assert.equal(next.blurred, 1, 'a tap blurs so Enter still starts the game');
   next.listeners.click({ detail: 0 });
   assert.equal(next.blurred, 1, 'a keyboard press keeps focus on the arrow');
-  assert.equal(picker.get().name, 'Filip Turek');
+  assert.equal(picker.get().name, 'Zdeněk Hřib');
   prev.listeners.click({ detail: 1 });
   assert.equal(picker.get().label, 'Škoda Scala — Dave N.');
   let stopped = false;
@@ -153,7 +172,7 @@ test('car arrows wrap Filip, Elon, and Dave, and a click does not keep focus', (
   });
   assert.equal(stopped, true, 'car arrows do not take the place arrows');
   assert.equal(picker.get().name, 'Elon Musk');
-  assert.deepEqual(picked, ['elon', 'dave', 'filip', 'dave', 'elon']);
+  assert.deepEqual(picked, ['elon', 'dave', 'hrib', 'dave', 'elon']);
 });
 
 test('the welcome card puts the car on the same arrow row as the district, outside the hidden launch block', async () => {
@@ -203,6 +222,42 @@ test('a missing driver rolls once and does not keep the saved choice', () => {
   assert.equal(resolveDriver('?driver=elon', storage).id, 'elon');
   assert.equal(storage.getItem('gta-praha-character'), 'dave');
   assert.equal(resolveDriver('', memoryStorage(), () => 1).name, 'Elon Musk');
+});
+
+test('Zdeněk starts on a pedal bicycle at the normal start, not the museum and not the city bike', () => {
+  const hrib = characterById('hrib');
+  assert.equal(hrib.name, 'Zdeněk Hřib');
+  assert.equal(hrib.ride, 'bike');
+  assert.equal(hrib.pavlova, false);
+  const starts = [
+    {name: 'Národní muzeum', id: 'narodni-muzeum', heading: 1},
+    {name: 'Petřín', heading: 2},
+  ];
+  const storage = memoryStorage();
+  storage.setItem(startCycleKey('prague'), '0');
+  const opened = resolveDriverStart(starts, null, storage, 'prague', hrib, null);
+  assert.equal(opened.start.name, 'Petřín');
+  assert.notEqual(opened.start.name, 'Národní muzeum');
+  const pinned = resolveDriverStart(starts, 'Národní muzeum', memoryStorage(), 'prague', hrib, null);
+  assert.equal(pinned.start.name, 'Národní muzeum');
+  assert.equal(pinned.pinned, true);
+  const world = {buildings: new SpatialIndex([]), roads: new SpatialIndex([{rings: [[[-200, -200], [200, -200], [200, 200], [-200, 200]]]}]), pavement: new SpatialIndex([{rings: [[[-200, -200], [200, -200], [200, 200], [-200, 200]]]}]), water: []};
+  const car = makeCar(0, 0);
+  const travel = new PlayerTravel(car, world, {ride: hrib.ride});
+  assert.equal(travel.mode, 'bike');
+  assert.equal(travel.actor.x, 0);
+  assert.equal(travel.actor.z, 0);
+  assert.equal(travel.riding.visual.kind, 'bicycle');
+  assert.notEqual(travel.riding.visual.kind, 'citybike');
+  assert.notEqual(travel.riding.mode, 'scooter');
+  const pedal = createRideVehicle(travel.riding.visual, 'bike');
+  const city = createRideVehicle({kind: 'citybike'}, 'bike');
+  assert.equal(pedal.root.userData.kind, 'bicycle');
+  assert.equal(pedal.pedals?.length || pedal.motion?.pedals?.length, 2);
+  assert.equal(city.root.userData.kind, 'citybike');
+  assert.notEqual(pedal.root.name, city.root.name);
+  pedal.dispose();
+  city.dispose();
 });
 
 function pickerDoc() {
