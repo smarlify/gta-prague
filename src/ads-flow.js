@@ -17,7 +17,7 @@ function markup({showBack, showPageLink}) {
     : '';
   return `${kicker}
     <h1 id="billboard-ads-title">Your ad can be here</h1>
-    <p>Zde může být vaše reklama. One landscape image goes on one board. The first payment is the listing fee plus 40 credits. After that, credits only. One credit keeps the image up for one day in Prague.</p>
+    <p>Zde může být vaše reklama. One landscape image goes on one board.</p>
     <p id="ads-board" class="ads-note" hidden></p>
     <section class="ads-card" id="ads-signed-out">
       <p>Sign in with Google to upload an image and buy credits.</p>
@@ -37,6 +37,7 @@ function markup({showBack, showPageLink}) {
         <select id="ads-currency"></select>
       </label>
       <div id="ads-payment" hidden></div>
+      <p>The first payment is the listing fee plus 40 credits. After that, credits only. One credit keeps the image up for one day in Prague.</p>
       <button id="ads-buy" class="primary-btn" type="button">Add credits</button>
       <p id="ads-price" class="ads-note"></p>
       <button id="ads-sign-out" class="ghost-btn" type="button">Sign out</button>
