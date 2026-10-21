@@ -101,10 +101,30 @@ export function starterRides(car,world){
 export function cameraBody(travel,car){return travel?.mode&&travel.mode!=='car'?travel.actor:car;}
 
 export class PlayerTravel{
- constructor(car,world,{cars=()=>[],rides=()=>[],obstacles=()=>[]}={}){this.carSources=cars;this.rideSources=rides;this.obstacles=obstacles;this.reset(car,world);}
- reset(car,world){
+ constructor(car,world,{cars=()=>[],rides=()=>[],obstacles=()=>[],ride=null}={}){this.carSources=cars;this.rideSources=rides;this.obstacles=obstacles;this.reset(car,world,{ride});}
+ reset(car,world,{ride=null}={}){
   for(const source of this.claimedSources||[])source.release?.();
   this.claimedSources=[];this.world=world;this.car=car;this.homeCar=car;car.travelMode='car';car.id='car';this.cars=[car];this.actor=car;this.mode='car';this.rides=starterRides(car,world);this.riding=null;this.transition=null;this.sprint=false;this.sunkCar=null;
+  if(ride==='bike')this.mountStarterBicycle();
+ }
+ // The chosen place stays under the rider. The home car waits on the spot the
+ // starter bicycle would have used, so the two do not occupy the same ground.
+ mountStarterBicycle(){
+  const start={x:this.car.x,z:this.car.z,heading:this.car.heading};
+  let bike=this.rides.find(item=>item.id==='bike'&&item.mode==='bike');
+  if(!bike){bike={...makeActor(start,'bike'),id:'bike',mode:'bike',parked:true};this.rides.push(bike);}
+  if(Math.hypot(bike.x-start.x,bike.z-start.z)>1){this.car.x=bike.x;this.car.z=bike.z;this.car.heading=bike.heading;}
+  else{
+   for(let radius=4;radius<=22&&Math.hypot(this.car.x-start.x,this.car.z-start.z)<1;radius+=2){
+    for(let i=0;i<16;i++){
+     const angle=i*Math.PI/8,spot={x:start.x+Math.cos(angle)*radius,z:start.z+Math.sin(angle)*radius,heading:start.heading};
+     if(travelCollision(spot,'car',this.world,[bike,...this.rides.filter(item=>item!==bike)]))continue;
+     this.car.x=spot.x;this.car.z=spot.z;break;
+    }
+   }
+  }
+  Object.assign(bike,start,{speed:0,steer:0,parked:false,visual:{kind:'bicycle'}});
+  this.actor=bike;this.mode='bike';this.riding=bike;
  }
  parked(){return [...this.cars.filter(c=>c!==this.actor),...this.rides.filter(r=>r!==this.riding)];}
  parkedBodies(){return this.parked().map(p=>({...p,hw:p.halfWidth??.98,hl:p.halfLength??2.36,ref:{...p,parked:true}}));}

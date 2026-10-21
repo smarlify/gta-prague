@@ -1,5 +1,5 @@
-// Welcome-card choice: which car is parked for the camera and for Start, and
-// which name the local player publishes. Nothing in the address rolls one of the three.
+// Welcome-card choice: which vehicle is waiting for Start, and which name the
+// local player publishes. Nothing in the address rolls one of the four.
 // The card cycles that choice with the same ‹ › row as the district and street.
 import {rollIndex, slug} from './cities.js';
 import {cycleIndex} from './start-picker.js';
@@ -32,6 +32,15 @@ export const CHARACTERS = Object.freeze([
     flies: false,
     pavlova: false,
   }),
+  Object.freeze({
+    id: 'hrib',
+    label: 'Bicycle — Zdeněk Hřib',
+    name: 'Zdeněk Hřib',
+    type: 'bicycle',
+    ride: 'bike',
+    flies: false,
+    pavlova: false,
+  }),
 ]);
 
 export const DEFAULT_CHARACTER_ID = 'elon';
@@ -40,7 +49,7 @@ export function characterById(id) {
   return CHARACTERS.find((choice) => choice.id === id) || CHARACTERS.find((choice) => choice.id === DEFAULT_CHARACTER_ID);
 }
 
-/** The choice `step` places away. -1 from Filip is Dave, and +1 from Dave is Filip. */
+/** The choice `step` places away. -1 from Filip is Zdeněk, and +1 from Zdeněk is Filip. */
 export function cycleCharacter(id, step) {
   const index = CHARACTERS.findIndex((choice) => choice.id === id);
   return CHARACTERS[cycleIndex(CHARACTERS.length, index, step)];
@@ -77,6 +86,9 @@ const DRIVER_QUERY = {
   filip: 'filip',
   dave: 'dave',
   'dave-n': 'dave',
+  hrib: 'hrib',
+  zdenek: 'hrib',
+  'zdenek-hrib': 'hrib',
 };
 
 /** The character named by ?driver=, or null when the param is missing or unknown. */
@@ -89,7 +101,7 @@ export function driverFromSearch(search = '') {
 
 /**
  * A known ?driver= pins that choice.
- * A missing param rolls Filip, Elon, or Dave once and does not read the saved driver.
+ * A missing param rolls Filip, Elon, Dave, or Zdeněk once and does not read the saved driver.
  * An unknown value stays on the Roadster.
  */
 export function resolveDriver(search = '', storage, roll = Math.random) {
