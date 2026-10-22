@@ -28,23 +28,7 @@ export function checkoutAmount(currencyId, {feePaid = false} = {}) {
 }
 
 export function emptyAccount() {
-  return {credits: 0, spent: 0, feePaid: false, imageUrl: '', paused: true, lastSettledDay: '', selectedBoardId: ''};
-}
-
-// Site ids such as praha-1-stare-mesto-01. Empty means the account has not chosen a board.
-export function boardId(value) {
-  const id = typeof value === 'string' ? value : '';
-  if (!id || id.length >= 80 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) return '';
-  return id;
-}
-
-export function checkoutMetadata(uid, amount, selectedBoardId) {
-  return {
-    uid,
-    includesFee: amount.includesFee ? '1' : '0',
-    credits: String(amount.credits),
-    boardId: boardId(selectedBoardId),
-  };
+  return {credits: 0, spent: 0, feePaid: false, imageUrl: '', paused: true, lastSettledDay: ''};
 }
 
 // The first paid checkout includes the listing fee. A later one is credits only.
@@ -109,30 +93,47 @@ export function settleCredits(account, todayKey) {
   };
 }
 
-function earlierAccount(a, b) {
-  const left = String(a?.uid || '');
-  const right = String(b?.uid || '');
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
+function hashString(text) {
+  let hash = 2166136261;
+  const value = String(text);
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
-// A live creative owns the board it selected. Unbought boards stay empty.
-// Two live buyers of the same board keep the earlier account id for the day.
-export function assignBoards(boardIds, creatives) {
-  const live = (creatives || []).filter((item) => item?.imageUrl && item.credits > 0 && boardId(item.selectedBoardId));
+function mulberry32(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let next = Math.imul(state ^ (state >>> 15), 1 | state);
+    next = (next + Math.imul(next ^ (next >>> 7), 61 | next)) ^ next;
+    return ((next ^ (next >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function seededOrder(items, seedText) {
+  const rand = mulberry32(hashString(seedText));
+  return items
+    .map((item, index) => ({item, index, n: rand()}))
+    .sort((a, b) => a.n - b.n || a.index - b.index)
+    .map((row) => row.item);
+}
+
+// One live image per board. Extra boards stay on the placeholder.
+export function assignBoards(boardIds, creatives, dayKey) {
+  const live = (creatives || []).filter((item) => item?.imageUrl && item.credits > 0);
+  const boards = seededOrder(boardIds, `boards:${dayKey}`);
+  const ads = seededOrder(live, `ads:${dayKey}`);
   const assigned = new Map();
-  for (const id of boardIds) {
-    const claimants = live.filter((item) => item.selectedBoardId === id).sort(earlierAccount);
-    if (claimants[0]) assigned.set(id, claimants[0]);
-  }
+  const count = Math.min(boards.length, ads.length);
+  for (let i = 0; i < count; i++) assigned.set(boards[i], ads[i]);
   return assigned;
 }
 
 export function facesForDay(sites, creatives, dayKey) {
-  // The Prague day settles credits. A bought board does not move to another site that day.
-  void dayKey;
-  const assigned = assignBoards(sites.map((site) => site.id), creatives);
+  const assigned = assignBoards(sites.map((site) => site.id), creatives, dayKey);
   return sites.map((site) => {
     const creative = assigned.get(site.id);
     return {id: site.id, imageUrl: creative?.imageUrl || null};

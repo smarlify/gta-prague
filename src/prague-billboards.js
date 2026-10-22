@@ -3,13 +3,11 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {SpatialIndex} from './geo.js';
 import {solidBox} from './world-objects.js';
 import {PRAGUE_AREAS} from './area-caption.js';
-import {boardId, paintPlaceholder, facesForDay, pragueDayKey} from '../firebase/functions/ad-credits.js';
+import {paintPlaceholder, facesForDay, pragueDayKey} from '../firebase/functions/ad-credits.js';
 import storedSites from './prague-billboard-sites.json' with {type: 'json'};
 
 export const BOARDS_PER_DISTRICT = 10;
 export const BILLBOARD_COUNT = BOARDS_PER_DISTRICT;
-export const BILLBOARD_BUY_REACH = 18;
-export const BUY_BILLBOARD_LABEL = 'Buy this billboard';
 const BOARD_WIDTH = 7.2;
 const BOARD_HEIGHT = 3.6;
 const BOARD_BOTTOM = 2.5;
@@ -44,59 +42,6 @@ function nearestArea(x, z, areas) {
 
 function districtSlug(name) {
   return String(name).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
-// Standalone ads page. The in-game button opens a modal and does not assign this URL.
-export function billboardPurchaseUrl(siteId) {
-  return `/ads.html?board=${encodeURIComponent(siteId)}`;
-}
-
-// Player position is the same x/z on foot and in a car. Equal distances keep the earlier site id.
-export function nearestBillboard(player, sites, reach = BILLBOARD_BUY_REACH) {
-  if (!player || !Number.isFinite(player.x) || !Number.isFinite(player.z)) return null;
-  let best = null;
-  let bestDistance = reach;
-  for (const site of sites || []) {
-    if (!site || !Number.isFinite(site.x) || !Number.isFinite(site.z)) continue;
-    const gap = Math.hypot(site.x - player.x, site.z - player.z);
-    if (gap > reach) continue;
-    const closer = gap < bestDistance - 1e-9;
-    const tied = Math.abs(gap - bestDistance) <= 1e-9 && best && String(site.id) < String(best.id);
-    if (!best || closer || tied) {
-      best = site;
-      bestDistance = gap;
-    }
-  }
-  return best;
-}
-
-const raycaster = new THREE.Raycaster();
-const pointerNdc = new THREE.Vector2();
-
-// Canvas clicks land on the poster, which is named with the site id, or on the shared metal frame.
-export function billboardFromPointer(event, camera, group, sites) {
-  const rect = event.target?.getBoundingClientRect?.();
-  if (!camera || !group || !rect?.width || !rect?.height) return '';
-  pointerNdc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointerNdc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(pointerNdc, camera);
-  const hits = raycaster.intersectObject(group, true);
-  if (!hits.length) return '';
-  const named = boardId(hits[0].object?.name);
-  if (named) return named;
-  const point = hits[0].point;
-  let best = '';
-  let bestGap = 8;
-  for (const site of sites || []) {
-    const id = boardId(site?.id);
-    if (!id || !Number.isFinite(site.x) || !Number.isFinite(site.z)) continue;
-    const gap = Math.hypot(site.x - point.x, site.z - point.z);
-    if (gap < bestGap) {
-      bestGap = gap;
-      best = id;
-    }
-  }
-  return best;
 }
 
 function closestSite(pool, x, z, maxDistance) {

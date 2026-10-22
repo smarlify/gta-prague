@@ -4,9 +4,7 @@ import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import Stripe from 'stripe';
-import {boardId, checkoutAmount, emptyAccount, pragueDayKey, settleCredits} from './ad-credits.js';
-import {billboardCheckoutUrls} from './checkout-urls.js';
-import {acceptWebhook, createCheckoutSession, paidSessionAccount, retrieveOwnedSession, settlePaidSession} from './billboard-payment.js';
+import {PACK_CREDITS, checkoutAmount, emptyAccount, grantPurchase, pragueDayKey, settleCredits} from './ad-credits.js';
 
 initializeApp();
 
@@ -36,9 +34,20 @@ function sendError(res, error) {
   res.status(status).json({error: error.message || 'Payment failed'});
 }
 
+function grantPaid(account, includesFee) {
+  try {
+    return grantPurchase(account, {includesFee});
+  } catch (error) {
+    if (includesFee && account.feePaid) return {...account, credits: (account.credits || 0) + PACK_CREDITS};
+    throw error;
+  }
+}
+
 async function applyPaidSession(session) {
-  const uid = paidSessionAccount(session);
-  if (!uid) return {applied: false};
+  if (!session || session.payment_status !== 'paid') return {applied: false};
+  const uid = session.metadata?.uid;
+  if (!uid) throw new Error('Checkout is missing the account');
+  const includesFee = session.metadata.includesFee === '1';
   const paymentRef = getFirestore().collection('billboardPayments').doc(session.id);
   const accountRef = accounts().doc(uid);
   let credits = 0;
@@ -46,14 +55,14 @@ async function applyPaidSession(session) {
     const seen = await tx.get(paymentRef);
     const snap = await tx.get(accountRef);
     const account = snap.exists ? {...emptyAccount(), ...snap.data()} : emptyAccount();
-    const result = settlePaidSession(account, session, {alreadyRecorded: seen.exists});
-    if (!result.record) {
-      credits = result.credits;
+    if (seen.exists) {
+      credits = account.credits;
       return;
     }
-    tx.set(accountRef, result.account, {merge: true});
+    const next = grantPaid(account, includesFee);
+    tx.set(accountRef, next, {merge: true});
     tx.set(paymentRef, {uid});
-    credits = result.credits;
+    credits = next.credits;
   });
   return {applied: true, credits};
 }
@@ -78,14 +87,24 @@ export const createBillboardCheckout = onRequest({region, cors: true, secrets: [
     const uid = await uidFromRequest(req);
     const account = await readSettled(uid);
     const amount = checkoutAmount(req.body?.currency, {feePaid: account.feePaid});
-    const chosen = boardId(req.body?.boardId) || boardId(account.selectedBoardId);
-    if (chosen && account.selectedBoardId !== chosen) await accounts().doc(uid).set({selectedBoardId: chosen}, {merge: true});
     const stripe = new Stripe(stripeSecret.value());
     const origin = publicOrigin();
-    const surface = req.body?.surface === 'game' ? 'game' : 'page';
-    const embedded = req.body?.ui === 'embedded';
-    const urls = billboardCheckoutUrls({origin, boardId: chosen, surface, embedded});
-    res.json(await createCheckoutSession(stripe, {uid, amount, boardId: chosen, urls, embedded}));
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      client_reference_id: uid,
+      line_items: [{
+        quantity: 1,
+        price_data: {
+          currency: amount.currency,
+          unit_amount: amount.unitAmount,
+          product_data: {name: amount.includesFee ? 'GTA Praha billboard fee and 40 credits' : 'GTA Praha 40 billboard credits'},
+        },
+      }],
+      metadata: {uid, includesFee: amount.includesFee ? '1' : '0', credits: String(amount.credits)},
+      success_url: `${origin}/ads.html?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/ads.html?checkout=cancel`,
+    });
+    res.json({url: session.url});
   } catch (error) {
     sendError(res, error);
   }
@@ -98,8 +117,15 @@ export const confirmBillboardCheckout = onRequest({region, cors: true, secrets: 
   }
   try {
     const uid = await uidFromRequest(req);
+    const sessionId = String(req.body?.sessionId || '');
+    if (!sessionId.startsWith('cs_')) throw new Error('Missing checkout session');
     const stripe = new Stripe(stripeSecret.value());
-    const session = await retrieveOwnedSession(stripe, {uid, sessionId: req.body?.sessionId});
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (session.metadata?.uid !== uid) {
+      const error = new Error('That checkout belongs to another account');
+      error.status = 403;
+      throw error;
+    }
     await applyPaidSession(session);
     const account = await readSettled(uid);
     res.json(account);
@@ -123,14 +149,16 @@ export const settleBillboardAccount = onRequest({region, cors: true}, async (req
 
 export const stripeBillboardWebhook = onRequest({region, secrets: [stripeSecret, webhookSecret]}, async (req, res) => {
   const stripe = new Stripe(stripeSecret.value());
-  const accepted = acceptWebhook(stripe, req.rawBody, req.get('stripe-signature'), webhookSecret.value());
-  if (!accepted.ok) {
-    res.status(400).json({error: accepted.error});
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.rawBody, req.get('stripe-signature'), webhookSecret.value());
+  } catch (error) {
+    res.status(400).json({error: error.message});
     return;
   }
-  if (accepted.event.type === 'checkout.session.completed') {
+  if (event.type === 'checkout.session.completed') {
     try {
-      await applyPaidSession(accepted.event.data.object);
+      await applyPaidSession(event.data.object);
     } catch (error) {
       res.status(500).json({error: error.message});
       return;
@@ -150,7 +178,7 @@ export const listBillboardCreatives = onRequest({region, cors: true}, async (req
       if (settled.credits !== account.credits || settled.spent !== account.spent || settled.paused !== account.paused || settled.lastSettledDay !== account.lastSettledDay) {
         await doc.ref.set(settled, {merge: true});
       }
-      if (settled.imageUrl && settled.credits > 0) creatives.push({uid: doc.id, imageUrl: settled.imageUrl, credits: settled.credits, selectedBoardId: boardId(settled.selectedBoardId)});
+      if (settled.imageUrl && settled.credits > 0) creatives.push({uid: doc.id, imageUrl: settled.imageUrl, credits: settled.credits});
     }
     res.json({day: today, creatives});
   } catch (error) {

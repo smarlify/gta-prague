@@ -1,20 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function moneyUnchanged() {
-      return request.resource.data.credits == resource.data.credits
-        && request.resource.data.spent == resource.data.spent
-        && request.resource.data.feePaid == resource.data.feePaid
-        && request.resource.data.paused == resource.data.paused
-        && request.resource.data.lastSettledDay == resource.data.lastSettledDay;
-    }
-    function boardChoiceOk() {
-      return !('selectedBoardId' in request.resource.data)
-        || (request.resource.data.selectedBoardId is string
-          && request.resource.data.selectedBoardId.size() < 80
-          && (request.resource.data.selectedBoardId == ''
-            || request.resource.data.selectedBoardId.matches('^[a-z0-9]+(-[a-z0-9]+)*$')));
-    }
     match /billboardAccounts/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid
@@ -23,12 +9,13 @@ service cloud.firestore {
         && request.resource.data.feePaid == false
         && request.resource.data.paused == true
         && request.resource.data.lastSettledDay == ''
-        && request.resource.data.imageUrl == ''
-        && request.resource.data.selectedBoardId == '';
+        && request.resource.data.imageUrl == '';
       allow update: if request.auth != null && request.auth.uid == uid
-        && moneyUnchanged()
-        && boardChoiceOk()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageUrl', 'selectedBoardId'])
+        && request.resource.data.credits == resource.data.credits
+        && request.resource.data.spent == resource.data.spent
+        && request.resource.data.feePaid == resource.data.feePaid
+        && request.resource.data.paused == resource.data.paused
+        && request.resource.data.lastSettledDay == resource.data.lastSettledDay
         && request.resource.data.imageUrl is string
         && request.resource.data.imageUrl.size() < 2000
         && (request.resource.data.imageUrl == '' || request.resource.data.imageUrl.matches('^https://firebasestorage\\.googleapis\\.com/'));
