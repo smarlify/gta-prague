@@ -18,7 +18,7 @@ export const CHARACTERS = Object.freeze([
   }),
   Object.freeze({
     id: 'elon',
-    label: 'Roadster — Elon Musk',
+    label: 'Tesla Roadster — Elon Musk',
     name: 'Elon Musk',
     type: 'roadster',
     flies: true,

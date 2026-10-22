@@ -17,7 +17,7 @@ export function createTravelUI({interact,toggleRun,focusWorld=()=>{},doc=documen
   action.hidden=onFoot?!nearest:!stopped||(!coarse&&!showHint);action.disabled=false;
   run.hidden=!coarse||travel.mode!=='walk';run.textContent=travel.sprint?'Running':'Run';run.setAttribute('aria-pressed',String(!!travel.sprint));
   const flying=travel.mode==='car'&&travel.car?.flying;
-  hint.textContent=coarse?'':travel.mode==='swim'?'WASD to swim · Enter a car on shore':travel.mode==='walk'?'WASD · Shift to run':flying?'W nose up · S nose down · A/D roll · Shift rockets · Space levels':travel.mode==='car'?(travel.car?.roadster?'Shift fires the rockets · F to get out when stopped':'F to get out when stopped'):'W / ↑ to ride · Space to brake · F to get off';hint.hidden=!showHint||coarse;
+  hint.textContent=coarse?'':travel.mode==='swim'?'WASD to swim · Enter a car on shore':travel.mode==='walk'?'WASD · Shift to run':flying?'W nose down · S nose up · A/D roll · Shift rockets · Space levels':travel.mode==='car'?(travel.car?.roadster?'Shift fires the rockets · F to get out when stopped':'F to get out when stopped'):'W / ↑ to ride · Space to brake · F to get off';hint.hidden=!showHint||coarse;
   root.hidden=!started||paused||mapOpen||busted||hidden||(action.hidden&&run.hidden&&hint.hidden);
  }};
 }

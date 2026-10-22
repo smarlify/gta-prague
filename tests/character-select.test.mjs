@@ -38,7 +38,7 @@ function memoryStorage() {
 test('the welcome choices are the G, the Roadster, the Scala, and the bicycle, and the Roadster is preselected', () => {
   assert.deepEqual(CHARACTERS.map((choice) => choice.label), [
     'Mercedes G — Filip Turek',
-    'Roadster — Elon Musk',
+    'Tesla Roadster — Elon Musk',
     'Škoda Scala — Dave N.',
     'Bicycle — Zdeněk Hřib',
   ]);
@@ -154,7 +154,7 @@ test('car arrows wrap Filip, Elon, Dave, and Zdeněk, and a click does not keep 
     onChange: (choice) => picked.push(choice.id),
   });
   assert.equal(picker.get().id, 'elon');
-  assert.equal(doc.nodes.get('character-label').textContent, 'Roadster — Elon Musk');
+  assert.equal(doc.nodes.get('character-label').textContent, 'Tesla Roadster — Elon Musk');
   const next = doc.nodes.get('character-next');
   const prev = doc.nodes.get('character-prev');
   next.listeners.click({ detail: 1 });
@@ -186,7 +186,7 @@ test('the welcome card puts the car on the same arrow row as the district, outsi
   assert.match(car, /M15 5l-7 7 7 7/);
   assert.match(district, /M15 5l-7 7 7 7/);
   assert.match(html, /id="character-next"[^>]*class="start-arrow"/);
-  assert.match(html, /id="character-label"[^>]*>Roadster — Elon Musk</);
+  assert.match(html, /id="character-label"[^>]*>Tesla Roadster — Elon Musk</);
   assert.ok(html.indexOf('id="boot-title"') < html.indexOf('id="load-detail"'), 'the loading line sits under the heading');
   assert.ok(html.indexOf('id="load-detail"') < html.indexOf('id="character-prev"'), 'the car row sits under the loading line');
   assert.ok(html.indexOf('id="start-next"') < html.indexOf('id="character-prev"'), 'the car row sits under the street arrows');
