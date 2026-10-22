@@ -3,6 +3,7 @@ export const PACK_CREDITS = 40;
 export const BILLBOARD_PRICE_EUR = 50;
 export const REVOLUT_PAYMENT_ID = '7a5ccc40-cc12-4892-9280-de78ea04baf6';
 export const REVOLUT_CHECKOUT_URL = `https://checkout.revolut.com/pay/${REVOLUT_PAYMENT_ID}`;
+export const REVOLUT_QR_PATH = '/ads/revolut-50-eur-qr.png';
 export const PLACEHOLDER_CS = 'Zde může být vaše reklama';
 export const PLACEHOLDER_EN = 'Your ad can be here';
 

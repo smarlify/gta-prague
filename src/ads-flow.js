@@ -4,7 +4,7 @@ import {doc, getDoc, setDoc, updateDoc} from 'firebase/firestore';
 import {ref, uploadBytes, getDownloadURL} from 'firebase/storage';
 import {billboardFirebase} from './firebase.js';
 import {authFailureMessage, createEmailAccount, signInWithEmail} from './email-auth.js';
-import {REVOLUT_CHECKOUT_URL, boardId, checkoutAmount, emptyAccount} from '../firebase/functions/ad-credits.js';
+import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH, boardId, checkoutAmount, emptyAccount} from '../firebase/functions/ad-credits.js';
 import {adsEndpoints} from './billboard-feed.js';
 
 const IMAGE_LIMIT = 2 * 1024 * 1024;
@@ -42,10 +42,16 @@ function markup({showBack, showPageLink}) {
       <label>Billboard image
         <input id="ads-file" type="file" accept="image/jpeg,image/png,image/webp" />
       </label>
-      <p>GTA Praha has sent you a payment request for 50 €. You can pay it via:</p>
-      <p><a id="ads-revolut" href="${REVOLUT_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer">${REVOLUT_CHECKOUT_URL}</a></p>
+      <p>GTA Praha has sent you a payment request for 50 €. Pay with Revolut Link, Revolut Pay, or scan the code.</p>
+      <p class="ads-pay-label">Revolut Link</p>
+      <p><a class="ads-revolut" id="ads-revolut" href="${REVOLUT_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer">${REVOLUT_CHECKOUT_URL}</a></p>
+      <a class="ads-revolut primary-btn" id="ads-revolut-pay" href="${REVOLUT_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer">Revolut Pay</a>
+      <figure class="ads-qr-block">
+        <img id="ads-revolut-qr" src="${REVOLUT_QR_PATH}" width="220" height="220" alt="QR code to pay 50 euro with Revolut" />
+        <figcaption>Scan to pay 50 €</figcaption>
+      </figure>
       <p id="ads-price" class="ads-note"></p>
-      <button id="ads-confirm" class="primary-btn" type="button" hidden>I've paid the 50 €</button>
+      <button id="ads-confirm" class="primary-btn" type="button">I've paid the 50 €</button>
       <button id="ads-sign-out" class="ghost-btn" type="button">Sign out</button>
     </section>
     <p id="ads-status" class="ads-status" role="status"></p>`;
@@ -207,7 +213,6 @@ function bind(root, options) {
   });
   q('ads-sign-out').addEventListener('click', () => {
     pendingClaim = '';
-    q('ads-confirm').hidden = true;
     signOut(services().auth);
   });
   q('ads-file').addEventListener('change', async () => {
@@ -221,34 +226,40 @@ function bind(root, options) {
       q('ads-status').textContent = error.message;
     }
   });
-  q('ads-revolut').addEventListener('click', () => {
-    q('ads-status').textContent = '';
+  function startClaim({announce = false} = {}) {
+    if (pendingClaim) return Promise.resolve(pendingClaim);
     let user = null;
     try {
       user = services().auth.currentUser;
     } catch (error) {
       q('ads-status').textContent = error.message;
-      return;
+      return Promise.resolve('');
     }
-    if (!user) return;
-    authedPost(adsEndpoints().checkout, {boardId: chosenBoard()}).then((payload) => {
+    if (!user) return Promise.resolve('');
+    return authedPost(adsEndpoints().checkout, {boardId: chosenBoard()}).then((payload) => {
       pendingClaim = payload.claimId || '';
-      q('ads-confirm').hidden = !pendingClaim;
-      q('ads-status').textContent = pendingClaim
-        ? 'After you pay the 50 € on Revolut, confirm it here.'
-        : 'Checkout did not return a payment.';
-    }).catch((error) => {
-      q('ads-status').textContent = error.message;
+      if (!pendingClaim) throw new Error('Checkout did not return a payment.');
+      if (announce) q('ads-status').textContent = 'After you pay the 50 € on Revolut, confirm it here.';
+      return pendingClaim;
     });
-  });
+  }
+
+  for (const link of root.querySelectorAll('.ads-revolut')) {
+    link.addEventListener('click', () => {
+      q('ads-status').textContent = '';
+      startClaim({announce: true}).catch((error) => {
+        q('ads-status').textContent = error.message;
+      });
+    });
+  }
   q('ads-confirm').addEventListener('click', async () => {
-    if (!pendingClaim) return;
     q('ads-status').textContent = '';
     q('ads-confirm').disabled = true;
     try {
-      const account = await authedPost(adsEndpoints().confirm, {claimId: pendingClaim});
+      const claimId = await startClaim();
+      if (!claimId) return;
+      const account = await authedPost(adsEndpoints().confirm, {claimId});
       pendingClaim = '';
-      q('ads-confirm').hidden = true;
       paintAccount(account);
       q('ads-status').textContent = 'Credits added.';
     } catch (error) {

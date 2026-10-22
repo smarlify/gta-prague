@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {REVOLUT_CHECKOUT_URL} from '../firebase/functions/ad-credits.js';
+import {existsSync, readFileSync} from 'node:fs';
+import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH} from '../firebase/functions/ad-credits.js';
 
 test('the advertiser pays the 50 € Revolut request and signs in with email', () => {
   const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
@@ -9,7 +9,13 @@ test('the advertiser pays the 50 € Revolut request and signs in with email', (
   const firebase = readFileSync(new URL('../src/firebase.js', import.meta.url), 'utf8');
   const pkg = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
   assert.match(adsFlow, /GTA Praha has sent you a payment request for 50/);
+  assert.match(adsFlow, /Revolut Link/);
+  assert.match(adsFlow, /Revolut Pay/);
+  assert.match(adsFlow, /Scan to pay 50/);
   assert.match(adsFlow, /REVOLUT_CHECKOUT_URL/);
+  assert.match(adsFlow, /REVOLUT_QR_PATH/);
+  assert.equal(REVOLUT_QR_PATH, '/ads/revolut-50-eur-qr.png');
+  assert.equal(existsSync(new URL(`../public${REVOLUT_QR_PATH}`, import.meta.url)), true);
   assert.match(adsFlow, /id="ads-email"/);
   assert.match(adsFlow, /id="ads-password"/);
   assert.match(adsFlow, /createEmailAccount/);

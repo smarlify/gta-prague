@@ -56,16 +56,36 @@ body.ads-standalone {
 .ads-page input[type="password"] {
   font: inherit;
   font-size: 16px;
+  box-sizing: border-box;
   padding: 0.55rem 0.7rem;
   border: 1px solid #d9d3c6;
   background: #fff;
 }
-.ads-page #ads-revolut {
+.ads-page .ads-revolut {
   color: inherit;
   overflow-wrap: anywhere;
 }
-.ads-page #ads-confirm[hidden] {
-  display: none;
+.ads-page .ads-pay-label {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ads-page .ads-qr-block {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+}
+.ads-page .ads-qr-block img {
+  width: 220px;
+  height: 220px;
+  background: #fff;
+  border: 1px solid #d9d3c6;
+  padding: 8px;
+}
+.ads-page .ads-qr-block figcaption {
+  margin: 0;
 }
 .ads-page .ads-preview {
   width: 100%;
@@ -81,12 +101,14 @@ body.ads-standalone {
   min-height: 44px;
   touch-action: manipulation;
   width: 100%;
+  box-sizing: border-box;
   display: block;
   text-align: center;
 }
 .ads-page .primary-btn {
   background: #24312e;
   color: #f4efe6;
+  text-decoration: none;
 }
 .ads-page .ghost-btn {
   background: transparent;
