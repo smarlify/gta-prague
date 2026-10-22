@@ -116,8 +116,8 @@ export function createMobileControls({keys,canPlay=()=>true,onMenuChange=()=>{},
    if(previousMode!==state.mode||previousFlying!==!!state.flying||previousRoadster!==!!state.roadster){
     const walk=state.mode==='walk',brake=doc.getElementById('touch-brake'),go=doc.getElementById('touch-go'),fly=doc.getElementById('touch-fly');
     const air=state.mode==='car'&&state.flying;
-    brake.setAttribute('aria-label',walk?'Walk backwards':air?'Pitch the nose down':'Brake, then reverse');brake.querySelector('span').firstChild.textContent=walk?'Back':air?'Nose':'Brake';brake.querySelector('small').textContent=walk?'':air?'Down':'Reverse';
-    go.setAttribute('aria-label',walk?'Walk forward':state.mode==='bike'?'Pedal forward':state.mode==='scooter'?'Ride forward':air?'Thrust and pitch the nose up':'Accelerate');
+    brake.setAttribute('aria-label',walk?'Walk backwards':air?'Pitch the nose up':'Brake, then reverse');brake.querySelector('span').firstChild.textContent=walk?'Back':air?'Nose':'Brake';brake.querySelector('small').textContent=walk?'':air?'Up':'Reverse';
+    go.setAttribute('aria-label',walk?'Walk forward':state.mode==='bike'?'Pedal forward':state.mode==='scooter'?'Ride forward':air?'Thrust and pitch the nose down':'Accelerate');
     const goLabel=go.querySelector('span');if(goLabel.firstChild)goLabel.firstChild.textContent=air?'Nose':'Go';
     if(fly)fly.hidden=!(state.roadster&&state.mode==='car');
     controls.setAttribute('aria-label',walk?'Touch walking controls':air?'Touch flight controls':'Touch driving controls');

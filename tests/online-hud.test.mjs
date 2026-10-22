@@ -66,7 +66,7 @@ test('an online click lists the room snapshot and does not leave', async () => {
     me: { uid: 'me', name: 'Ada', x: 0, z: 0, heading: 0, speed: 0, mode: 'car', updatedAt: now },
     other: { uid: 'other', name: 'Bo', x: 1, z: 1, heading: 0, speed: 0, mode: 'car', updatedAt: now },
     quiet: { uid: 'quiet', name: '   ', x: 2, z: 2, heading: 0, speed: 0, mode: 'car', updatedAt: now },
-    leftover: { uid: 'leftover', name: 'Driver', x: 3, z: 3, heading: 0, speed: 0, mode: 'car', updatedAt: now - 120_000 },
+    leftover: { uid: 'leftover', name: 'Driver', x: 3, z: 3, heading: 0, speed: 0, mode: 'car', updatedAt: now },
     parked: { uid: 'parked', name: 'Cara', x: 4, z: 4, heading: 0, speed: 0, mode: 'car', updatedAt: now - 120_000 },
   };
   bindOnlineHud(doc, {
@@ -85,7 +85,7 @@ test('an online click lists the room snapshot and does not leave', async () => {
   assert.equal(panel.hidden, false);
   assert.match(panel.textContent, /Ada \(you\)/);
   assert.match(panel.textContent, /Bo/);
-  assert.match(panel.textContent, /Cara/);
+  assert.doesNotMatch(panel.textContent, /Cara/);
   assert.doesNotMatch(panel.textContent, /Driver/);
   const you = panel.children.find((row) => row.dataset.you === '1');
   assert.equal(you.textContent, 'Ada (you)');

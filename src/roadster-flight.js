@@ -8,13 +8,13 @@ import {groundPose} from './terrain.js';
 // nose for yaw, one lifting nozzle at each corner) plus four underbody suction
 // fans. It is not magnetic levitation: the wheels are the motors, and the
 // nozzles are compressed-nitrogen rockets with electric actuators.
-// In the air Shift still lifts. W pitches the nose down, S pitches the nose up,
-// and A and D roll. Thrust still follows the nose.
+// In the air Shift still lifts. W and up pitch the nose down and thrust along
+// it; S and down pitch the nose up. Steering rolls. Space levels the car.
 export const ROADSTER_CLEARANCE=2.6;
 export const ROADSTER_CEILING=64;
 export const ROADSTER_AIR_MAX=72;
-// W noses down and S noses up. Pitch and roll stop
-// before the car can tumble onto its roof; past that, thrust just climbs.
+// W pitches the nose down; S pitches it up. Pitch and roll stop before the
+// car can tumble onto its roof.
 const ROADSTER_PITCH_LIMIT=.95;
 const ROADSTER_ROLL_LIMIT=1.05;
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));

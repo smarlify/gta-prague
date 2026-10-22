@@ -13,13 +13,14 @@ const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 function markup({showBack, showPageLink}) {
   const kicker = showBack ? '<p class="ads-kicker"><a class="ads-back" href="/">GTA Praha</a></p>' : '';
   const pageLink = showPageLink
-    ? '<p id="ads-page-fallback" class="ads-note"><a id="ads-page-link" href="/ads.html">Open the advertiser page</a></p>'
+    ? '<p id="ads-page-fallback" class="board-note"><a id="ads-page-link" href="/ads.html">Open the advertiser page</a></p>'
     : '';
+  // EasyList hides .ads-card and .ads-note, which left this modal as the title and one sentence.
   return `${kicker}
     <h1 id="billboard-ads-title">Your ad can be here</h1>
     <p>Zde může být vaše reklama. One landscape image goes on one board.</p>
-    <p id="ads-board" class="ads-note" hidden></p>
-    <section class="ads-card" id="ads-signed-out">
+    <p id="ads-board" class="board-note" hidden></p>
+    <section class="board-panel" id="ads-signed-out">
       <p>Sign in with email to upload an image and pay.</p>
       <form id="ads-auth">
         <label>Email
@@ -33,15 +34,7 @@ function markup({showBack, showPageLink}) {
       </form>
       ${pageLink}
     </section>
-    <section class="ads-card" id="ads-account" hidden>
-      <div class="ads-balance">
-        <p><span>Spent</span><strong id="ads-spent">0</strong></p>
-        <p><span>Remaining</span><strong id="ads-remaining">0</strong></p>
-      </div>
-      <img id="ads-preview" class="ads-preview" alt="" hidden />
-      <label>Billboard image
-        <input id="ads-file" type="file" accept="image/jpeg,image/png,image/webp" />
-      </label>
+    <section class="board-panel" id="board-payment">
       <p>GTA Praha has sent you a payment request for 50 €. Pay with Revolut Link, Revolut Pay, or scan the code.</p>
       <p class="ads-pay-label">Revolut Link</p>
       <p><a class="ads-revolut" id="ads-revolut" href="${REVOLUT_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer">${REVOLUT_CHECKOUT_URL}</a></p>
@@ -50,7 +43,17 @@ function markup({showBack, showPageLink}) {
         <img id="ads-revolut-qr" src="${REVOLUT_QR_PATH}" width="220" height="220" alt="QR code to pay 50 euro with Revolut" />
         <figcaption>Scan to pay 50 €</figcaption>
       </figure>
-      <p id="ads-price" class="ads-note"></p>
+    </section>
+    <section class="board-panel" id="ads-account" hidden>
+      <div class="ads-balance">
+        <p><span>Spent</span><strong id="ads-spent">0</strong></p>
+        <p><span>Remaining</span><strong id="ads-remaining">0</strong></p>
+      </div>
+      <img id="ads-preview" class="ads-preview" alt="" hidden />
+      <label>Billboard image
+        <input id="ads-file" type="file" accept="image/jpeg,image/png,image/webp" />
+      </label>
+      <p id="ads-price" class="board-note"></p>
       <button id="ads-confirm" class="primary-btn" type="button">I've paid the 50 €</button>
       <button id="ads-sign-out" class="ghost-btn" type="button">Sign out</button>
     </section>

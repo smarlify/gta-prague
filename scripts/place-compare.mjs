@@ -16,7 +16,7 @@ fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({channel:process.env.PW_CHANNEL||'chrome',headless:true,args:['--ignore-gpu-blocklist','--enable-unsafe-swiftshader']});
 const page=await browser.newPage({viewport:{width:1024,height:768}});
 page.on('pageerror',e=>console.log('page error:',e.message));
-await page.goto(`${base}/?city=${city}`);
+await page.goto(`${base}/?city=${city}&presence=off`);
 await page.waitForFunction(()=>window.openCityDrive?.getState().ready||window.helsinkiBootError,null,{timeout:240000});
 const boot=await page.evaluate(()=>window.helsinkiBootError);if(boot)throw Error(`Game failed to start: ${boot.message}`);
 await page.addStyleTag({content:'body *{visibility:hidden!important}canvas:not(#minimap):not(#city-map){visibility:visible!important}'});

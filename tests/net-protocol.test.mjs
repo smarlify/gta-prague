@@ -4,6 +4,7 @@ import {
   PLAYER_HZ,
   AFK_HEARTBEAT_HZ,
   AFK_STALE_MS,
+  ONLINE_STALE_MS,
   DEMO_ROOM,
   PLAYERS_PATH,
   MAX_POLICE_UNITS,
@@ -365,8 +366,8 @@ test('two tabs of one anonymous user are both in the demo room Online list', () 
       'tab-dave': dave,
     },
   };
-  const asTurek = listedPlayers(snapshot, turekId);
-  assert.equal(onlinePlayerCount(snapshot, turekId), 2);
+  const asTurek = listedPlayers(snapshot, turekId, now);
+  assert.equal(onlinePlayerCount(snapshot, turekId, now), 2);
   assert.equal(asTurek.length, 2);
   assert.equal(asTurek.find((row) => row.uid === turekId).you, true);
   assert.equal(asTurek.find((row) => row.name === 'Dave N.').you, false);
@@ -388,7 +389,38 @@ test('two tabs of one anonymous user are both in the demo room Online list', () 
       }),
     },
   };
-  assert.equal(onlinePlayerCount(otherProfile, turekId), 2);
+  assert.equal(onlinePlayerCount(otherProfile, turekId, now), 2);
+});
+
+test('Online keeps a fresh heartbeat and drops a row that has been quiet for a minute', () => {
+  const now = 1_700_000_300_000;
+  assert.equal(ONLINE_STALE_MS, 60_000);
+  const fresh = buildPresence({
+    uid: 'ada', name: 'Ada', x: 0, z: 0, mode: 'car', updatedAt: now - 1000,
+  });
+  const recent = buildPresence({
+    uid: 'bo', name: 'Bo', x: 1, z: 1, mode: 'car', updatedAt: now - 30_000,
+  });
+  const afk = buildPresence({
+    uid: 'cy', name: 'Cy', x: 2, z: 2, mode: 'car', afk: true, updatedAt: now - 50_000,
+  });
+  const quiet = buildPresence({
+    uid: 'dee', name: 'Dee', x: 3, z: 3, mode: 'car', updatedAt: now - ONLINE_STALE_MS - 1,
+  });
+  const afkGone = buildPresence({
+    uid: 'eve', name: 'Eve', x: 4, z: 4, mode: 'car', afk: true, updatedAt: now - AFK_STALE_MS - 1,
+  });
+  const map = {
+    ada: fresh,
+    bo: recent,
+    cy: afk,
+    dee: quiet,
+    eve: afkGone,
+    blank: { uid: 'blank', name: 'Finn', mode: 'car' },
+    ghost: { uid: 'ghost', name: 'Driver', mode: 'car', updatedAt: now },
+  };
+  assert.deepEqual(listedPlayers(map, 'ada', now).map((row) => row.name), ['Ada', 'Bo', 'Cy']);
+  assert.equal(onlinePlayerCount(map, 'ada', now), 3);
 });
 
 test('shouldSkipPublish is the gate used before set() — any authenticated uid', () => {
