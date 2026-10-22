@@ -13,7 +13,7 @@ import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,visitScene} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {bindCharacterPicker,characterSwitchRebuilds,occupiedRide,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
-import {DIVADLO_BEZ_ZABRADLI,PRAZSKY_HRAD,chasePlacement,slachtaArrest} from './driver-starts.js';
+import {DIVADLO_BEZ_ZABRADLI,PRAZSKY_HRAD,chaseBody,chasePlacement,slachtaArrest} from './driver-starts.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
@@ -750,25 +750,15 @@ function nudgeStart(spot){
 function refreshChaseSpawn(){
  if(started||chaseHold||!chosenCharacter?.chase||!car||!data?.roads||!world?.buildings)return;
  if(new URLSearchParams(location.search).get('start'))return;
- const player=(multiplayer?.livePlayers?.()||[]).find(p=>Number.isFinite(p.x)&&Number.isFinite(p.z));
- if(player){
-  if(chaseKind==='player')return;
-  const spot=chasePlacement(player,data.roads,world.buildings);
-  if(!spot)return;
-  nudgeStart(spot);chaseKind='player';return;
- }
- if(chaseKind)return;
- let best=null,bestD=Infinity;
- for(const source of trafficCars){
-  const actor=source.actor;
-  if(!actor||!Number.isFinite(actor.x)||!Number.isFinite(actor.z))continue;
-  const d=Math.hypot(actor.x-car.x,actor.z-car.z);
-  if(d<bestD){best=actor;bestD=d;}
- }
- if(!best)return;
- const spot=chasePlacement(best,data.roads,world.buildings);
+ // No remote and no traffic yet: stay on Letenské náměstí. A bad presence list must not stop the card.
+ let players=[];
+ try{players=multiplayer?.livePlayers?.()||[];}catch{players=[];}
+ const target=chaseBody(car,{players,traffic:trafficCars});
+ if(!target)return;
+ if(target.kind==='player'?chaseKind==='player':chaseKind)return;
+ const spot=chasePlacement(target.body,data.roads,world.buildings);
  if(!spot)return;
- nudgeStart(spot);chaseKind='traffic';
+ nudgeStart(spot);chaseKind=target.kind;
 }
 function applyPeerArrest(){
  if(police?.busted||Date.now()<peerArrestUntil)return;

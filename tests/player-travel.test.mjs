@@ -158,3 +158,28 @@ test('walking, cycling and scooting feel the slope: slower uphill, a little fast
  assert.equal(slopeFactor('walk',0),1);assert.ok(slopeFactor('walk',-.05)>1&&slopeFactor('walk',-.25)<.6,'a gentle descent is easiest, a steep one is careful');assert.ok(slopeFactor('bike',-1)<=1.35&&slopeFactor('scooter',-1)<=1.15&&slopeFactor('bike',1)>=.3,'capped');
  assert.equal(slopeFactor('car',.2),1);
 });
+
+test('a motorbike or Challenger mounts at the chosen place, and a later car choice is the car',()=>{
+ const land=world();
+ const bike=new PlayerTravel(makeCar(0,0),land,{ride:'motorbike'});
+ assert.equal(bike.mode,'motorbike');assert.equal(bike.riding.visual.kind,'motorbike');
+ assert.equal(bike.actor.x,0);assert.equal(bike.actor.z,0);
+ assert.ok(Math.hypot(bike.car.x,bike.car.z)>1,'the home car waits off the motorbike');
+ for(let i=0;i<10;i++)bike.step(press('KeyW'),1/60);
+ assert.equal(bike.mode,'motorbike');
+ bike.reset(makeCar(4,4),land,{ride:null});
+ assert.equal(bike.mode,'car');assert.equal(bike.riding,null);assert.equal(bike.actor,bike.car);
+ const river={buildings:new SpatialIndex([]),roads:new SpatialIndex([rect(40,-40,80,80)]),pavement:new SpatialIndex([]),water:[rect(-30,-30,60,60)]};
+ const boat=new PlayerTravel(makeCar(0,0),river,{ride:'challenger'});
+ assert.equal(boat.mode,'challenger');assert.equal(boat.riding.visual.kind,'challenger');
+ assert.equal(boat.actor.x,0);assert.equal(boat.actor.z,0);
+ assert.equal(travelCollision(boat.actor,'challenger',river),null);
+ assert.ok(boat.car.x>30,'the home car waits on the bank');
+ assert.equal(travelCollision({x:boat.car.x,z:boat.car.z,heading:boat.car.heading},'car',river),null);
+ for(let i=0;i<10;i++)boat.step(press('KeyW'),1/60);
+ assert.equal(boat.mode,'challenger');
+ boat.reset(makeCar(50,0),land,{ride:null});
+ assert.equal(boat.mode,'car');assert.equal(boat.riding,null);
+ assert.equal(travelCollision({x:0,z:0,heading:0},'car',land),null);
+ assert.throws(()=>travelCollision({x:0,z:0,heading:0},'hoverboard',land),/Unknown travel mode/);
+});

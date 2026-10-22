@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Scene} from 'three';
 import {createPoliceRenderer,strobe,wigwag} from '../src/police-renderer.js';
+import {createPlayerCarRenderer} from '../src/player-car-renderer.js';
 import {createPoliceBody,unitNumber,unitVariant,POLICE_SPECS} from '../src/police-model.js';
 import {sirenMix} from '../src/police-siren.js';
 import {createVehicle} from '../src/vehicles.js';
@@ -12,6 +13,17 @@ function withDocument(run){
  const original=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>ctx})};
  try{run();}finally{if(original===undefined)delete globalThis.document;else globalThis.document=original;}
 }
+
+test('Šlachta’s car is the police estate, not an unknown vehicle type',()=>withDocument(()=>{
+ assert.throws(()=>createVehicle(0,true,'police'),/Unknown vehicle type: police/);
+ const renderer=createPlayerCarRenderer(new Scene());
+ const car={x:0,z:0,heading:0,speed:0,steer:0,visual:{type:'police',police:true,livery:'praha',variant:'estate'}};
+ renderer.sync({mode:'car',homeCar:car,car,cars:[car],actor:car});
+ renderer.setLook('police','');
+ const occupied=renderer.group.children.find(o=>o.name==='Police estate');
+ assert.ok(occupied,'the occupied car is the Prague police estate');
+ assert.equal(occupied.userData.type,'estate');
+}));
 
 test('light bar strobes alternate sides in rapid triple flashes; headlamps wig-wag',()=>{
  let flashes=[0,0],both=0,lastA=0,edgesA=0;

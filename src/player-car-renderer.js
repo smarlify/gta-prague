@@ -25,6 +25,7 @@ export function createPlayerCarRenderer(scene){
  const paintOccupied=()=>{if(travelMode==='car'&&current)applyPlayerLamps(current.model,lamps);};
  return {group:active,setLamps(on){lamps=!!on;},setLook(type=PLAYER_CAR_TYPE,paint=''){
   const key=`${type}|${paint}`;if(key===lookKey)return;lookKey=key;
+  // Police is not a vehicle-model spec. createVehicle('police') throws and stops the welcome card.
   const model=type==='police'?createPoliceBody('estate','praha'):createVehicle(0,true,type);
   if(type==='police')attachPursuitLights(model,.2);
   else if(paint)model.traverse(m=>{if(m.isMesh&&m.material?.name==='paint')m.material.color.set(paint);});

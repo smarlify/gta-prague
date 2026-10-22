@@ -40,8 +40,12 @@ function bodyContains(body,x,z,margin=.3){
  const c=Math.cos(body.heading||0),s=Math.sin(body.heading||0),dx=x-body.x,dz=z-body.z,{hw,hl}=bodySize(body);
  return Math.abs(dx*c-dz*s)<hw+margin&&Math.abs(dx*s+dz*c)<hl+margin;
 }
+// The home car parked beside a starter ride is not a ride mode. Without this box,
+// choosing the motorbike or the Challenger threw on halfWidth and stopped the game.
+const CAR_FOOT={halfWidth:.98,halfLength:2.36};
 export function travelCollision(p,mode,world,obstacles=[],ignore=[],from=null){
- const spec=TRAVEL_MODES[mode],w=spec.halfWidth,l=spec.halfLength;
+ const spec=TRAVEL_MODES[mode]||(mode==='car'?CAR_FOOT:null);if(!spec)throw new Error(`Unknown travel mode: ${mode}`);
+ const w=spec.halfWidth,l=spec.halfLength;
  const buildings=world.collisionBuildings||world.buildings;
  for(const [sx,sz] of [[0,0],[-w,-l],[w,-l],[-w,l],[w,l],[0,-l],[0,l]]){
   const q=offset(p,sx,sz);

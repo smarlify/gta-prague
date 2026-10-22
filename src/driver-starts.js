@@ -56,6 +56,31 @@ export function headingToward(from, to) {
 }
 
 /**
+ * Who Šlachta waits behind. A remote player wins, then the nearest traffic car.
+ * Null when neither list exists yet, so the start stays Letenské náměstí.
+ * A missing list must not throw.
+ */
+export function chaseBody(origin, {players, traffic} = {}) {
+  if (!origin || !Number.isFinite(origin.x) || !Number.isFinite(origin.z)) return null;
+  const remotes = Array.isArray(players) ? players : [];
+  const player = remotes.find((body) => body && Number.isFinite(body.x) && Number.isFinite(body.z));
+  if (player) return {kind: 'player', body: player};
+  const cars = Array.isArray(traffic) ? traffic : [];
+  let best = null;
+  let bestD = Infinity;
+  for (const source of cars) {
+    const actor = source?.actor;
+    if (!actor || !Number.isFinite(actor.x) || !Number.isFinite(actor.z)) continue;
+    const distance = Math.hypot(actor.x - origin.x, actor.z - origin.z);
+    if (distance < bestD) {
+      best = actor;
+      bestD = distance;
+    }
+  }
+  return best ? {kind: 'traffic', body: best} : null;
+}
+
+/**
  * Road point about 40 m behind `target`, facing them.
  * `roads` is the city road array; `buildings` is a spatial index with `.at`.
  * Null when no clear carriageway is close enough to search.

@@ -7,7 +7,7 @@ import {carSamples, makeCar} from '../src/physics.js';
 import {characterById, resolveDriver} from '../src/character-select.js';
 import {startCycleKey} from '../src/cities.js';
 import {resolveDriverStart} from '../src/pavlova.js';
-import {TRAVEL_MODES, travelCollision} from '../src/player-travel.js';
+import {PlayerTravel, TRAVEL_MODES, travelCollision} from '../src/player-travel.js';
 import {createMotorbike, createChallenger} from '../src/player-ride-models.js';
 import {createVehicle, VEHICLE_TYPES} from '../src/vehicles.js';
 import {
@@ -16,6 +16,7 @@ import {
   DIVADLO_BEZ_ZABRADLI,
   PRAZSKY_HRAD,
   VLTAVA_START,
+  chaseBody,
   chasePlacement,
   slachtaArrest,
 } from '../src/driver-starts.js';
@@ -106,6 +107,24 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
   assert.equal(resolveDriverStart(landmarks, null, storage, 'prague', characterById('zeman'), null).start.water, true);
 });
 
+test('Pavel mounts the motorbike at the castle and Zeman mounts the boat on the Vltava', () => {
+  const world = {buildings, roads, pavement, water: city.water};
+  const castle = new PlayerTravel(makeCar(PRAZSKY_HRAD.x, PRAZSKY_HRAD.z, PRAZSKY_HRAD.heading), world, {ride: characterById('pavel').ride});
+  assert.equal(castle.mode, 'motorbike');
+  assert.equal(castle.riding.visual.kind, 'motorbike');
+  assert.equal(roads.at(castle.actor.x, castle.actor.z)?.name, 'U Prašného mostu');
+  assert.ok(Math.hypot(castle.car.x - castle.actor.x, castle.car.z - castle.actor.z) > 1);
+  const river = new PlayerTravel(makeCar(VLTAVA_START.x, VLTAVA_START.z, VLTAVA_START.heading), world, {ride: characterById('zeman').ride});
+  assert.equal(river.mode, 'challenger');
+  assert.equal(river.riding.visual.kind, 'challenger');
+  assert.equal(city.water.some((w) => pointInPolygon(river.actor.x, river.actor.z, w.rings)), true);
+  assert.equal(city.water.some((w) => pointInPolygon(river.car.x, river.car.z, w.rings)), false);
+  river.reset(makeCar(PRAZSKY_HRAD.x, PRAZSKY_HRAD.z, PRAZSKY_HRAD.heading), world, {ride: null});
+  assert.equal(river.mode, 'car');
+  assert.equal(river.riding, null);
+  assert.equal(roads.at(river.actor.x, river.actor.z)?.name, 'U Prašného mostu');
+});
+
 test('the motorbike is its own ride, faster than the bicycle, with two wheels and no pedals', () => {
   assert.ok(TRAVEL_MODES.motorbike.speed > TRAVEL_MODES.bike.speed);
   const mesh = createMotorbike();
@@ -137,6 +156,29 @@ test('the Challenger stays in mapped water and stops at a bank', () => {
   assert.ok(boat.root.getObjectByName('torso').rotation.x < -0.8);
   assert.ok(boat.root.getObjectByName('paddle'));
   boat.dispose();
+});
+
+test('Šlachta stays at Letná when no remote and no traffic exist yet', () => {
+  const origin = {x: 10, z: 10};
+  assert.equal(chaseBody(origin, {}), null);
+  assert.equal(chaseBody(origin, {players: null, traffic: undefined}), null);
+  assert.equal(chaseBody(origin, {players: {}, traffic: {cars: []}}), null);
+  assert.equal(chaseBody(origin, {players: [{x: NaN, z: 1}], traffic: [{actor: null}, {actor: {x: NaN, z: 0}}]}), null);
+  const remote = chaseBody(origin, {players: [{uid: 'ada', x: 40, z: 0}], traffic: [{actor: {x: 12, z: 10}}]});
+  assert.equal(remote.kind, 'player');
+  assert.equal(remote.body.uid, 'ada');
+  const traffic = chaseBody(origin, {players: [], traffic: [{actor: {x: 80, z: 10}}, {actor: {x: 14, z: 12}}]});
+  assert.equal(traffic.kind, 'traffic');
+  assert.equal(traffic.body.x, 14);
+  const opened = resolveDriverStart(
+    [{name: 'Letenské náměstí', heading: -1.3, x: 3, z: 3}, {name: 'Petřín', heading: 2, x: 2, z: 2}],
+    null,
+    memoryStorage(),
+    'prague',
+    characterById('slachta'),
+    null,
+  );
+  assert.equal(opened.start.name, 'Letenské náměstí');
 });
 
 test('Šlachta is placed behind a body, and only he arrests with the siren on', () => {

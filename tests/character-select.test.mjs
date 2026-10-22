@@ -308,6 +308,71 @@ test('choosing Hřib on the start card occupies his pedal bicycle, not the Roads
   assert.equal(driverFromSearch('?driver=zdenek-hrib').type, 'bicycle');
 });
 
+test('choosing Pavel or Zeman on the start card mounts that ride, and a car comes back', () => {
+  const elon = characterById('elon');
+  const pavel = characterById('pavel');
+  const zeman = characterById('zeman');
+  const filip = characterById('filip');
+  assert.equal(characterSwitchRebuilds(elon, pavel), true);
+  assert.equal(characterSwitchRebuilds(pavel, zeman), true);
+  assert.equal(characterSwitchRebuilds(zeman, filip), true);
+  assert.equal(characterSwitchRebuilds(elon, characterById('dave')), false);
+  const doc = pickerDoc();
+  const picker = bindCharacterPicker({doc, storage: memoryStorage(), initial: 'elon'});
+  picker.choose('pavel');
+  assert.equal(picker.get().name, 'Petr Pavel');
+  assert.equal(picker.get().ride, 'motorbike');
+  assert.equal(doc.nodes.get('character-label').textContent, 'Motorbike — Petr Pavel');
+  const land = {buildings: new SpatialIndex([]), roads: new SpatialIndex([{rings: [[[-200, -200], [200, -200], [200, 200], [-200, 200]]]}]), pavement: new SpatialIndex([{rings: [[[-200, -200], [200, -200], [200, 200], [-200, 200]]]}]), water: []};
+  const travel = new PlayerTravel(makeCar(0, 0), land, {ride: elon.ride || null});
+  assert.equal(travel.mode, 'car');
+  if (characterSwitchRebuilds(elon, picker.get())) travel.reset(makeCar(0, 0), land, {ride: picker.get().ride || null});
+  assert.equal(travel.mode, 'motorbike');
+  assert.equal(travel.riding.visual.kind, 'motorbike');
+  assert.equal(travel.actor.x, 0);
+  assert.equal(travel.actor.z, 0);
+  assert.ok(Math.hypot(travel.car.x, travel.car.z) > 1);
+  const bike = createRideVehicle(travel.riding.visual, travel.mode);
+  assert.equal(bike.root.userData.kind, 'motorbike');
+  bike.dispose();
+  picker.choose('zeman');
+  assert.equal(picker.get().name, 'Miloš Zeman');
+  assert.equal(picker.get().water, true);
+  const river = {
+    buildings: new SpatialIndex([]),
+    roads: new SpatialIndex([{rings: [[[40, -40], [120, -40], [120, 40], [40, 40], [40, -40]]]}]),
+    pavement: new SpatialIndex([]),
+    water: [{rings: [[[-30, -30], [30, -30], [30, 30], [-30, 30], [-30, -30]]], bbox: [-30, -30, 30, 30]}],
+  };
+  travel.reset(makeCar(0, 0), river, {ride: picker.get().ride || null});
+  assert.equal(travel.mode, 'challenger');
+  assert.equal(travel.riding.visual.kind, 'challenger');
+  assert.equal(travel.actor.x, 0);
+  assert.equal(travel.actor.z, 0);
+  assert.ok(travel.car.x > 30, 'the home car waits on the bank');
+  if (!globalThis.document) {
+    globalThis.document = {createElement: () => ({width: 512, height: 128, style: {}, getContext: () => new Proxy({}, {get: () => () => {}})})};
+  }
+  const boat = createRideVehicle(travel.riding.visual, travel.mode);
+  assert.equal(boat.root.userData.kind, 'challenger');
+  boat.dispose();
+  const slachta = picker.choose('slachta');
+  assert.equal(slachta.police, true);
+  assert.equal(slachta.type, 'police');
+  assert.equal(slachta.ride, undefined);
+  assert.equal(characterSwitchRebuilds(zeman, slachta), true);
+  travel.reset(makeCar(0, 0), land, {ride: slachta.ride || null});
+  assert.equal(travel.mode, 'car');
+  assert.equal(travel.riding, null);
+  const back = picker.choose('filip');
+  assert.equal(back.type, 'gwagen');
+  assert.equal(back.ride, undefined);
+  assert.equal(characterSwitchRebuilds(slachta, back), false);
+  travel.reset(makeCar(0, 0), land, {ride: back.ride || null});
+  assert.equal(travel.mode, 'car');
+  assert.equal(travel.riding, null);
+});
+
 test('Zdeněk starts on a pedal bicycle at the normal start, not the museum and not the city bike', () => {
   const hrib = characterById('hrib');
   assert.equal(hrib.name, 'Zdeněk Hřib');
