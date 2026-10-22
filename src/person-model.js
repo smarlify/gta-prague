@@ -255,6 +255,9 @@ export function posePerson(actor,look,gait,out,time=0){
   else if(side===1&&actor.suitcase)target=[.34*H/1.74,.86*H/1.74+.0,.2*H/1.74];
   // Carrying something bought (market-shop.js): right hand forward and out to the side (hold 0), raised to the mouth (hold 1).
   else if(side===1&&actor.hold>=0&&actor.hold!==null){const q=H/1.74,t=actor.hold;target=[(.3-.17*t)*q,(.97+.42*t)*q,(-.2-.02*t)*q,1,-.6,.5];}
+  // Seated at the wheel: both hands forward, elbows below the shoulders.
+  // Not a wave, a salute, or the hand-over-head hail.
+  else if(actor.pose==='drive'){const q=H/1.74;target=[sgn*.18*q,.80*q,-.34*q,sgn*.15,-1,.06];}
   // Angry driver: hand up over the head, shaken side to side (elbow out to the side).
   // ...and the other arm out to the side, palm up: "what are you doing?"
   else if(side===0&&actor.pose==='hail'){const q=H/1.74;target=[-.38*q,1.55*q,-.12*q,-1,-.15,.25];}

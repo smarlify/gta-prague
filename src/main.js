@@ -928,7 +928,7 @@ function frame(now){
    impacts.step(step,world);crowd?.step(step);let before=null;const driving=travel.mode==='car',parked=travel.parked();
    if(started){
     if(driving&&travel.car&&car!==travel.car)car=travel.car;
-    const previous=before={...car},r=driving?(car.roadster&&!travel.gagDriver?roadsterStep(car,keys,step,world):driveStep(car,keys,step,world)):travel.step(keys,step,travelObstacles());
+    const previous=before={...car},r=driving?(car.roadster?roadsterStep(car,keys,step,world):driveStep(car,keys,step,world)):travel.step(keys,step,travelObstacles());
     if(r.crashed){car=travel.actor;playerCars.sync(travel);if(now-lastToast>1500){toast(r.crashed>5?'Ouch. That was a hard fall.':'You came off. Press Enter to get back on.');lastToast=now;}}
     police.observeDriving(previous,car,step,{driving});
     const aloft=carIsAirborne(car),parkedHit=driving&&!aloft&&parked.find(p=>sweptContact(previous,car,p));
@@ -995,8 +995,7 @@ function frame(now){
  const wantFov=chaseCamera&&started&&!inspectionCamera?cameraFov:DRIVE_FOV.min;if(camera.fov!==wantFov){camera.fov=wantFov;camera.updateProjectionMatrix();}
  playerCars.setVisible(!inspectionCamera);
   if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode,ram:!!chosenCharacter.pavlova},dt);for(const impulse of pavlova.impulses||[])applyAmbulanceRam(car,impulse);ambulance?.update(pavlova,dt);}
-  if(travel)travel.gagDriver=!!(chosenCharacter?.police&&travel.mode==='car'&&travel.car?.visual?.police);
-  travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null,uniform:slachtaWearsUniform({police:!!chosenCharacter?.police,mode:travel?.mode,gagDriver:!!travel?.gagDriver,policeCar:!!travel?.car?.visual?.police})});
+  travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null,uniform:slachtaWearsUniform({police:!!chosenCharacter?.police,mode:travel?.mode,policeCar:!!travel?.car?.visual?.police})});
   if(ready&&!paused&&!mapOpen&&!police?.busted){
    const birdStep=Math.min(.1,dt); // keep encounter pressure and bird motion on the same clock at low frame rates
    if(started){
