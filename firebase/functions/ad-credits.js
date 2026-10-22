@@ -1,30 +1,19 @@
-// One pack is 40 board-days. The currency only changes what Checkout charges.
+// One pack is 40 board-days. Payment is a single 50 € Revolut request.
 export const PACK_CREDITS = 40;
+export const BILLBOARD_PRICE_EUR = 50;
+export const REVOLUT_PAYMENT_ID = '7a5ccc40-cc12-4892-9280-de78ea04baf6';
+export const REVOLUT_CHECKOUT_URL = `https://checkout.revolut.com/pay/${REVOLUT_PAYMENT_ID}`;
 export const PLACEHOLDER_CS = 'Zde může být vaše reklama';
 export const PLACEHOLDER_EN = 'Your ad can be here';
 
-// Major units. JPY has no minor unit; the others are charged in hundredths.
-export const CREDIT_PACKS = Object.freeze([
-  Object.freeze({id: 'czk', fee: 250, pack: 1000, zeroDecimal: false}),
-  Object.freeze({id: 'eur', fee: 10, pack: 40, zeroDecimal: false}),
-  Object.freeze({id: 'usd', fee: 10, pack: 40, zeroDecimal: false}),
-  Object.freeze({id: 'gbp', fee: 8, pack: 32, zeroDecimal: false}),
-  Object.freeze({id: 'chf', fee: 9, pack: 36, zeroDecimal: false}),
-  Object.freeze({id: 'pln', fee: 40, pack: 160, zeroDecimal: false}),
-  Object.freeze({id: 'jpy', fee: 1500, pack: 6000, zeroDecimal: true}),
-]);
-
-export function creditPack(currencyId) {
-  const pack = CREDIT_PACKS.find((item) => item.id === String(currencyId || '').toLowerCase());
-  if (!pack) throw new Error(`Unknown currency "${currencyId}"`);
-  return pack;
-}
-
-export function checkoutAmount(currencyId, {feePaid = false} = {}) {
-  const pack = creditPack(currencyId);
-  const major = feePaid ? pack.pack : pack.fee + pack.pack;
-  const unitAmount = pack.zeroDecimal ? major : Math.round(major * 100);
-  return {currency: pack.id, unitAmount, credits: PACK_CREDITS, includesFee: !feePaid};
+export function checkoutAmount({feePaid = false} = {}) {
+  return {
+    currency: 'eur',
+    unitAmount: BILLBOARD_PRICE_EUR * 100,
+    credits: PACK_CREDITS,
+    includesFee: !feePaid,
+    url: REVOLUT_CHECKOUT_URL,
+  };
 }
 
 export function emptyAccount() {

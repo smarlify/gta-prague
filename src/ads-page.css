@@ -47,9 +47,25 @@ body.ads-standalone {
   display: grid;
   gap: 0.3rem;
 }
-.ads-page select, .ads-page input[type="file"] {
+.ads-page select,
+.ads-page input[type="file"] {
   font: inherit;
   font-size: 16px;
+}
+.ads-page input[type="email"],
+.ads-page input[type="password"] {
+  font: inherit;
+  font-size: 16px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #d9d3c6;
+  background: #fff;
+}
+.ads-page #ads-revolut {
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+.ads-page #ads-confirm[hidden] {
+  display: none;
 }
 .ads-page .ads-preview {
   width: 100%;
@@ -79,12 +95,6 @@ body.ads-standalone {
 }
 .ads-page .ads-back {
   color: inherit;
-}
-.ads-page #ads-payment {
-  min-height: 280px;
-}
-.ads-page #ads-payment[hidden] {
-  display: none;
 }
 .ads-page .ads-card[hidden],
 .ads-page #ads-board[hidden],

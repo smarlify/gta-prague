@@ -137,7 +137,17 @@
             <p class="eyebrow" id="high-score-title">HIGH SCORE</p>
             <p class="high-score-line">Distance this run: <strong id="high-score-value">0 m</strong></p>
             <p id="high-score-status" class="high-score-status" role="status"></p>
-            <button type="button" id="high-score-google" class="primary-btn high-score-google" hidden>Continue with Google</button>
+            <button type="button" id="high-score-save" class="primary-btn high-score-save" hidden>Save score</button>
+            <form id="high-score-account" class="high-score-account" hidden>
+              <label for="high-score-email">Email</label>
+              <input id="high-score-email" name="email" type="email" autocomplete="username" required>
+              <label for="high-score-password">Password</label>
+              <input id="high-score-password" name="password" type="password" autocomplete="current-password" minlength="6" required>
+              <div class="high-score-account-row">
+                <button type="submit" id="high-score-sign-in" class="primary-btn">Sign in</button>
+                <button type="button" id="high-score-create" class="ghost-btn">Create account</button>
+              </div>
+            </form>
             <form id="high-score-guest" class="high-score-guest" hidden>
               <label for="high-score-name">Guest name</label>
               <div class="high-score-guest-row">

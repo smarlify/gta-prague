@@ -135,8 +135,8 @@ export function createMultiplayerSession(scene, {
         hud.refresh();
       }
     },
-    /** Call when high-score Google sign-in succeeds mid-session. */
-    async onGoogleSignedIn() {
+    /** Call when high-score email sign-in succeeds mid-session. */
+    async onAccountSignedIn() {
       await this.ensureJoinedIfSignedIn();
     },
     publishCrash(impulse) {

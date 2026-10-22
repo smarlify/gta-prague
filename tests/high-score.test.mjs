@@ -8,7 +8,7 @@ import {
   formatHighScore,
   isEmbedded,
   postGameOver,
-  isGoogleUser,
+  isAccountUser,
   displayNameFor,
   bindHighScoreUI,
 } from '../src/high-score.js';
@@ -57,9 +57,9 @@ test('GAME_OVER postMessage only when iframed, with gameId gta-praha', () => {
   }
 });
 
-test('Google display name preferred over email local-part', () => {
-  assert.equal(isGoogleUser(null), false);
-  assert.equal(isGoogleUser({ isAnonymous: true }), false);
+test('account display name preferred over email local-part', () => {
+  assert.equal(isAccountUser(null), false);
+  assert.equal(isAccountUser({ isAnonymous: true }), false);
   assert.equal(displayNameFor({ isAnonymous: false, displayName: 'Ada', email: 'ada@gmail.com' }), 'Ada');
   assert.equal(displayNameFor({ isAnonymous: false, displayName: null, email: 'ada@gmail.com' }), 'ada');
 });
@@ -73,7 +73,7 @@ function mockScoreDoc() {
           id,
           hidden: id === 'high-score-panel' || id === 'high-score-guest',
           disabled: false,
-          textContent: id === 'high-score-google' ? 'Continue with Google' : '',
+          textContent: id === 'high-score-save' ? 'Save score' : '',
           value: '',
           dataset: {},
           addEventListener() {},
@@ -84,10 +84,11 @@ function mockScoreDoc() {
   };
 }
 
-test('logged-out iframe posts to parent and keeps Google as fallback', async () => {
+test('logged-out iframe posts to parent and offers email or a guest name', async () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /id="high-score-panel"/);
-  assert.match(html, /id="high-score-google"/);
+  assert.match(html, /id="high-score-email"/);
+  assert.doesNotMatch(html, /high-score-google|Continue with Google/);
 
   const doc = mockScoreDoc();
   const messages = [];
@@ -108,8 +109,7 @@ test('logged-out iframe posts to parent and keeps Google as fallback', async () 
   assert.equal(messages[0].type, 'GAME_OVER');
   assert.equal(messages[0].score, 3200);
   assert.equal(doc.elements['high-score-panel'].hidden, false);
-  // Temp: Continue with Google is hidden; guest save is shown instead.
-  assert.equal(doc.elements['high-score-google'].hidden, true);
+  assert.equal(doc.elements['high-score-account'].hidden, false);
   assert.equal(doc.elements['high-score-guest'].hidden, false);
   assert.match(doc.elements['high-score-status'].textContent, /Playful/);
   assert.match(doc.elements['high-score-status'].textContent, /guest name/);
@@ -118,7 +118,7 @@ test('logged-out iframe posts to parent and keeps Google as fallback', async () 
   else globalThis.window = prev;
 });
 
-test('signed-in standalone auto-saves and hides Google/guest chooser', async () => {
+test('signed-in standalone auto-saves and hides the sign-in chooser', async () => {
   const prev = globalThis.window;
   const self = {};
   self.parent = self;
@@ -134,14 +134,14 @@ test('signed-in standalone auto-saves and hides Google/guest chooser', async () 
   });
   const out = stand.offer(500);
   assert.equal(out.embedded, false);
-  assert.equal(standDoc.elements['high-score-google'].hidden, true);
+  assert.equal(standDoc.elements['high-score-account'].hidden, true);
   assert.equal(standDoc.elements['high-score-guest'].hidden, true);
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(saved[0]?.name, 'Driver');
   assert.equal(saved[0]?.score, 500);
   assert.equal(saved[0]?.email, 'd@gmail.com');
   assert.match(standDoc.elements['high-score-status'].textContent, /Saved as Driver/);
-  assert.equal(standDoc.elements['high-score-google'].hidden, true);
+  assert.equal(standDoc.elements['high-score-account'].hidden, true);
 
   if (prev === undefined) delete globalThis.window;
   else globalThis.window = prev;
@@ -166,7 +166,7 @@ test('signed-in iframe auto-saves, hides chooser, and still posts GAME_OVER', as
   const result = ui.offer(1800);
   assert.equal(result.embedded, true);
   assert.equal(messages[0]?.type, 'GAME_OVER');
-  assert.equal(doc.elements['high-score-google'].hidden, true);
+  assert.equal(doc.elements['high-score-account'].hidden, true);
   assert.equal(doc.elements['high-score-guest'].hidden, true);
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(saved[0]?.name, 'Ada');
@@ -176,9 +176,13 @@ test('signed-in iframe auto-saves, hides chooser, and still posts GAME_OVER', as
   else globalThis.window = prev;
 });
 
-test('Continue with Google stays visually hidden', () => {
+test('the busted screen offers email sign-in and has no Google button', () => {
   const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
-  assert.match(css, /\.high-score-google\[hidden\]\{display:none!important\}/);
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(css, /\.high-score-account\[hidden\]\{display:none!important\}/);
+  assert.match(html, /id="high-score-password"/);
+  assert.doesNotMatch(html, /high-score-google|Continue with Google|Sign in with Google/);
+  assert.doesNotMatch(readFileSync(new URL('../src/high-score.js', import.meta.url), 'utf8'), /signInWithPopup|GoogleAuth/);
 });
 
 function standaloneWindow() {
@@ -201,8 +205,7 @@ test('busted screen uses the saved HUD name and does not ask again', async () =>
 
   const out = ui.offer(800);
   assert.equal(out.embedded, false);
-  assert.equal(doc.elements['high-score-google'].hidden, true);
-  assert.equal(doc.elements['high-score-google'].textContent, 'Continue with Google');
+  assert.equal(doc.elements['high-score-account'].hidden, true);
   assert.equal(doc.elements['high-score-guest'].hidden, true);
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(saved.length, 1);
@@ -211,7 +214,7 @@ test('busted screen uses the saved HUD name and does not ask again', async () =>
   assert.equal(saved[0].uid, undefined);
   assert.match(doc.elements['high-score-status'].textContent, /Saved as Dave/);
   assert.equal(doc.elements['high-score-guest'].hidden, true);
-  assert.equal(doc.elements['high-score-google'].hidden, true);
+  assert.equal(doc.elements['high-score-account'].hidden, true);
 
   if (prev === undefined) delete globalThis.window;
   else globalThis.window = prev;
@@ -231,7 +234,7 @@ test('busted screen still asks for a name when none is saved', () => {
 
   ui.offer(800);
   assert.equal(saved, 0);
-  assert.equal(doc.elements['high-score-google'].hidden, true);
+  assert.equal(doc.elements['high-score-account'].hidden, false);
   assert.equal(doc.elements['high-score-guest'].hidden, false);
   assert.match(doc.elements['high-score-status'].textContent, /guest name/);
 
@@ -260,7 +263,7 @@ test('busted screen reads the HUD localStorage name without asking', async () =>
     });
     ui.offer(420);
     assert.equal(doc.elements['high-score-guest'].hidden, true);
-    assert.equal(doc.elements['high-score-google'].hidden, true);
+    assert.equal(doc.elements['high-score-account'].hidden, true);
     await new Promise((r) => setTimeout(r, 0));
     assert.equal(saved[0]?.name, 'Mira');
     assert.equal(PLAYER_NAME_STORAGE_KEY, 'gta-praha-player-name');

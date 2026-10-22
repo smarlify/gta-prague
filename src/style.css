@@ -96,8 +96,14 @@ body.arrest-cinematic .vignette{background:radial-gradient(ellipse at center,tra
 .high-score-status[data-kind=ok]{color:#9dcea8}
 .high-score-status[data-kind=error]{color:#f0a090}
 .high-score-status[data-kind=info]{color:#aebebc}
-.high-score-google{margin:12px auto 0;max-width:360px;width:100%}
-.high-score-google[hidden]{display:none!important}
+.high-score-save{margin:12px auto 0;max-width:360px;width:100%}
+.high-score-save[hidden]{display:none!important}
+.high-score-account{margin-top:12px;text-align:left}
+.high-score-account[hidden]{display:none!important}
+.high-score-account label{display:block;margin:8px 0 6px;font-size:11px;letter-spacing:1px;color:#aebebc}
+.high-score-account input{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:4px;border:1px solid #ffffff33;background:#0f1a22aa;color:#f7f4e9;font:inherit}
+.high-score-account-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.high-score-account-row .primary-btn,.high-score-account-row .ghost-btn{flex:1 1 140px;margin:0;max-width:none;justify-content:center}
 .high-score-guest{margin-top:12px;text-align:left}
 .high-score-guest label{display:block;margin-bottom:6px;font-size:11px;letter-spacing:1px;color:#aebebc}
 .high-score-guest-row{display:flex;gap:8px;flex-wrap:wrap}

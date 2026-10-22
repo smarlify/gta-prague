@@ -1,8 +1,6 @@
 import './billboard-buy.css';
 import {mountBillboardAds} from './ads-flow.js';
 import {boardId} from '../firebase/functions/ad-credits.js';
-import {mountEmbeddedCheckout, openBillboardPaymentWindow} from './billboard-checkout.js';
-import {sessionIdFromClientSecret, stripePublishableKey, takeCheckoutQuery} from './billboard-return.js';
 
 export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {}, win = window} = {}) {
   const doc = root?.ownerDocument || document;
@@ -31,9 +29,6 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
   let suppressBackdrop = 0;
   let board = '';
   let flow = null;
-  let stopWindow = () => {};
-  let embedded = null;
-  let pendingReturn = {checkout: '', sessionId: ''};
   const covered = [];
 
   function cover(active) {
@@ -50,81 +45,9 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
     covered.length = 0;
   }
 
-  function dismissPayment() {
-    stopWindow();
-    stopWindow = () => {};
-    try {
-      embedded?.destroy();
-    } catch {
-      // Stripe may already have unmounted the form.
-    }
-    embedded = null;
-    const payment = shell.querySelector('#ads-payment');
-    if (payment) {
-      payment.hidden = true;
-      payment.replaceChildren();
-    }
-    const buy = shell.querySelector('#ads-buy');
-    if (buy) buy.disabled = false;
-  }
-
   function status(message) {
     const node = shell.querySelector('#ads-status');
     if (node) node.textContent = message;
-  }
-
-  async function presentCheckout(payload) {
-    dismissPayment();
-    if (payload?.clientSecret && stripePublishableKey()) {
-      const payment = shell.querySelector('#ads-payment');
-      const sessionId = sessionIdFromClientSecret(payload.clientSecret);
-      if (!payment || !sessionId) throw new Error('Checkout did not return a payment page');
-      const buy = shell.querySelector('#ads-buy');
-      if (buy) buy.disabled = true;
-      payment.hidden = false;
-      try {
-        embedded = await mountEmbeddedCheckout({
-          publishableKey: stripePublishableKey(),
-          clientSecret: payload.clientSecret,
-          element: payment,
-          onComplete: () => {
-            dismissPayment();
-            pendingReturn = {checkout: 'success', sessionId};
-            flow?.sync()?.catch((error) => status(error.message));
-          },
-        });
-      } catch (error) {
-        dismissPayment();
-        throw error;
-      }
-      return;
-    }
-    if (!payload?.url) throw new Error('Checkout did not return a payment page');
-    try {
-      stopWindow = openBillboardPaymentWindow(payload.url, {
-        win,
-        onResult(result) {
-          stopWindow = () => {};
-          if (result.checkout === 'success' && result.sessionId) {
-            pendingReturn = {checkout: 'success', sessionId: result.sessionId};
-            flow?.sync()?.catch((error) => status(error.message));
-            return;
-          }
-          if (result.checkout === 'cancel') {
-            pendingReturn = {checkout: 'cancel', sessionId: ''};
-            flow?.sync()?.catch((error) => status(error.message));
-            return;
-          }
-          if (result.checkout === 'closed') status('Payment window closed.');
-        },
-      });
-    } catch (error) {
-      const popupBlocked = error.message === 'Allow a payment window to check out';
-      if (popupBlocked) {
-        throw new Error('popup-blocked');
-      }
-      throw error;
-    }
   }
 
   function ensure() {
@@ -133,13 +56,6 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
       showBack: false,
       showPageLink: true,
       getBoardId: () => board,
-      readReturn: () => pendingReturn,
-      clearReturn() {
-        pendingReturn = {checkout: '', sessionId: ''};
-      },
-      checkoutFields: () => ({surface: 'game', ui: stripePublishableKey() ? 'embedded' : 'hosted'}),
-      dismissPayment,
-      presentCheckout,
     });
     return flow;
   }
@@ -163,7 +79,6 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
     if (!openFlag) return;
     openFlag = false;
     shell.hidden = true;
-    dismissPayment();
     cover(false);
     onClose();
   }
@@ -179,11 +94,12 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
     close,
     isOpen: () => openFlag,
     consumeLocationReturn() {
-      const taken = takeCheckoutQuery(win.location.search);
-      if (!taken) return;
-      win.history.replaceState(null, '', `${win.location.pathname}${taken.search}`);
-      pendingReturn = {checkout: taken.checkout, sessionId: taken.sessionId};
-      open(taken.board);
+      const params = new URLSearchParams(win.location.search);
+      if (!params.has('checkout') && !params.has('session_id')) return;
+      params.delete('checkout');
+      params.delete('session_id');
+      const next = params.toString();
+      win.history.replaceState(null, '', `${win.location.pathname}${next ? `?${next}` : ''}`);
     },
   };
 }

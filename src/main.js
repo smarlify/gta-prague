@@ -728,7 +728,7 @@ function closeDialogs(){if($('map-dialog').open)startVisitVersion++;document.que
 function setPaused(value){if(value)peopleInteraction?.close();if(!started||mapOpen||police?.busted)return;paused=value;mobileControls?.release();keys.clear();$('pause-overlay').hidden=!paused||billboardBuy.isOpen();if(!paused)focusWorldControls();}
 const highScore=bindHighScoreUI(document,{
  getDistance:()=>finale?.summary?.raw?.distance??car?.distance??distance,
- onGoogleSignedIn:()=>multiplayer?.onGoogleSignedIn?.(),
+ onAccountSignedIn:()=>multiplayer?.onAccountSignedIn?.(),
 });
 function setBusted(active){
  // The arrest starts with a short cinematic (finale.cameraPose); the end screen appears when finale.cinematicStep says so.

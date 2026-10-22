@@ -8,8 +8,8 @@ import * as THREE from 'three';
 import {BILLBOARD_BUY_REACH, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, billboardFromPointer, billboardPurchaseUrl, nearestBillboard, placePragueBillboards} from '../src/prague-billboards.js';
 import storedSites from '../src/prague-billboard-sites.json' with {type: 'json'};
 import {
-  CREDIT_PACKS,
   PACK_CREDITS,
+  REVOLUT_CHECKOUT_URL,
   boardId,
   checkoutMetadata,
   PLACEHOLDER_CS,
@@ -82,33 +82,24 @@ test('stored Prague boards are on the pavement and not inside a building', () =>
   }
 });
 
-test('the first purchase adds 40 credits and the fee, and a top-up does not charge the fee again', () => {
-  const first = checkoutAmount('usd', {feePaid: false});
+test('the Revolut request is 50 € and the first purchase records the fee', () => {
+  const first = checkoutAmount({feePaid: false});
   assert.equal(first.credits, PACK_CREDITS);
   assert.equal(first.includesFee, true);
   assert.equal(first.unitAmount, 5000);
+  assert.equal(first.currency, 'eur');
+  assert.equal(first.url, REVOLUT_CHECKOUT_URL);
   const opened = grantPurchase(emptyAccount(), {includesFee: true});
   assert.equal(opened.feePaid, true);
   assert.equal(opened.credits, 40);
-  const again = checkoutAmount('eur', {feePaid: true});
+  const again = checkoutAmount({feePaid: true});
   assert.equal(again.credits, 40);
   assert.equal(again.includesFee, false);
-  assert.equal(again.unitAmount, 4000);
+  assert.equal(again.unitAmount, 5000);
   const topped = grantPurchase(opened, {includesFee: false});
   assert.equal(topped.credits, 80);
   assert.throws(() => grantPurchase(topped, {includesFee: true}), /already paid/);
   assert.throws(() => grantPurchase(emptyAccount(), {includesFee: false}), /listing fee/);
-});
-
-test('currency changes the Checkout price and not the credit count', () => {
-  const amounts = CREDIT_PACKS.map((pack) => checkoutAmount(pack.id, {feePaid: false}));
-  assert.deepEqual(amounts.map((amount) => amount.credits), amounts.map(() => 40));
-  assert.equal(checkoutAmount('czk').unitAmount, 125000);
-  assert.equal(checkoutAmount('jpy').unitAmount, 7500);
-  assert.equal(checkoutAmount('gbp').unitAmount, 4000);
-  assert.equal(checkoutAmount('chf').unitAmount, 4500);
-  assert.equal(checkoutAmount('pln').unitAmount, 20000);
-  assert.notEqual(checkoutAmount('usd').unitAmount, checkoutAmount('jpy').unitAmount);
 });
 
 test('a board returns to the placeholder when credits run out', () => {
@@ -204,6 +195,6 @@ test('a selected board id paints that site rather than a random one', () => {
   assert.equal(kept[1].imageUrl, null);
   assert.equal(boardId('praha-1-stare-mesto-01'), 'praha-1-stare-mesto-01');
   assert.equal(boardId('../credits'), '');
-  const amount = checkoutAmount('eur', {feePaid: false});
+  const amount = checkoutAmount({feePaid: false});
   assert.equal(checkoutMetadata('ada', amount, 'praha-1-stare-mesto-01').boardId, 'praha-1-stare-mesto-01');
 });
