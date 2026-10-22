@@ -19,10 +19,10 @@ body.ads-standalone {
   line-height: 1.2;
   margin: 0.4rem 0 0.6rem;
 }
-.ads-page .ads-kicker, .ads-page .ads-note, .ads-page .ads-status {
+.ads-page .ads-kicker, .ads-page .board-note, .ads-page .ads-status {
   color: #3d4a46;
 }
-.ads-page .ads-card {
+.ads-page .board-panel {
   display: grid;
   gap: 0.9rem;
   margin-top: 1.5rem;
@@ -118,7 +118,7 @@ body.ads-standalone {
 .ads-page .ads-back {
   color: inherit;
 }
-.ads-page .ads-card[hidden],
+.ads-page .board-panel[hidden],
 .ads-page #ads-board[hidden],
 .ads-page #ads-preview[hidden],
 .ads-page #ads-page-fallback[hidden] {

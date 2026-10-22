@@ -40,6 +40,21 @@ test('the modal close control is a phone-sized button and the city controls stay
   assert.match(main, /billboardBuy\?\.isOpen\(\)&&e\.code!=='Escape'/);
 });
 
+test('opening the modal shows sign-in and the Revolut request without EasyList class names', () => {
+  const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/ads-page.css', import.meta.url), 'utf8');
+  const markup = adsFlow.slice(adsFlow.indexOf('function markup'), adsFlow.indexOf('export function mountBillboardAds'));
+  const paymentAt = markup.indexOf('id="board-payment"');
+  const accountAt = markup.indexOf('id="ads-account" hidden');
+  assert.ok(paymentAt > 0 && accountAt > paymentAt, 'the 50 € request stays visible before sign-in');
+  assert.match(markup, /id="ads-email"/);
+  assert.match(markup, /id="ads-password"/);
+  assert.match(markup, /id="ads-revolut-qr"/);
+  assert.doesNotMatch(markup, /class="ads-card"|class="ads-note"/);
+  assert.doesNotMatch(css, /\.ads-card|\.ads-note/);
+  assert.match(css, /\.board-panel\[hidden\]/);
+});
+
 test('the advertiser page link is updated with the board parameter', () => {
   const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
   assert.match(adsFlow, /link\.href\s*=\s*id\s*\?\s*`\/ads\.html\?board=\$\{encodeURIComponent\(id\)\}`\s*:\s*'\/ads\.html'/);
