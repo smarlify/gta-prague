@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {carSample,crowdLevel} from '../src/audio-math.js';
+import {carSample,crowdLevel,motorbikeEngine} from '../src/audio-math.js';
 import {playThunder,weatherBeds,THUNDER_DELAY,THUNDER_PEAK} from '../src/audio.js';
 
 const kmh=k=>k/3.6;
@@ -22,6 +22,13 @@ test('setts rumble more than asphalt at the same speed, without changing the mot
  assert.equal(asphalt.kind,'asphalt');assert.equal(setts.kind,'setts');
  assert.ok(setts.gain>asphalt.gain);
  assert.equal(setts.playbackRate,asphalt.playbackRate);
+});
+
+test('the motorbike idles and revs with speed',()=>{
+ const idle=motorbikeEngine(0),moving=motorbikeEngine(12);
+ assert.ok(idle.gain>0,'a stopped bike still idles');
+ assert.ok(moving.playbackRate>idle.playbackRate);
+ assert.ok(moving.gain>idle.gain);
 });
 
 test('throttle adds load on top of the rolling sound',()=>{

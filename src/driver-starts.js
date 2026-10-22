@@ -6,6 +6,18 @@ import {nearestRoadPoint} from './physics.js';
 export const CHASE_BEHIND = 40;
 export const ARREST_RANGE = 8;
 
+// Ke Hradu, the street leading up to the castle. The named surface is the street.
+// Not the Hradčanská tram stop and not the U Prašného mostu point.
+export const KE_HRADU = Object.freeze({
+  name: 'Ke Hradu',
+  id: 'ke-hradu',
+  district: 'Praha 1 - Hradčany',
+  street: 'Ke Hradu',
+  x: -1705,
+  z: -154,
+  heading: -0.4209,
+});
+
 // U Prašného mostu, the driveable road at the castle. Not the Hradčanská tram stop.
 export const PRAZSKY_HRAD = Object.freeze({
   name: 'Pražský hrad',
@@ -120,9 +132,15 @@ export function nearestWithin(actor, others, range = ARREST_RANGE) {
   return best;
 }
 
+function wantedStars(body) {
+  const level = body?.wanted?.level ?? body?.wantedLevel;
+  return Number.isFinite(level) ? level : 0;
+}
+
 /**
- * Šlachta arrests only while he is driving his own police car with the sirens on.
- * Anyone else, sirens off, or a stolen cruiser returns null.
+ * Šlachta arrests only while he is driving his own police car with the sirens on,
+ * and only a player who already has at least one wanted star.
+ * Anyone else, sirens off, a stolen cruiser, or a clean player returns null.
  */
 export function slachtaArrest({
   characterId = '',
@@ -133,7 +151,14 @@ export function slachtaArrest({
   range = ARREST_RANGE,
 } = {}) {
   if (characterId !== 'slachta' || !siren || !drivingHomePolice) return null;
-  const target = nearestWithin(actor, others, range);
+  const target = nearestWithin(actor, (others || []).filter((body) => wantedStars(body) >= 1), range);
   if (!target) return null;
   return {active: true, phase: 'bust', t: 0, target: target.uid};
+}
+
+/** On foot, or the visible driver of his own cruiser. Another character never wears it. */
+export function slachtaWearsUniform({police = false, mode = '', gagDriver = false, policeCar = false} = {}) {
+  if (!police) return false;
+  if (mode === 'walk') return true;
+  return mode === 'car' && !!policeCar && !!gagDriver;
 }

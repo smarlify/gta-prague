@@ -1,16 +1,32 @@
 import * as THREE from 'three';
 import {createPersonBatch,personLook,advanceGait,JOINT} from './person-model.js';
 import {createRideVehicle,PLAYER_BIKE,PLAYER_SCOOTER,challengerWaterY} from './player-ride-models.js';
+import {OFFICER_LOOK} from './roadblock.js';
 import {groundAt} from './terrain.js';
+
+const UNIFORM_KEYS=Object.keys(OFFICER_LOOK);
+
+/** Prague patrol jacket on, or back to the saved civilian clothes. */
+export function dressPlayerLook(look, saved, on){
+ if(on)Object.assign(look,OFFICER_LOOK);
+ else for(const key of UNIFORM_KEYS){
+  if(saved[key]===undefined)delete look[key];
+  else look[key]=saved[key];
+ }
+ return look;
+}
 
 export function createPlayerTravelRenderer(scene){
  const group=new THREE.Group();group.name='Player and rideable vehicles';scene.add(group);
- const person=createPersonBatch(1,{name:'Player'});group.add(person.group);
+ const person=createPersonBatch(1,{name:'Player',police:{word:'POLICIE'}});group.add(person.group);
  const look=personLook(2026,{height:1.75,coat:0,skirt:false,shirt:'#d65f39',trousers:'#273b4a',age:'adult',accessory:null,phoneWalk:false,stoop:0,outer:'jacket',scarf:null,hairStyle:'short',bagType:'backpack'}),gait={};
+ const civilian=Object.fromEntries(UNIFORM_KEYS.map(key=>[key,look[key]]));
+ let dressed=false;
  const models=new Map(),ringGeometry=new THREE.RingGeometry(.7,.75,32),ringMaterial=new THREE.MeshBasicMaterial({color:'#eeaa55',transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide});
  let hand=null; // world position of the right hand, for a carried item (market-shop-renderer.js)
- return {group,look,hand:()=>hand,update(travel,dt,{visible=true,actorVisible=true,hold=null}={}){
+ return {group,look,hand:()=>hand,update(travel,dt,{visible=true,actorVisible=true,hold=null,uniform=false}={}){
   group.visible=visible;if(!travel)return;
+  if(!!uniform!==dressed){dressPlayerLook(look,civilian,!!uniform);dressed=!!uniform;}
   const p=travel.viewActor();
   const current=new Set(travel.rides);
   for(const [id,m] of models)if(!current.has(m.ride)){m.dispose();models.delete(id);}

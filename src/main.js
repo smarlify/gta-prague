@@ -13,7 +13,7 @@ import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,visitScene} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {bindCharacterPicker,characterSwitchRebuilds,occupiedRide,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
-import {DIVADLO_BEZ_ZABRADLI,PRAZSKY_HRAD,chaseBody,chasePlacement,slachtaArrest} from './driver-starts.js';
+import {DIVADLO_BEZ_ZABRADLI,KE_HRADU,PRAZSKY_HRAD,chaseBody,chasePlacement,slachtaArrest,slachtaWearsUniform} from './driver-starts.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
@@ -995,7 +995,8 @@ function frame(now){
  const wantFov=chaseCamera&&started&&!inspectionCamera?cameraFov:DRIVE_FOV.min;if(camera.fov!==wantFov){camera.fov=wantFov;camera.updateProjectionMatrix();}
  playerCars.setVisible(!inspectionCamera);
   if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode,ram:!!chosenCharacter.pavlova},dt);for(const impulse of pavlova.impulses||[])applyAmbulanceRam(car,impulse);ambulance?.update(pavlova,dt);}
-  travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null});
+  if(travel)travel.gagDriver=!!(chosenCharacter?.police&&travel.mode==='car'&&travel.car?.visual?.police);
+  travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null,uniform:slachtaWearsUniform({police:!!chosenCharacter?.police,mode:travel?.mode,gagDriver:!!travel?.gagDriver,policeCar:!!travel?.car?.visual?.police})});
   if(ready&&!paused&&!mapOpen&&!police?.busted){
    const birdStep=Math.min(.1,dt); // keep encounter pressure and bird motion on the same clock at low frame rates
    if(started){
@@ -1025,7 +1026,7 @@ function frame(now){
  if(now-lastUI>140&&ready){updateHUD(now);travelUI.update(travel,{started,paused,mapOpen,busted:police?.busted,hidden:captureMode});peopleUI.update(peopleInteraction?.snapshot(),{hidden:!canTalk()||captureMode||gullEncounter.snapshot().phase==='chase'});refreshMarketUI();refreshBillboardBuy(now);noticeGulls();lastUI=now;}
  uploads.step(); // rationed GPU uploads for streamed tiles
  if(now-lastTile>1200&&ready&&!switchingStart){surfaceStreamer?.update(car,{radius:1000,aheadSeconds:12});extensionStreamer?.update(car);updateTiles().catch(handleTileError);lastTile=now;}
- cityAudio.update(audioContext,{enabled:sound,active:started&&!paused&&!mapOpen,driving:travel?.mode==='car',car,surface:surfaceNow,people:[...(mobility?.people||[]).filter(p=>p.edge),...detailPeople.filter(p=>Number.isFinite(p.x))],trams:tramSim?.trams||[],heading:car?.heading??cameraHeading,throttle:keys.has('KeyW')||keys.has('ArrowUp'),reverse:keys.has('KeyS')||keys.has('ArrowDown'),brake:keys.has('Space'),waterDistance:car&&world?.water?nearestWaterDistance(car.x,car.z,world.water):Infinity,precipitation:look.weather==='rain'||look.weather==='thunder',snow:look.weather==='snow'});
+ cityAudio.update(audioContext,{enabled:sound,active:started&&!paused&&!mapOpen,driving:travel?.mode==='car',ride:travel?.mode,rideSpeed:travel?.mode==='motorbike'?travel.actor?.speed||0:0,car,surface:surfaceNow,people:[...(mobility?.people||[]).filter(p=>p.edge),...detailPeople.filter(p=>Number.isFinite(p.x))],trams:tramSim?.trams||[],heading:car?.heading??cameraHeading,throttle:keys.has('KeyW')||keys.has('ArrowUp'),reverse:keys.has('KeyS')||keys.has('ArrowDown'),brake:keys.has('Space'),waterDistance:car&&world?.water?nearestWaterDistance(car.x,car.z,world.water):Infinity,precipitation:look.weather==='rain'||look.weather==='thunder',snow:look.weather==='snow'});
  policeRenderer?.audio(audioContext,sound&&started&&!paused&&!mapOpen&&(!police?.busted||!finale.ended));
  {const drivingStolen=travel?.mode==='car'&&!!travel.car?.visual?.police;if(!drivingStolen)stolenSirenOn=false;
   stolenSiren.update(audioContext,sound&&started&&!paused&&!mapOpen&&stolenSirenOn&&drivingStolen,drivingStolen?[{x:car.x,z:car.z}]:[],car,now/1000,1);
@@ -1085,6 +1086,7 @@ async function boot(){
    if(helsinki)data.landmarks.push({...HARBOUR_START});
    for(const e of extensions)data.landmarks.push(...(e.starts||[]));
    if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Pražský hrad'))data.landmarks.push({...PRAZSKY_HRAD});
+   if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Ke Hradu'))data.landmarks.push({...KE_HRADU});
    if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Divadlo Bez zábradlí'))data.landmarks.push({...DIVADLO_BEZ_ZABRADLI});
    areaLabel=areaCaption(city.id==='prague'?[...PRAGUE_AREAS,...data.landmarks]:helsinki?[...HELSINKI_AREAS,...extensions.flatMap(e=>e.starts||[])]:data.landmarks,city.name);
    const requestedStart=new URLSearchParams(location.search).get('start'),chosen=placeForCharacter(),firstStart=chosen.start||pickStart(data.landmarks,city.defaultStart)||(helsinki?HARBOUR_START:data.landmarks[0]);

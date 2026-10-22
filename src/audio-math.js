@@ -150,6 +150,13 @@ export function tramDepartures(trams,previousWaiting){
 // Impact loudness from the damage the ImpactSystem applied (amount ∝ speed²).
 export function impactLevel(damageDelta){return damageDelta>0?clamp(.35+damageDelta*6,0,1):0;}
 
+// Small combustion single for the occupied motorbike. Idle is audible at a
+// stop; the rate rises with road speed. Not the car's EV hum and not a scooter whir.
+export function motorbikeEngine(speed){
+ const v=Math.abs(speed),n=clamp(v/18,0,1);
+ return {playbackRate:clamp(.82+n*1.15,.8,2.1),gain:clamp(.16+n*.5,0,.75)};
+}
+
 // The player-car loop is a recording of a steady 50 km/h interior, so playback
 // rate is 1 there and lower at a crawl. Gain follows the EV load curve. Setts
 // and other rough surfaces add the rumble they have above asphalt.

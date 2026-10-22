@@ -14,12 +14,16 @@ import {
   ARREST_RANGE,
   CHASE_BEHIND,
   DIVADLO_BEZ_ZABRADLI,
+  KE_HRADU,
   PRAZSKY_HRAD,
   VLTAVA_START,
   chaseBody,
   chasePlacement,
   slachtaArrest,
+  slachtaWearsUniform,
 } from '../src/driver-starts.js';
+import {dressPlayerLook} from '../src/player-travel-renderer.js';
+import {OFFICER_LOOK} from '../src/roadblock.js';
 
 const city = JSON.parse(gunzipSync(readFileSync('public/cities/prague/city.pack')));
 const def = JSON.parse(readFileSync('cities/prague/city.json', 'utf8'));
@@ -83,13 +87,14 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
     {name: 'Petřín', heading: 2, x: 2, z: 2},
     {name: 'Letenské náměstí', heading: -1.3, x: 3, z: 3},
     {...PRAZSKY_HRAD},
+    {...KE_HRADU},
     {...DIVADLO_BEZ_ZABRADLI},
   ];
   const storage = memoryStorage();
   storage.setItem(startCycleKey('prague'), '0');
   const expectName = {
     hrib: 'Letenské náměstí',
-    pavel: 'Pražský hrad',
+    pavel: 'Ke Hradu',
     slachta: 'Letenské náměstí',
     zeman: 'Vltava',
     kraus: 'Divadlo Bez zábradlí',
@@ -107,12 +112,21 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
   assert.equal(resolveDriverStart(landmarks, null, storage, 'prague', characterById('zeman'), null).start.water, true);
 });
 
-test('Pavel mounts the motorbike at the castle and Zeman mounts the boat on the Vltava', () => {
+test('Pavel mounts the motorbike on Ke Hradu and Zeman mounts the boat on the Vltava', () => {
   const world = {buildings, roads, pavement, water: city.water};
-  const castle = new PlayerTravel(makeCar(PRAZSKY_HRAD.x, PRAZSKY_HRAD.z, PRAZSKY_HRAD.heading), world, {ride: characterById('pavel').ride});
+  const castle = new PlayerTravel(makeCar(KE_HRADU.x, KE_HRADU.z, KE_HRADU.heading), world, {ride: characterById('pavel').ride});
   assert.equal(castle.mode, 'motorbike');
   assert.equal(castle.riding.visual.kind, 'motorbike');
-  assert.equal(roads.at(castle.actor.x, castle.actor.z)?.name, 'U Prašného mostu');
+  assert.equal(pavement.at(castle.actor.x, castle.actor.z)?.name, 'Ke Hradu');
+  assert.equal(buildings.at(castle.actor.x, castle.actor.z), undefined);
+  const stop = byName('Hradčanská');
+  assert.ok(Math.hypot(KE_HRADU.x - stop.x, KE_HRADU.z - stop.z) > 400);
+  const toward = {x: -1628, z: -326};
+  const forwardX = -Math.sin(KE_HRADU.heading);
+  const forwardZ = -Math.cos(KE_HRADU.heading);
+  const dx = toward.x - KE_HRADU.x;
+  const dz = toward.z - KE_HRADU.z;
+  assert.ok(forwardX * dx + forwardZ * dz > 0, 'the bike faces the castle');
   assert.ok(Math.hypot(castle.car.x - castle.actor.x, castle.car.z - castle.actor.z) > 1);
   const river = new PlayerTravel(makeCar(VLTAVA_START.x, VLTAVA_START.z, VLTAVA_START.heading), world, {ride: characterById('zeman').ride});
   assert.equal(river.mode, 'challenger');
@@ -193,15 +207,33 @@ test('Šlachta is placed behind a body, and only he arrests with the siren on', 
   assert.ok(Math.hypot(spot.x - 20, spot.z - 0) > CHASE_BEHIND * 0.4);
   assert.ok(spot.z > 10, 'the spot is behind a north-facing car');
   const actor = {x: 0, z: 0};
-  const near = {uid: 'ada', x: 4, z: 3};
-  const far = {uid: 'bo', x: 40, z: 0};
+  const near = {uid: 'ada', x: 4, z: 3, wanted: {level: 1}};
+  const clean = {uid: 'ada', x: 4, z: 3, wanted: {level: 0}};
+  const far = {uid: 'bo', x: 40, z: 0, wanted: {level: 2}};
   const home = {characterId: 'slachta', siren: true, drivingHomePolice: true, actor, others: [near, far]};
   assert.equal(slachtaArrest(home).target, 'ada');
   assert.equal(slachtaArrest({...home, siren: false}), null);
   assert.equal(slachtaArrest({...home, characterId: 'filip'}), null);
   assert.equal(slachtaArrest({...home, drivingHomePolice: false}), null);
   assert.equal(slachtaArrest({...home, others: [far]}), null);
+  assert.equal(slachtaArrest({...home, others: [clean]}), null);
+  assert.equal(slachtaArrest({...home, others: [{...near, wanted: null}]}), null);
   assert.equal(ARREST_RANGE, 8);
+  assert.equal(slachtaWearsUniform({police: true, mode: 'walk'}), true);
+  assert.equal(slachtaWearsUniform({police: true, mode: 'car', policeCar: true, gagDriver: true}), true);
+  assert.equal(slachtaWearsUniform({police: false, mode: 'walk'}), false);
+  assert.equal(slachtaWearsUniform({police: false, mode: 'car', policeCar: true, gagDriver: true}), false);
+  assert.equal(slachtaWearsUniform({police: true, mode: 'car', policeCar: false, gagDriver: false}), false);
+  const look = {shirt: '#d65f39', trousers: '#273b4a', hairStyle: 'short', outer: 'jacket'};
+  const saved = {shirt: look.shirt, trousers: look.trousers, hairStyle: look.hairStyle, outer: look.outer, uniform: undefined};
+  dressPlayerLook(look, saved, true);
+  assert.equal(look.uniform, 'jacket');
+  assert.equal(look.hairStyle, OFFICER_LOOK.hairStyle);
+  assert.equal(look.shirt, OFFICER_LOOK.shirt);
+  dressPlayerLook(look, saved, false);
+  assert.equal(look.shirt, '#d65f39');
+  assert.equal(look.hairStyle, 'short');
+  assert.equal(look.uniform, undefined);
 });
 
 test('the X5 is a dark rounded SUV kept out of traffic', () => {
