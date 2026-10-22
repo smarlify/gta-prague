@@ -42,22 +42,27 @@ test('rockets lift off, hold a hover, and gravity lands the car when they stop',
  assert.equal(car.flying,false);assert.equal(car.alt,0);assert.ok(car.y<=high);
 });
 
-test('throttle pitches the nose up and steering rolls, the way the flying-cars cheat does',()=>{
- const car=hold(makeCar(0,0),new Set(['ShiftLeft']),1);
+test('W pitches the nose down, S pitches it up, and steering still rolls',()=>{
+ const car=hold(makeCar(0,0),new Set(['ShiftLeft']),1.4);
+ assert.ok(car.alt>4,`airborne before the stick, alt ${car.alt}`);
  hold(car,new Set(['ShiftLeft','KeyW']),.7);
- assert.ok(car.pitch>.35,`pitch ${car.pitch}`);assert.ok(car.alt>3);
+ assert.ok(car.pitch<-.35,`W nose down, pitch ${car.pitch}`);assert.ok(car.flying&&car.alt>1,`still up, alt ${car.alt}`);
  const level=car.pitch;hold(car,new Set(['ShiftLeft','Space']),.8);
- assert.ok(Math.abs(car.pitch)<level*.5,`space levels, pitch ${car.pitch}`);
+ assert.ok(Math.abs(car.pitch)<Math.abs(level)*.5,`space levels, pitch ${car.pitch}`);
  const rolled=hold(makeCar(0,0),new Set(['ShiftLeft']),1);
  hold(rolled,new Set(['ShiftLeft','KeyA']),.6);
  assert.ok(rolled.roll>.3,`roll ${rolled.roll}`);
- const held=hold(makeCar(0,0),new Set(['ShiftLeft','KeyW']),3);
- assert.ok(held.pitch>.5&&held.pitch<=.95,`pitch stays nose-up, got ${held.pitch}`);
- assert.ok(held.speed>0,`still flying forward at ${held.speed}`);
- const peaked=held.pitch;hold(held,new Set(['ShiftLeft']),1.2);
- assert.ok(held.pitch<peaked*.7,`releasing the nose lets it ease back, ${held.pitch} from ${peaked}`);
- hold(held,new Set(),10);
- assert.equal(held.flying,false);assert.equal(held.alt,0);
+ const down=hold(makeCar(0,0),new Set(['ShiftLeft']),1.4);
+ hold(down,new Set(['ShiftLeft','KeyW']),1.6);
+ assert.ok(down.pitch<-.5&&down.pitch>=-.95,`pitch stays nose-down, got ${down.pitch}`);
+ assert.ok(down.speed>0,`still flying forward at ${down.speed}`);
+ const peaked=down.pitch;hold(down,new Set(['ShiftLeft']),1.2);
+ assert.ok(Math.abs(down.pitch)<Math.abs(peaked)*.7,`releasing the nose lets it ease back, ${down.pitch} from ${peaked}`);
+ const up=hold(makeCar(0,0),new Set(['ShiftLeft']),1.4);
+ hold(up,new Set(['ShiftLeft','KeyS']),.7);
+ assert.ok(up.pitch>.35,`S nose up, pitch ${up.pitch}`);
+ hold(down,new Set(),10);
+ assert.equal(down.flying,false);assert.equal(down.alt,0);
 });
 
 test('the same lift reaches a similar height at 30 and 60 Hz and stays under the ceiling',()=>{

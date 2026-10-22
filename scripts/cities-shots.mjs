@@ -11,7 +11,7 @@ fs.mkdirSync('docs/cities',{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--ignore-gpu-blocklist','--enable-unsafe-swiftshader']});
 for(const id of ids){
  const page=await browser.newPage({viewport:{width:1200,height:675}});
- await page.goto(`${base}/?city=${id}`);
+ await page.goto(`${base}/?city=${id}&presence=off`);
  await page.waitForFunction(()=>window.openCityDrive?.getState().ready||window.helsinkiBootError,null,{timeout:180000});
  await page.getByRole('button',{name:'Let’s go for a drive'}).click();
  await page.keyboard.down('w');await page.waitForTimeout(1800);await page.keyboard.up('w');await page.waitForTimeout(5000);

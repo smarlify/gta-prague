@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { createVehicle, animateVehicle } from '../vehicles.js';
 import { createPersonBatch, personLook, advanceGait } from '../person-model.js';
-import { createRideVehicle, PLAYER_BIKE, PLAYER_SCOOTER } from '../player-ride-models.js';
+import { createRideVehicle, PLAYER_BIKE, PLAYER_SCOOTER, challengerWaterY } from '../player-ride-models.js';
 import { createPoliceBody, unitNumber, unitVariant, policeAgencyFor } from '../police-model.js';
 import { attachPursuitLights, flashPursuitLights, strobe } from '../police-renderer.js';
 import { createAmbulanceMesh } from '../pavlova-scene.js';
@@ -89,7 +89,8 @@ function labelFor(net) {
 }
 
 function arrestStandins(net) {
-  if (!net?.arrest?.active) return [];
+  // A target means this player is arresting someone else, not being arrested.
+  if (!net?.arrest?.active || net.arrest.target) return [];
   const heading = net.heading || 0;
   const c = Math.cos(heading);
   const s = Math.sin(heading);
@@ -110,7 +111,7 @@ function createCarMesh(vehicle) {
     model.name = 'Remote player car';
     return model;
   }
-  const type = vehicle?.type && ['crossover', 'hatchback', 'sedan', 'estate', 'suv', 'van', 'taxi', 'offroad', 'gwagen', 'roadster', 'scala'].includes(vehicle.type)
+  const type = vehicle?.type && ['crossover', 'hatchback', 'sedan', 'estate', 'suv', 'van', 'taxi', 'offroad', 'gwagen', 'roadster', 'scala', 'x5'].includes(vehicle.type)
     ? vehicle.type
     : 'roadster';
   const model = createVehicle(0, false, type);
@@ -201,7 +202,8 @@ class RemoteActor {
   }
 
   ensureBody(net) {
-    const mode = net.mode === 'car' ? 'car' : net.mode === 'bike' || net.mode === 'scooter' ? net.mode : 'walk';
+    const rideMode = net.mode === 'bike' || net.mode === 'scooter' || net.mode === 'motorbike' || net.mode === 'challenger';
+    const mode = net.mode === 'car' ? 'car' : rideMode ? net.mode : 'walk';
     const vKey = mode === 'car' ? vehicleKey(net.vehicle) : mode;
     if (this.mode === mode && this.vehicleKey === vKey) return;
     this.clearBody();
@@ -210,14 +212,14 @@ class RemoteActor {
     if (mode === 'car') {
       this.car = createCarMesh(net.vehicle);
       this.root.add(this.car);
-    } else if (mode === 'bike' || mode === 'scooter') {
-      this.ride = createRideVehicle(
-        { kind: mode === 'scooter' ? 'scooter' : 'bicycle', color: '#6f9cc4' },
-        mode,
-      );
+    } else if (mode === 'bike' || mode === 'scooter' || mode === 'motorbike' || mode === 'challenger') {
+      const kind = mode === 'scooter' ? 'scooter' : mode === 'motorbike' ? 'motorbike' : mode === 'challenger' ? 'challenger' : 'bicycle';
+      this.ride = createRideVehicle({ kind, color: mode === 'motorbike' ? '#c5ccd1' : '#6f9cc4' }, mode);
       this.root.add(this.ride.root);
-      this.ped = createPedMesh(this.uid);
-      this.root.add(this.ped.batch.group);
+      if (mode !== 'challenger') {
+        this.ped = createPedMesh(this.uid);
+        this.root.add(this.ped.batch.group);
+      }
     } else {
       this.ped = createPedMesh(this.uid);
       this.root.add(this.ped.batch.group);
@@ -260,7 +262,7 @@ class RemoteActor {
     const heading = this.root.rotation.y;
     const speed = this.target.speed;
     groundPose(x, z, heading, 1.4, 0.8, slope);
-    this.root.position.y = 0.12 + slope.y;
+    this.root.position.y = this.mode === 'challenger' ? challengerWaterY(x, z) : 0.12 + slope.y;
 
     if (this.car) {
       this.car.rotation.set(slope.pitch, 0, slope.roll, 'YXZ');
@@ -271,11 +273,11 @@ class RemoteActor {
       this.car.visible = true;
     } else if (this.ride) {
       this.ride.root.visible = true;
-      this.ride.root.position.set(0, (this.ride.lift || 0.12), 0);
+      this.ride.root.position.set(0, this.mode === 'challenger' ? 0 : (this.ride.lift || 0.12), 0);
       this.ride.root.rotation.set(0, 0, 0);
       this.ride.motion?.update((this.ride._dist = (this.ride._dist || 0) + Math.abs(speed) * dt));
-      if (this.ped) {
-        const pose = this.mode === 'bike' ? 'cycle' : 'scooter';
+      if (this.ped && this.mode !== 'challenger') {
+        const pose = this.mode === 'scooter' ? 'scooter' : 'cycle';
         const bike = this.ride.anchors || PLAYER_BIKE;
         const actor = {
           x: 0, z: 0, heading: 0, speed: Math.abs(speed), pose,

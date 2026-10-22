@@ -14,7 +14,7 @@ export const DAMAGE_RATE={building:.0015,transit:.0009,vehicle:.00035,pedestrian
 export const PEDESTRIAN_MASS=75;
 // Mass (kg) of whatever hits a person: cars, traffic, police, buses and trams;
 // the light hitters are a bike or e-scooter with its rider and a person on foot.
-export const HITTER_MASS={car:1500,traffic:1400,police:1800,bus:13000,tram:40000,bicycle:95,scooter:90,walker:75};
+export const HITTER_MASS={car:1500,traffic:1400,police:1800,bus:13000,tram:40000,bicycle:95,motorbike:180,scooter:90,walker:75};
 // Collision energy (J, in the centre-of-mass frame) where a stumble becomes a
 // knock-down and a knock-down a throw. Light hitters push harder before anyone
 // goes down and never throw anybody.

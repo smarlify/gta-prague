@@ -47,10 +47,6 @@ const notices={
  proj4:{file:'LICENSE.md'},
  'robust-predicates':{file:'LICENSE'},
  splaytree:{file:'Readme.md',section:s=>s.split(/^## License\s*$/m)[1]},
- // Embedded Checkout loader. The Stripe.js script itself is loaded from Stripe.
- '@stripe/stripe-js':{file:'LICENSE'},
- // Embedded Checkout loader. MIT notice ships in the package; it has no runtime dependencies.
- '@stripe/stripe-js':{file:'LICENSE'},
  three:{file:'LICENSE'},
  tslib:{file:'LICENSE.txt'},
  'wkt-parser':{file:'LICENSE.md'},

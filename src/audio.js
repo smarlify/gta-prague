@@ -1,6 +1,6 @@
 // WebAudio for the recorded city beds. Levels, distance and pan come from
 // audio-math.js; this file only loads the CC0 excerpts and applies them.
-import {mixerGains,ambienceMix,carSample,crowdLevel,nearestSources,attenuation,stereoPan,tramDepartures,waterGain} from './audio-math.js';
+import {mixerGains,ambienceMix,carSample,motorbikeEngine,crowdLevel,nearestSources,attenuation,stereoPan,tramDepartures,waterGain} from './audio-math.js';
 
 const FILES={
  city:'/sounds/city.mp3',
@@ -53,6 +53,22 @@ async function loadBuffer(ctx,url,loop){
 async function loadOptional(ctx,url,loop){
  try{return await loadBuffer(ctx,url,loop);}
  catch(err){console.warn('City sound missing',url,err);return null;}
+}
+
+// A short uneven pulse, looped. Playback rate does the rev. No sample file.
+function combustionBuffer(ctx){
+ const rate=ctx.sampleRate||44100,n=Math.floor(rate*.32);
+ const buffer=ctx.createBuffer(1,n,rate),data=buffer.getChannelData(0);
+ for(let i=0;i<n;i++){
+  const t=i/rate;
+  const fire=Math.sin(2*Math.PI*46*t)>0.2?1:-.4;
+  const body=Math.sin(2*Math.PI*92*t)*.32;
+  const bark=Math.sin(2*Math.PI*184*t)*.1;
+  data[i]=(fire*.26+body+bark)*.5;
+ }
+ const fade=Math.floor(rate*.012);
+ for(let i=0;i<fade;i++){const w=i/fade;data[i]*=w;data[n-1-i]*=w;}
+ return buffer;
 }
 
 function makeLoop(ctx,buffer,destination){
@@ -121,6 +137,7 @@ export function createCityAudio(){
     city:city?makeLoop(ctx,city,buses.ambience):silent(buses.ambience),
     crowd:crowd?makeLoop(ctx,crowd,buses.ambience):silent(buses.ambience),
     car:car?makeLoop(ctx,car,buses.engine):silent(buses.engine),
+    motorbike:makeLoop(ctx,combustionBuffer(ctx),buses.engine),
     water:water?makeLoop(ctx,water,buses.ambience):silent(buses.ambience),
     rain:rain?makeLoop(ctx,rain,buses.ambience):silent(buses.ambience),
    };
@@ -159,7 +176,7 @@ export function createCityAudio(){
   update(ctx,state={}){
    if(ctx)ensure(ctx);
    if(!ready||ctx!==context)return;
-   const {enabled=false,active=false,driving=false,car=null,surface=null,people=[],trams=[],heading=0,throttle=false,reverse=false,brake=false,waterDistance=Infinity,precipitation=false,snow=false}=state;
+   const {enabled=false,active=false,driving=false,ride=null,rideSpeed=0,car=null,surface=null,people=[],trams=[],heading=0,throttle=false,reverse=false,brake=false,waterDistance=Infinity,precipitation=false,snow=false}=state;
    const mix=mixerGains({enabled,active}),now=ctx.currentTime;
    listener=car||listener;
    master.gain.setTargetAtTime(mix.master,now,.08);
@@ -179,6 +196,10 @@ export function createCityAudio(){
    loops.car.gain.gain.setTargetAtTime(carGain,now,.12);
    loops.car.rate.setTargetAtTime(sample.playbackRate,now,.1);
    levels.car=carGain;levels.carRate=sample.playbackRate;
+   const riding=ride==='motorbike';
+   const bike=motorbikeEngine(rideSpeed);
+   loops.motorbike.gain.gain.setTargetAtTime(riding?bike.gain:0,now,.08);
+   if(riding)loops.motorbike.rate.setTargetAtTime(bike.playbackRate,now,.08);
    const near=nearestSources(trams.filter(t=>(t.speed||0)>.4),listener,TRAM_SLOTS,TRAM_RANGE);
    let tramPeak=0;
    for(let i=0;i<TRAM_SLOTS;i++){

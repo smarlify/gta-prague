@@ -3,22 +3,19 @@
  * and on the BUSTED "THE DRIVE" panel. Higher is better.
  *
  * Playful (iframe): postMessage GAME_OVER so the hub LeaderboardPopup can save.
- * Standalone (gtapraha.online / Heroku): Google sign-in, then write the same
+ * Standalone (gtapraha.online / Heroku): email sign-in, then write the same
  * Firestore path Playful uses — leaderboards/gta-praha/scores.
  */
-import { signInWithPopup } from 'firebase/auth';
 import { addDoc, collection, Timestamp } from 'firebase/firestore';
-import { auth, getFirebaseAuth, getFirebaseFirestore, getGoogleProvider } from './firebase.js';
+import { auth, getFirebaseAuth, getFirebaseFirestore } from './firebase.js';
+import { authFailureMessage, createEmailAccount, signInWithEmail } from './email-auth.js';
 import { formatDistance } from './finale.js';
 import { cleanPlayerName, readStoredPlayerName } from './net/player-name.js';
 
 export const GAME_ID = 'gta-praha';
 export const GAME_NAME = 'GTA Praha';
 
-const GOOGLE_LABEL = 'Continue with Google';
 const SAVE_LABEL = 'Save score';
-/** Temp: hide Continue with Google in the BUSTED strip. Sign-in code stays wired. */
-const SHOW_CONTINUE_WITH_GOOGLE = false;
 
 /** Whole metres driven this run — the leaderboard sort key. */
 export function scoreFromDistance(metres) {
@@ -49,18 +46,13 @@ export function postGameOver(score, extra = {}) {
   return true;
 }
 
-export function isGoogleUser(user = auth.currentUser) {
+export function isAccountUser(user = auth.currentUser) {
   return !!(user && !user.isAnonymous);
 }
 
 export function displayNameFor(user = auth.currentUser) {
-  if (!isGoogleUser(user)) return null;
+  if (!isAccountUser(user)) return null;
   return user.displayName || user.email?.split('@')[0] || null;
-}
-
-export async function signInWithGoogle() {
-  const result = await signInWithPopup(getFirebaseAuth(), getGoogleProvider());
-  return result.user;
 }
 
 /** Write one row to the shared Playful leaderboard collection. */
@@ -90,16 +82,22 @@ export async function saveHighScore({ score, name, email, uid }) {
 export function bindHighScoreUI(root = document, {
   getDistance = () => 0,
   onEmbedded = postGameOver,
-  signIn = signInWithGoogle,
+  signIn = (email, password) => signInWithEmail(getFirebaseAuth(), email, password),
+  createAccount = (email, password) => createEmailAccount(getFirebaseAuth(), email, password),
   save = saveHighScore,
   authApi = auth,
-  onGoogleSignedIn = null,
+  onAccountSignedIn = null,
   getPlayerName = () => readStoredPlayerName(),
 } = {}) {
   const panel = root.getElementById?.('high-score-panel') || root.querySelector?.('#high-score-panel');
   const scoreEl = root.getElementById?.('high-score-value');
   const statusEl = root.getElementById?.('high-score-status');
-  const googleBtn = root.getElementById?.('high-score-google');
+  const saveBtn = root.getElementById?.('high-score-save');
+  const accountForm = root.getElementById?.('high-score-account');
+  const accountEmail = root.getElementById?.('high-score-email');
+  const accountPassword = root.getElementById?.('high-score-password');
+  const accountSignIn = root.getElementById?.('high-score-sign-in');
+  const accountCreate = root.getElementById?.('high-score-create');
   const guestForm = root.getElementById?.('high-score-guest');
   const guestName = root.getElementById?.('high-score-name');
   const guestSubmit = root.getElementById?.('high-score-guest-submit');
@@ -117,7 +115,11 @@ export function bindHighScoreUI(root = document, {
 
   const setBusy = (value) => {
     busy = value;
-    if (googleBtn) googleBtn.disabled = value || saved;
+    if (saveBtn) saveBtn.disabled = value || saved;
+    if (accountEmail) accountEmail.disabled = value || saved;
+    if (accountPassword) accountPassword.disabled = value || saved;
+    if (accountSignIn) accountSignIn.disabled = value || saved;
+    if (accountCreate) accountCreate.disabled = value || saved;
     if (guestSubmit) guestSubmit.disabled = value || saved;
     if (guestName) guestName.disabled = value || saved;
   };
@@ -126,30 +128,28 @@ export function bindHighScoreUI(root = document, {
     if (guestForm) guestForm.hidden = !show;
   };
 
-  /** Hide Continue with Google / Save as guest — used when already signed in. */
+  /** Hide email sign-in / Save as guest — used when already signed in. */
   const hideChooser = () => {
-    if (googleBtn) googleBtn.hidden = true;
+    if (saveBtn) saveBtn.hidden = true;
+    if (accountForm) accountForm.hidden = true;
     showGuestFallback(false);
   };
 
-  /** Logged-out chooser: Google primary (when enabled), else guest name only. */
+  /** Logged-out chooser: email account, plus a guest name. */
   const showLoggedOutChooser = (scoreOk) => {
-    if (googleBtn) {
-      googleBtn.hidden = !(scoreOk && SHOW_CONTINUE_WITH_GOOGLE);
-      googleBtn.textContent = GOOGLE_LABEL;
-      googleBtn.disabled = false;
-    }
-    // While Google is hidden, offer guest save immediately so scores still ship.
-    showGuestFallback(!!scoreOk && !SHOW_CONTINUE_WITH_GOOGLE);
+    if (saveBtn) saveBtn.hidden = true;
+    if (accountForm) accountForm.hidden = !scoreOk;
+    showGuestFallback(!!scoreOk);
   };
 
-  /** Signed-in retry: single Save score control, no Google/guest pair. */
+  /** Signed-in retry: single Save score control. */
   const showSaveRetry = () => {
-    if (googleBtn) {
-      googleBtn.hidden = false;
-      googleBtn.textContent = SAVE_LABEL;
-      googleBtn.disabled = false;
+    if (saveBtn) {
+      saveBtn.hidden = false;
+      saveBtn.textContent = SAVE_LABEL;
+      saveBtn.disabled = false;
     }
+    if (accountForm) accountForm.hidden = true;
     showGuestFallback(false);
   };
 
@@ -194,47 +194,59 @@ export function bindHighScoreUI(root = document, {
       setBusy(false);
       setStatus('Could not save score. Try again.', 'error');
       if (guestName) guestName.value = name;
-      if (googleBtn) googleBtn.hidden = true;
+      if (accountForm) accountForm.hidden = true;
       showGuestFallback(true);
     });
   };
 
   const storedHudName = () => cleanPlayerName(getPlayerName());
 
-  const onGoogleClick = async () => {
-    if (busy || saved || offeredScore <= 0) return;
-
-    // Already signed in: Save score retry (never re-prompt Google/guest).
-    if (isGoogleUser(authApi.currentUser)) {
-      setBusy(true);
-      setStatus('Saving…');
-      try {
-        await persist(authApi.currentUser);
-      } catch (err) {
-        console.error('High score save failed:', err);
-        setBusy(false);
-        setStatus('Could not save. Try again.', 'error');
-        showSaveRetry();
-      }
-      return;
+  const accountCredentials = () => {
+    const email = accountEmail?.value?.trim() || '';
+    const password = accountPassword?.value || '';
+    if (!email || !password) {
+      setStatus('Enter an email and a password.', 'error');
+      return null;
     }
+    if (password.length < 6) {
+      setStatus('Use a password of at least 6 characters.', 'error');
+      return null;
+    }
+    return {email, password};
+  };
 
+  const signInAndSave = async (mode) => {
+    if (busy || saved || offeredScore <= 0) return;
+    const creds = accountCredentials();
+    if (!creds) return;
     setBusy(true);
-    setStatus('Signing in…');
-    showGuestFallback(false);
+    setStatus(mode === 'create' ? 'Creating account…' : 'Signing in…');
     try {
-      const user = await signIn();
-      try { await onGoogleSignedIn?.(user); } catch (err) { console.warn('onGoogleSignedIn failed', err); }
+      const user = mode === 'create'
+        ? await createAccount(creds.email, creds.password)
+        : await signIn(creds.email, creds.password);
+      try { await onAccountSignedIn?.(user); } catch (err) { console.warn('onAccountSignedIn failed', err); }
       await persist(user);
     } catch (err) {
-      console.error('High score Google sign-in failed:', err);
+      console.error('High score email sign-in failed:', err);
       setBusy(false);
-      setStatus('Google sign-in failed. You can still save with a guest name.', 'error');
-      if (googleBtn) {
-        googleBtn.hidden = !SHOW_CONTINUE_WITH_GOOGLE;
-        googleBtn.textContent = GOOGLE_LABEL;
-      }
-      showGuestFallback(true);
+      setStatus(`${authFailureMessage(err)} You can still save with a guest name.`, 'error');
+      showLoggedOutChooser(true);
+    }
+  };
+
+  const onSaveClick = async () => {
+    if (busy || saved || offeredScore <= 0) return;
+    if (!isAccountUser(authApi.currentUser)) return;
+    setBusy(true);
+    setStatus('Saving…');
+    try {
+      await persist(authApi.currentUser);
+    } catch (err) {
+      console.error('High score save failed:', err);
+      setBusy(false);
+      setStatus('Could not save. Try again.', 'error');
+      showSaveRetry();
     }
   };
 
@@ -249,7 +261,7 @@ export function bindHighScoreUI(root = document, {
     setBusy(true);
     setStatus('Saving…');
     try {
-      await persist(authApi.currentUser && isGoogleUser(authApi.currentUser) ? authApi.currentUser : null, name);
+      await persist(authApi.currentUser && isAccountUser(authApi.currentUser) ? authApi.currentUser : null, name);
     } catch (err) {
       console.error('High score guest save failed:', err);
       setBusy(false);
@@ -257,9 +269,20 @@ export function bindHighScoreUI(root = document, {
     }
   };
 
-  if (googleBtn && !googleBtn.dataset.bound) {
-    googleBtn.dataset.bound = '1';
-    googleBtn.addEventListener('click', onGoogleClick);
+  if (saveBtn && !saveBtn.dataset.bound) {
+    saveBtn.dataset.bound = '1';
+    saveBtn.addEventListener('click', onSaveClick);
+  }
+  if (accountForm && !accountForm.dataset.bound) {
+    accountForm.dataset.bound = '1';
+    accountForm.addEventListener('submit', (event) => {
+      event?.preventDefault?.();
+      signInAndSave('sign-in');
+    });
+  }
+  if (accountCreate && !accountCreate.dataset.bound) {
+    accountCreate.dataset.bound = '1';
+    accountCreate.addEventListener('click', () => signInAndSave('create'));
   }
   if (guestForm && !guestForm.dataset.bound) {
     guestForm.dataset.bound = '1';
@@ -272,11 +295,10 @@ export function bindHighScoreUI(root = document, {
     busy = false;
     panel.hidden = true;
     showGuestFallback(false);
-    if (googleBtn) {
-      googleBtn.hidden = !SHOW_CONTINUE_WITH_GOOGLE;
-      googleBtn.disabled = false;
-      googleBtn.textContent = GOOGLE_LABEL;
-    }
+    if (saveBtn) saveBtn.hidden = true;
+    if (accountForm) accountForm.hidden = true;
+    if (accountEmail) { accountEmail.value = ''; accountEmail.disabled = false; }
+    if (accountPassword) { accountPassword.value = ''; accountPassword.disabled = false; }
     if (guestName) { guestName.value = ''; guestName.disabled = false; }
     if (guestSubmit) guestSubmit.disabled = false;
     setStatus('');
@@ -295,7 +317,7 @@ export function bindHighScoreUI(root = document, {
       return { embedded: isEmbedded(), score };
     }
 
-    const signedIn = isGoogleUser(authApi.currentUser);
+    const signedIn = isAccountUser(authApi.currentUser);
     const hudName = storedHudName();
 
     // Hub path: always notify Playful. Signed-in or already-named players
@@ -308,12 +330,7 @@ export function bindHighScoreUI(root = document, {
         saveWithStoredName(hudName);
       } else {
         showLoggedOutChooser(true);
-        setStatus(
-          SHOW_CONTINUE_WITH_GOOGLE
-            ? 'Score sent to Playful — sign in there, or use Google here.'
-            : 'Score sent to Playful — sign in there, or save with a guest name here.',
-          'info',
-        );
+        setStatus('Score sent to Playful — sign in with email, or save with a guest name here.', 'info');
       }
       return { embedded: true, score };
     }
@@ -325,11 +342,7 @@ export function bindHighScoreUI(root = document, {
       saveWithStoredName(hudName);
     } else {
       showLoggedOutChooser(true);
-      setStatus(
-        SHOW_CONTINUE_WITH_GOOGLE
-          ? 'Save this run with Google to appear on the high-score table.'
-          : 'Save this run with a guest name to appear on the high-score table.',
-      );
+      setStatus('Sign in with email, or save this run with a guest name.');
     }
 
     return { embedded: false, score };

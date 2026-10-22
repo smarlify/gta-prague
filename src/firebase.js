@@ -3,7 +3,7 @@
  * Client config comes from VITE_SCOREBOARD_* at build time (Heroku config / local .env).
  */
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -24,7 +24,6 @@ let app;
 let authInstance;
 let firestoreInstance;
 let storageInstance;
-let googleProviderInstance;
 let billboardServices;
 
 export function ensureApp() {
@@ -40,7 +39,6 @@ export function ensureApp() {
   app = getApps().length ? getApp() : initializeApp(config);
   authInstance = getAuth(app);
   firestoreInstance = getFirestore(app);
-  googleProviderInstance = new GoogleAuthProvider();
   return app;
 }
 
@@ -60,12 +58,7 @@ export function getFirebaseStorage() {
   return storageInstance;
 }
 
-export function getGoogleProvider() {
-  ensureApp();
-  return googleProviderInstance;
-}
-
-// A second app so a Google advertiser sign-in does not replace the game's anonymous player.
+// A second app so an advertiser email sign-in does not replace the game's anonymous player.
 export function billboardFirebase() {
   if (billboardServices) return billboardServices;
   const config = readConfig();
@@ -81,14 +74,13 @@ export function billboardFirebase() {
     auth: getAuth(secondary),
     firestore: getFirestore(secondary),
     storage: getStorage(secondary),
-    provider: new GoogleAuthProvider(),
   };
   return billboardServices;
 }
 
 /**
  * Return the current Firebase user, signing in anonymously when none is present.
- * Used so demo-room multiplayer can auto-join without a Google popup.
+ * Used so demo-room multiplayer can auto-join without an account popup.
  */
 export async function ensureAuthUser() {
   const authApi = getFirebaseAuth();
@@ -108,4 +100,4 @@ export const auth = {
   },
 };
 
-export default { ensureApp, getFirebaseAuth, getFirebaseFirestore, getFirebaseStorage, getGoogleProvider, ensureAuthUser, auth };
+export default { ensureApp, getFirebaseAuth, getFirebaseFirestore, getFirebaseStorage, ensureAuthUser, auth };

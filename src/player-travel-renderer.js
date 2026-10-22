@@ -1,16 +1,32 @@
 import * as THREE from 'three';
 import {createPersonBatch,personLook,advanceGait,JOINT} from './person-model.js';
-import {createRideVehicle,PLAYER_BIKE,PLAYER_SCOOTER} from './player-ride-models.js';
+import {createRideVehicle,PLAYER_BIKE,PLAYER_SCOOTER,challengerWaterY} from './player-ride-models.js';
+import {OFFICER_LOOK} from './roadblock.js';
 import {groundAt} from './terrain.js';
+
+const UNIFORM_KEYS=Object.keys(OFFICER_LOOK);
+
+/** Prague patrol jacket on, or back to the saved civilian clothes. */
+export function dressPlayerLook(look, saved, on){
+ if(on)Object.assign(look,OFFICER_LOOK);
+ else for(const key of UNIFORM_KEYS){
+  if(saved[key]===undefined)delete look[key];
+  else look[key]=saved[key];
+ }
+ return look;
+}
 
 export function createPlayerTravelRenderer(scene){
  const group=new THREE.Group();group.name='Player and rideable vehicles';scene.add(group);
- const person=createPersonBatch(1,{name:'Player'});group.add(person.group);
+ const person=createPersonBatch(1,{name:'Player',police:{word:'POLICIE'}});group.add(person.group);
  const look=personLook(2026,{height:1.75,coat:0,skirt:false,shirt:'#d65f39',trousers:'#273b4a',age:'adult',accessory:null,phoneWalk:false,stoop:0,outer:'jacket',scarf:null,hairStyle:'short',bagType:'backpack'}),gait={};
+ const civilian=Object.fromEntries(UNIFORM_KEYS.map(key=>[key,look[key]]));
+ let dressed=false;
  const models=new Map(),ringGeometry=new THREE.RingGeometry(.7,.75,32),ringMaterial=new THREE.MeshBasicMaterial({color:'#eeaa55',transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide});
  let hand=null; // world position of the right hand, for a carried item (market-shop-renderer.js)
- return {group,look,hand:()=>hand,update(travel,dt,{visible=true,actorVisible=true,hold=null}={}){
+ return {group,look,hand:()=>hand,update(travel,dt,{visible=true,actorVisible=true,hold=null,uniform=false}={}){
   group.visible=visible;if(!travel)return;
+  if(!!uniform!==dressed){dressPlayerLook(look,civilian,!!uniform);dressed=!!uniform;}
   const p=travel.viewActor();
   const current=new Set(travel.rides);
   for(const [id,m] of models)if(!current.has(m.ride)){m.dispose();models.delete(id);}
@@ -20,15 +36,16 @@ export function createPlayerTravelRenderer(scene){
   for(const {root,ring,motion,ride,lift} of models.values()){
    root.visible=Math.hypot(ride.x-p.x,ride.z-p.z)<220;if(!root.visible)continue;
    const q=travel.riding===ride?p:ride;
-   root.position.set(q.x,lift+groundAt(q.x,q.z),q.z);root.rotation.y=q.heading;
+   const boat=ride.visual?.kind==='challenger'||ride.mode==='challenger';
+   root.position.set(q.x,boat?challengerWaterY(q.x,q.z):lift+groundAt(q.x,q.z),q.z);root.rotation.y=q.heading;
    const f=ride.fallen;if(f)f.elapsed=Math.min(1,(f.elapsed||0)+dt*3);root.rotation.z=f?f.side*(Math.PI/2-.12)*f.elapsed*f.elapsed:0; // tipped onto its side after a crash
    motion?.update(ride.distance||0);
    ring.visible=actorVisible&&travel.mode==='walk'&&travel.riding!==ride&&Math.hypot(ride.x-p.x,ride.z-p.z)<3.2;
   }
   person.begin();hand=null;
-  if(actorVisible&&(travel.mode!=='car'||travel.gagDriver)){
+  if(actorVisible&&travel.mode!=='challenger'&&(travel.mode!=='car'||travel.gagDriver)){
    const driving=travel.mode==='car'&&travel.gagDriver,swimming=travel.mode==='swim';
-   const pose=driving?'hail':swimming||travel.mode==='walk'?'walk':travel.mode==='bike'?'cycle':'scooter';
+   const pose=driving?'hail':swimming||travel.mode==='walk'?'walk':travel.mode==='scooter'?'scooter':'cycle';
    const model=models.get(travel.riding?.id),bike=model?.anchors||PLAYER_BIKE,lift=model?.lift??.12;
    const h=p.heading,lx=-Math.cos(h),lz=Math.sin(h),fx=-Math.sin(h),fz=-Math.cos(h);
    const actor={...p,x:driving?p.x+lx*.38+fx*.15:p.x,z:driving?p.z+lz*.38+fz*.15:p.z,speed:driving?0:Math.abs(p.speed),pose,gaitDirection:pose==='walk'&&p.speed<0?-1:1,groundY:driving?.42:swimming?-.55:pose==='scooter'?PLAYER_SCOOTER.groundY+lift-.12:pose==='cycle'?lift:.12,running:!driving&&!swimming&&Math.abs(p.speed)>2.5,grip:!driving&&!swimming,seated:driving,seatY:.5,

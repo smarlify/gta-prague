@@ -10,6 +10,7 @@ import { applyCrashImpulse } from '../crash-physics.js';
 import {
   buildPresence,
   canJoinMultiplayer,
+  presenceJoinAllowed,
   presencePublishHz,
   presencePublishes,
 } from './protocol.js';
@@ -17,6 +18,23 @@ import { rtdbConfigured } from './firebase-rtdb.js';
 import { goOnline, joinDemoRoom } from './room.js';
 import { createRemotePresence } from './remote-presence.js';
 import { bindOnlineHud } from './online-hud.js';
+import { ARREST_RANGE } from '../driver-starts.js';
+
+function readSearch(doc) {
+  try {
+    return doc?.location?.search || '';
+  } catch {
+    return '';
+  }
+}
+
+function readWebdriver() {
+  try {
+    return !!globalThis.navigator?.webdriver;
+  } catch {
+    return false;
+  }
+}
 
 function paintHex(group) {
   let paint = null;
@@ -67,8 +85,16 @@ export function createMultiplayerSession(scene, {
   getCar = () => null,
   getSiren = () => false,
   getAmbulances = () => [],
+  getPeerArrest = () => null,
+  onPeerArrest = () => {},
   doc = document,
 } = {}) {
+  const presenceSearch = readSearch(doc);
+  const presenceWebdriver = readWebdriver();
+  const allowPresence = presenceJoinAllowed({
+    search: presenceSearch,
+    webdriver: presenceWebdriver,
+  });
   const remotes = createRemotePresence(scene);
   let room = null;
   let authUnsub = null;
@@ -96,8 +122,12 @@ export function createMultiplayerSession(scene, {
   };
 
   const join = async () => {
-    if (!rtdbConfigured()) return;
-    const result = await goOnline({ name: presenceName() });
+    if (!allowPresence || !rtdbConfigured()) return;
+    const result = await goOnline({
+      name: presenceName(),
+      search: presenceSearch,
+      webdriver: presenceWebdriver,
+    });
     if (result.kind !== 'joined') return;
     if (room) await room.leave();
     room = result.room;
@@ -124,19 +154,26 @@ export function createMultiplayerSession(scene, {
     isOnline,
     onlineCount,
     remotes,
+    livePlayers() {
+      return (room?.remotes || []).filter((row) => Number.isFinite(row.x) && Number.isFinite(row.z));
+    },
     async ensureJoinedIfSignedIn() {
       const user = (() => {
         try { return getFirebaseAuth().currentUser; } catch { return null; }
       })();
-      if (!rtdbConfigured() || !canJoinMultiplayer(user) || room) return;
-      const result = await joinDemoRoom(user, { name: presenceName() });
+      if (!allowPresence || !rtdbConfigured() || !canJoinMultiplayer(user) || room) return;
+      const result = await joinDemoRoom(user, {
+        name: presenceName(),
+        search: presenceSearch,
+        webdriver: presenceWebdriver,
+      });
       if (result.kind === 'joined') {
         room = result.room;
         hud.refresh();
       }
     },
-    /** Call when high-score Google sign-in succeeds mid-session. */
-    async onGoogleSignedIn() {
+    /** Call when high-score email sign-in succeeds mid-session. */
+    async onAccountSignedIn() {
       await this.ensureJoinedIfSignedIn();
     },
     publishCrash(impulse) {
@@ -163,6 +200,16 @@ export function createMultiplayerSession(scene, {
         for (const [key, at] of appliedImpulses) {
           if (now - at > 4000) appliedImpulses.delete(key);
         }
+        if (!busted) {
+          const me = getTravel()?.actor;
+          for (const remote of room.remotes) {
+            if (remote.arrest?.target !== room.uid || !remote.siren || !remote.vehicle?.police) continue;
+            if (!me || !Number.isFinite(me.x)) continue;
+            if (Math.hypot(remote.x - me.x, remote.z - me.z) > ARREST_RANGE + 2) continue;
+            onPeerArrest();
+            break;
+          }
+        }
         if (afk) {
           if (!afkSince) afkSince = now;
         } else {
@@ -180,7 +227,11 @@ export function createMultiplayerSession(scene, {
           const police = getPolice();
           const snap = police?.snapshot?.();
           const block = getRoadblock();
-          const arrest = arrestFrom(block?.snapshot?.(), !!(busted || snap?.busted));
+          let arrest = arrestFrom(block?.snapshot?.(), !!(busted || snap?.busted));
+          if (!busted) {
+            const peer = getPeerArrest();
+            if (peer?.target) arrest = peer;
+          }
           const showForce = (snap?.level > 0) || !!(snap?.busted || busted) || arrest.active;
           const vehicle = vehicleFromTravel(travel, getPlayerCars());
           const presence = buildPresence({
@@ -228,36 +279,42 @@ export function createMultiplayerSession(scene, {
     api.step(0, { paused: false, afk: false, busted });
   };
 
-  try {
-    if (rtdbConfigured()) {
-      void ensureAuthUser().catch((err) => console.warn('multiplayer auth failed', err));
+  if (allowPresence) {
+    try {
+      if (rtdbConfigured()) {
+        void ensureAuthUser().catch((err) => console.warn('multiplayer auth failed', err));
+      }
+      authUnsub = onAuthStateChanged(getFirebaseAuth(), async (user) => {
+        if (!canJoinMultiplayer(user)) {
+          await leave();
+          return;
+        }
+        rememberGoogleName(displayNameFor(user) || '');
+        names.prefill();
+        // Auto-join demo for any authenticated uid (incl. anonymous).
+        if (!room) {
+          const result = await joinDemoRoom(user, {
+            name: presenceName(),
+            search: presenceSearch,
+            webdriver: presenceWebdriver,
+          });
+          if (result.kind === 'joined') room = result.room;
+        } else {
+          requestNamePublish();
+        }
+        hud.refresh();
+      });
+    } catch {
+      // Scoreboard env missing — HUD stays hidden via rtdbConfigured.
     }
-    authUnsub = onAuthStateChanged(getFirebaseAuth(), async (user) => {
-      if (!canJoinMultiplayer(user)) {
-        await leave();
-        return;
-      }
-      rememberGoogleName(displayNameFor(user) || '');
-      names.prefill();
-      // Auto-join demo for any authenticated uid (incl. anonymous).
-      if (!room) {
-        const result = await joinDemoRoom(user, { name: presenceName() });
-        if (result.kind === 'joined') room = result.room;
-      } else {
-        requestNamePublish();
-      }
-      hud.refresh();
-    });
-  } catch {
-    // Scoreboard env missing — HUD stays hidden via rtdbConfigured.
-  }
 
-  // A hidden tab stops requestAnimationFrame, so the pose stream would die and
-  // peers would cull the player. Heartbeat once a second while the document is hidden.
-  beatTimer = setInterval(() => {
-    if (!doc?.hidden || !room) return;
-    const busted = !!getPolice()?.busted;
-    api.step(1, { paused: true, afk: !busted, busted });
-  }, 1000);
+    // A hidden tab stops requestAnimationFrame, so the pose stream would die and
+    // peers would cull the player. Heartbeat once a second while the document is hidden.
+    beatTimer = setInterval(() => {
+      if (!doc?.hidden || !room) return;
+      const busted = !!getPolice()?.busted;
+      api.step(1, { paused: true, afk: !busted, busted });
+    }, 1000);
+  }
   return api;
 }

@@ -1,51 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {billboardCheckoutUrls} from '../firebase/functions/checkout-urls.js';
-import {CHECKOUT_MESSAGE_SOURCE, readCheckoutReturn, sessionIdFromClientSecret, stripePublishableKey, takeCheckoutQuery} from '../src/billboard-return.js';
+import {existsSync, readFileSync} from 'node:fs';
+import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH} from '../firebase/functions/ad-credits.js';
 
-test('the in-game checkout never returns through the ads page', () => {
-  const game = billboardCheckoutUrls({
-    origin: 'https://gtapraha.online',
-    boardId: 'praha-1-stare-mesto-01',
-    surface: 'game',
-    embedded: true,
-  });
-  assert.equal(game.returnUrl.includes('ads.html'), false);
-  assert.equal(game.successUrl.includes('ads.html'), false);
-  assert.equal(game.cancelUrl.includes('ads.html'), false);
-  assert.match(game.returnUrl, /\{CHECKOUT_SESSION_ID\}/);
-  assert.match(game.returnUrl, /^https:\/\/gtapraha\.online\/\?checkout=success/);
-  const hosted = billboardCheckoutUrls({
-    origin: 'https://gtapraha.online',
-    boardId: 'praha-1-stare-mesto-01',
-    surface: 'game',
-    embedded: false,
-  });
-  assert.match(hosted.successUrl, /billboard-checkout-return\.html/);
-  assert.equal(hosted.successUrl.includes('ads.html'), false);
-  const page = billboardCheckoutUrls({origin: 'https://gtapraha.online', boardId: 'praha-1-stare-mesto-01', surface: 'page'});
-  assert.match(page.successUrl, /\/ads\.html\?checkout=success/);
-});
-
-test('a checkout return identifies the session without loading the ads page', () => {
-  assert.equal(sessionIdFromClientSecret('cs_test_abc123_secret_xyz'), 'cs_test_abc123');
-  assert.equal(sessionIdFromClientSecret('not-a-session'), '');
-  assert.deepEqual(readCheckoutReturn('https://gtapraha.online/billboard-checkout-return.html?checkout=success&session_id=cs_live_abc'), {
-    checkout: 'success',
-    sessionId: 'cs_live_abc',
-  });
-  assert.equal(readCheckoutReturn('https://gtapraha.online/ads.html?checkout=success&session_id=cs_live_abc').sessionId, 'cs_live_abc');
-  assert.equal(readCheckoutReturn('https://gtapraha.online/?start=petrin'), null);
-  assert.equal(stripePublishableKey({VITE_STRIPE_PUBLISHABLE_KEY: 'pk_test_example'}), 'pk_test_example');
-  assert.equal(stripePublishableKey({VITE_STRIPE_PUBLISHABLE_KEY: 'sk_test_example'}), '');
-  const taken = takeCheckoutQuery('?start=petrin&checkout=success&session_id=cs_test_abc&board=praha-1-stare-mesto-01');
-  assert.equal(taken.board, 'praha-1-stare-mesto-01');
-  assert.equal(taken.sessionId, 'cs_test_abc');
-  assert.equal(taken.search, '?start=petrin');
-  const html = readFileSync(new URL('../public/billboard-checkout-return.html', import.meta.url), 'utf8');
-  assert.match(html, new RegExp(CHECKOUT_MESSAGE_SOURCE));
-  assert.doesNotMatch(html, /ads\.html/);
+test('the advertiser pays the 50 € Revolut request and signs in with email', () => {
+  const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
+  const buy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
+  const firebase = readFileSync(new URL('../src/firebase.js', import.meta.url), 'utf8');
+  const pkg = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
+  assert.match(adsFlow, /GTA Praha has sent you a payment request for 50/);
+  assert.match(adsFlow, /Revolut Link/);
+  assert.match(adsFlow, /Revolut Pay/);
+  assert.match(adsFlow, /Scan to pay 50/);
+  assert.match(adsFlow, /REVOLUT_CHECKOUT_URL/);
+  assert.match(adsFlow, /REVOLUT_QR_PATH/);
+  assert.equal(REVOLUT_QR_PATH, '/ads/revolut-50-eur-qr.png');
+  assert.equal(existsSync(new URL(`../public${REVOLUT_QR_PATH}`, import.meta.url)), true);
+  assert.match(adsFlow, /id="ads-email"/);
+  assert.match(adsFlow, /id="ads-password"/);
+  assert.match(adsFlow, /createEmailAccount/);
+  assert.match(adsFlow, /signInWithEmail/);
+  assert.match(adsFlow, /ads-confirm/);
+  assert.equal(REVOLUT_CHECKOUT_URL, 'https://checkout.revolut.com/pay/7a5ccc40-cc12-4892-9280-de78ea04baf6');
+  assert.doesNotMatch(adsFlow, /signInWithPopup|GoogleAuthProvider|Sign in with Google|stripe/i);
+  assert.doesNotMatch(buy, /stripe|loadStripe|signInWithPopup/i);
+  assert.doesNotMatch(firebase, /GoogleAuthProvider|signInWithPopup/);
+  assert.doesNotMatch(pkg, /stripe/i);
 });
 
 test('the modal close control is a phone-sized button and the city controls stay', () => {
@@ -60,16 +40,32 @@ test('the modal close control is a phone-sized button and the city controls stay
   assert.match(main, /billboardBuy\?\.isOpen\(\)&&e\.code!=='Escape'/);
 });
 
-test('the advertiser page link is updated with the board parameter', () => {
+test('the in-game modal links to the advertiser page and leaves sign-in there', () => {
   const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
-  assert.match(adsFlow, /link\.href\s*=\s*id\s*\?\s*`\/ads\.html\?board=\$\{encodeURIComponent\(id\)\}`\s*:\s*'\/ads\.html'/);
-});
-
-test('popup-blocked payment shows the advertiser page fallback', () => {
-  const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
-  const billboardBuy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
-  assert.match(billboardBuy, /throw new Error\('popup-blocked'\)/);
-  assert.match(adsFlow, /error\.message === 'popup-blocked'/);
-  assert.match(adsFlow, /link\.href = id \? `\/ads\.html\?board=\$\{encodeURIComponent\(id\)\}` : '\/ads\.html'/);
-  assert.match(adsFlow, /fallback\.hidden = false/);
+  const buy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/ads-page.css', import.meta.url), 'utf8');
+  const serve = readFileSync(new URL('../public/serve.json', import.meta.url), 'utf8');
+  const pageLink = adsFlow.slice(adsFlow.indexOf('const PAGE_LINK'), adsFlow.indexOf('function checkoutMarkup'));
+  const checkout = adsFlow.slice(adsFlow.indexOf('function checkoutMarkup'), adsFlow.indexOf('function markup'));
+  assert.match(pageLink, /Open the advertiser page/);
+  assert.match(pageLink, /href="\/advertise"/);
+  assert.match(pageLink, /target="_blank"/);
+  assert.match(pageLink, /rel="noopener noreferrer"/);
+  assert.doesNotMatch(pageLink, /ads-email|Create account|Revolut Pay|ads-revolut/);
+  assert.match(buy, /showCheckout:\s*false/);
+  assert.match(checkout, /id="ads-email"/);
+  assert.match(checkout, /id="ads-password"/);
+  assert.match(checkout, /Create account/);
+  assert.match(checkout, /Revolut Pay/);
+  assert.match(checkout, /id="ads-revolut-qr"/);
+  assert.match(checkout, /REVOLUT_CHECKOUT_URL/);
+  const paymentAt = checkout.indexOf('id="board-payment"');
+  const accountAt = checkout.indexOf('id="ads-account" hidden');
+  assert.ok(paymentAt > 0 && accountAt > paymentAt, 'the 50 € request stays visible before the account panel');
+  assert.doesNotMatch(adsFlow, /class="ads-card"|class="ads-note"/);
+  assert.doesNotMatch(css, /\.ads-card|\.ads-note/);
+  assert.match(css, /\.board-panel\[hidden\]/);
+  assert.match(serve, /"source": "\/advertise"/);
+  assert.match(serve, /"destination": "\/ads\.html"/);
+  assert.match(adsFlow, /link\.href = id \? `\/advertise\?board=\$\{encodeURIComponent\(id\)\}` : '\/advertise'/);
 });
