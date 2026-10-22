@@ -9,6 +9,9 @@ import storedSites from './prague-billboard-sites.json' with {type: 'json'};
 export const BOARDS_PER_DISTRICT = 10;
 export const BILLBOARD_COUNT = BOARDS_PER_DISTRICT;
 export const BILLBOARD_BUY_REACH = 18;
+export const BILLBOARD_BUY_RELEASE = 26;
+// Longer than one HUD sample (~140 ms). A single far reading must not drop the control.
+export const BILLBOARD_BUY_RELEASE_HOLD = 0.5;
 export const BUY_BILLBOARD_LABEL = 'Buy this billboard';
 const BOARD_WIDTH = 7.2;
 const BOARD_HEIGHT = 3.6;
@@ -68,6 +71,47 @@ export function nearestBillboard(player, sites, reach = BILLBOARD_BUY_REACH) {
     }
   }
   return best;
+}
+
+function finitePoint(point) {
+  return !!point && Number.isFinite(point.x) && Number.isFinite(point.z);
+}
+
+function siteGap(player, site) {
+  return Math.hypot(site.x - player.x, site.z - player.z);
+}
+
+// The action turns on inside the show reach and stays on through the band where a car,
+// a step, or one bad sample crosses 18 m. It turns off only after the player remains
+// past the release reach for longer than the hold, and only on a later sample.
+// The camera is not part of the check. The same body x/z applies on foot and in a car.
+export function billboardBuyOffer(player, sites, previous = null, {dt = 0, near = BILLBOARD_BUY_REACH, far = BILLBOARD_BUY_RELEASE, hold = BILLBOARD_BUY_RELEASE_HOLD} = {}) {
+  const step = Math.max(0, Number.isFinite(dt) ? dt : 0);
+  const latchedId = previous?.id || '';
+  const awayFor = Math.max(0, Number(previous?.awayFor) || 0);
+  const list = sites || [];
+  const latched = latchedId ? list.find((site) => site?.id === latchedId && finitePoint(site)) : null;
+  const playerOk = finitePoint(player);
+  const offer = (site, away) => ({show: true, id: site.id, site, awayFor: away});
+  const hidden = () => ({show: false, id: '', site: null, awayFor: 0});
+
+  if (latched && playerOk) {
+    const gap = siteGap(player, latched);
+    if (gap <= far) {
+      const nearer = nearestBillboard(player, list, near);
+      if (nearer && nearer.id !== latched.id && siteGap(player, nearer) < gap) return offer(nearer, 0);
+      return offer(latched, 0);
+    }
+    const nextAway = awayFor + step;
+    if (awayFor === 0 || nextAway <= hold) return offer(latched, nextAway);
+  } else if (latchedId && !playerOk) {
+    const nextAway = awayFor + step;
+    if (awayFor === 0 || nextAway <= hold) return {show: true, id: latchedId, site: latched, awayFor: nextAway};
+  }
+
+  if (!playerOk) return hidden();
+  const site = nearestBillboard(player, list, near);
+  return site ? offer(site, 0) : hidden();
 }
 
 const raycaster = new THREE.Raycaster();

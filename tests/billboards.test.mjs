@@ -5,7 +5,7 @@ import {gunzipSync} from 'node:zlib';
 import {SpatialIndex} from '../src/geo.js';
 import {PRAGUE_AREAS} from '../src/area-caption.js';
 import * as THREE from 'three';
-import {BILLBOARD_BUY_REACH, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, billboardFromPointer, billboardPurchaseUrl, nearestBillboard, placePragueBillboards} from '../src/prague-billboards.js';
+import {BILLBOARD_BUY_REACH, BILLBOARD_BUY_RELEASE, BILLBOARD_BUY_RELEASE_HOLD, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, billboardBuyOffer, billboardFromPointer, billboardPurchaseUrl, nearestBillboard, placePragueBillboards} from '../src/prague-billboards.js';
 import storedSites from '../src/prague-billboard-sites.json' with {type: 'json'};
 import {
   PACK_CREDITS,
@@ -132,6 +132,8 @@ test('the buy button is on the page and names the nearest board', () => {
   assert.doesNotMatch(css, /#buy-billboard\{[^}]*display:\s*none/);
   assert.match(css, /@media\(pointer:coarse\)\{#buy-billboard\{[^}]*touch-action:manipulation/);
   assert.equal(BILLBOARD_BUY_REACH, 18);
+  assert.equal(BILLBOARD_BUY_RELEASE, 26);
+  assert.ok(BILLBOARD_BUY_RELEASE_HOLD > 0.14);
   const sites = [
     {id: 'praha-1-stare-mesto-02', x: 12, z: 0},
     {id: 'praha-1-stare-mesto-01', x: -4, z: 0},
@@ -144,6 +146,7 @@ test('the buy button is on the page and names the nearest board', () => {
   assert.equal(billboardPurchaseUrl(onFoot.id), '/ads.html?board=praha-1-stare-mesto-01');
   const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const buy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
+  assert.match(main, /billboardBuyOffer\(car,pragueBoards\?\.sites,billboardOffer,\{dt\}\)/);
   assert.doesNotMatch(main, /location\.assign\(billboardPurchaseUrl/);
   assert.match(main, /billboardBuy\.open\(id\)/);
   assert.match(main, /billboardFromPointer\(event,camera,pragueBoards\?\.group,pragueBoards\?\.sites\)/);
@@ -154,6 +157,47 @@ test('the buy button is on the page and names the nearest board', () => {
   assert.equal(nearestBillboard({x: 18, z: 0}, [{id: 'edge', x: 0, z: 0}]).id, 'edge');
   assert.equal(nearestBillboard({x: 18.2, z: 0}, [{id: 'edge', x: 0, z: 0}]), null);
   assert.equal(nearestBillboard({x: 0, z: 0}, [{id: 'praha-b', x: 5, z: 0}, {id: 'praha-a', x: -5, z: 0}]).id, 'praha-a');
+});
+
+test('the buy action stays up through a short gap and hides only after a clear one', () => {
+  const board = [{id: 'edge', x: 0, z: 0}];
+  const onFoot = billboardBuyOffer({x: 10, z: 0, travelMode: 'walk'}, board);
+  const driving = billboardBuyOffer({x: 10, z: 0, travelMode: 'car'}, board);
+  assert.equal(onFoot.show, true);
+  assert.equal(driving.id, onFoot.id);
+  assert.equal(billboardBuyOffer({x: 20, z: 0}, board).show, false, '26 m does not turn the action on');
+
+  let state = billboardBuyOffer({x: 18, z: 0}, board);
+  assert.equal(state.id, 'edge');
+  state = billboardBuyOffer({x: 18.2, z: 0}, board, state, {dt: 0.14});
+  assert.equal(state.show, true, 'a centimetre past 18 m keeps the action');
+  state = billboardBuyOffer({x: 26, z: 0}, board, state, {dt: 2});
+  assert.equal(state.show, true);
+  assert.equal(state.awayFor, 0, 'the release line itself is still beside the board');
+
+  state = billboardBuyOffer({x: NaN, z: 0}, board, state, {dt: 0.016});
+  assert.equal(state.show, true, 'one missing position does not hide it');
+  assert.equal(state.id, 'edge');
+  state = billboardBuyOffer({x: 22, z: 0}, board, state, {dt: 0.14});
+  assert.equal(state.show, true);
+  assert.equal(state.awayFor, 0, 'back inside the band clears the release clock');
+
+  state = billboardBuyOffer({x: 40, z: 0}, board, state, {dt: 5});
+  assert.equal(state.show, true, 'one far sample does not hide it');
+  state = billboardBuyOffer({x: 22, z: 0}, board, state, {dt: 0.14});
+  assert.equal(state.awayFor, 0);
+
+  state = billboardBuyOffer({x: 40, z: 0}, board, state, {dt: 0.14});
+  assert.equal(state.show, true);
+  state = billboardBuyOffer({x: 40, z: 0}, board, state, {dt: BILLBOARD_BUY_RELEASE_HOLD});
+  assert.equal(state.show, false, 'a sustained gap past 26 m hides it');
+  assert.equal(billboardBuyOffer({x: 22, z: 0}, board, state).show, false, 'coming back only to the band does not turn it on again');
+  assert.equal(billboardBuyOffer({x: 18, z: 0}, board, state).id, 'edge');
+
+  const pair = [{id: 'far-board', x: 0, z: 0}, {id: 'near-board', x: 30, z: 0}];
+  const latched = billboardBuyOffer({x: 24, z: 0}, pair, {id: 'far-board', awayFor: 0});
+  assert.equal(latched.id, 'near-board');
+  assert.equal(latched.show, true);
 });
 
 test('a click on the billboard face names that board', () => {
