@@ -9,18 +9,11 @@ import {adsEndpoints} from './billboard-feed.js';
 
 const IMAGE_LIMIT = 2 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const PAGE_LINK = '<p id="ads-page-fallback" class="board-note"><a id="ads-page-link" href="/advertise" target="_blank" rel="noopener noreferrer">Open the advertiser page</a></p>';
 
-function markup({showBack, showPageLink}) {
-  const kicker = showBack ? '<p class="ads-kicker"><a class="ads-back" href="/">GTA Praha</a></p>' : '';
-  const pageLink = showPageLink
-    ? '<p id="ads-page-fallback" class="board-note"><a id="ads-page-link" href="/ads.html">Open the advertiser page</a></p>'
-    : '';
-  // EasyList hides .ads-card and .ads-note, which left this modal as the title and one sentence.
-  return `${kicker}
-    <h1 id="billboard-ads-title">Your ad can be here</h1>
-    <p>Zde může být vaše reklama. One landscape image goes on one board.</p>
-    <p id="ads-board" class="board-note" hidden></p>
-    <section class="board-panel" id="ads-signed-out">
+function checkoutMarkup() {
+  // EasyList hides .ads-card and .ads-note. The advertiser page keeps board-panel.
+  return `<section class="board-panel" id="ads-signed-out">
       <p>Sign in with email to upload an image and pay.</p>
       <form id="ads-auth">
         <label>Email
@@ -32,7 +25,6 @@ function markup({showBack, showPageLink}) {
         <button id="ads-sign-in" class="primary-btn" type="submit">Sign in</button>
         <button id="ads-create" class="ghost-btn" type="button">Create account</button>
       </form>
-      ${pageLink}
     </section>
     <section class="board-panel" id="board-payment">
       <p>GTA Praha has sent you a payment request for 50 €. Pay with Revolut Link, Revolut Pay, or scan the code.</p>
@@ -56,12 +48,39 @@ function markup({showBack, showPageLink}) {
       <p id="ads-price" class="board-note"></p>
       <button id="ads-confirm" class="primary-btn" type="button">I've paid the 50 €</button>
       <button id="ads-sign-out" class="ghost-btn" type="button">Sign out</button>
-    </section>
+    </section>`;
+}
+
+function markup({showBack, showCheckout}) {
+  const kicker = showBack ? '<p class="ads-kicker"><a class="ads-back" href="/">GTA Praha</a></p>' : '';
+  return `${kicker}
+    <h1 id="billboard-ads-title">Your ad can be here</h1>
+    <p>Zde může být vaše reklama. One landscape image goes on one board.</p>
+    <p id="ads-board" class="board-note" hidden></p>
+    ${showCheckout ? checkoutMarkup() : PAGE_LINK}
     <p id="ads-status" class="ads-status" role="status"></p>`;
 }
 
+function paintBoard(root, id) {
+  const node = root.querySelector('#ads-board');
+  if (node) {
+    node.hidden = !id;
+    node.textContent = id ? `This billboard: ${id}` : '';
+  }
+  const link = root.querySelector('#ads-page-link');
+  if (link) link.href = id ? `/advertise?board=${encodeURIComponent(id)}` : '/advertise';
+}
+
+function bindPageLink(root, options) {
+  const sync = () => paintBoard(root, boardId(options.getBoardId()));
+  sync();
+  return {sync};
+}
+
 export function mountBillboardAds(root, options) {
-  root.innerHTML = markup({showBack: options.showBack !== false, showPageLink: options.showPageLink === true});
+  const showCheckout = options.showCheckout !== false;
+  root.innerHTML = markup({showBack: options.showBack !== false, showCheckout});
+  if (!showCheckout) return bindPageLink(root, options);
   try {
     return bind(root, options);
   } catch (error) {
@@ -78,14 +97,7 @@ function bind(root, options) {
   let authBusy = false;
 
   function paintChosenBoard() {
-    const id = chosenBoard();
-    const node = q('ads-board');
-    node.hidden = !id;
-    node.textContent = id ? `This billboard: ${id}` : '';
-    const link = q('ads-page-link');
-    if (link) {
-      link.href = id ? `/ads.html?board=${encodeURIComponent(id)}` : '/ads.html';
-    }
+    paintBoard(root, chosenBoard());
   }
 
   function paintPrice(account) {

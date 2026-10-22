@@ -143,7 +143,7 @@ test('the buy button is on the page and names the nearest board', () => {
   const driving = nearestBillboard({x: 0, z: 0, travelMode: 'car'}, sites);
   assert.equal(onFoot.id, 'praha-1-stare-mesto-01');
   assert.equal(driving.id, onFoot.id);
-  assert.equal(billboardPurchaseUrl(onFoot.id), '/ads.html?board=praha-1-stare-mesto-01');
+  assert.equal(billboardPurchaseUrl(onFoot.id), '/advertise?board=praha-1-stare-mesto-01');
   const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const buy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
   assert.match(main, /billboardBuyOffer\(car,pragueBoards\?\.sites,billboardOffer,\{dt\}\)/);
