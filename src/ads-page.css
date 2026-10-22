@@ -1,25 +1,28 @@
-:root {
+body.ads-standalone {
+  margin: 0;
   color: #1c2422;
   background: #f3f0e9;
   font-family: Georgia, "Iowan Old Style", serif;
-}
-body {
-  margin: 0;
 }
 .ads-page {
   max-width: 40rem;
   margin: 0 auto;
   padding: 2.5rem 1.25rem 4rem;
+  color: #1c2422;
+  font-family: Georgia, "Iowan Old Style", serif;
 }
 .ads-page h1 {
+  font-family: Georgia, "Iowan Old Style", serif;
   font-size: 2rem;
   font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.2;
   margin: 0.4rem 0 0.6rem;
 }
-.ads-kicker, .ads-note, .ads-status {
+.ads-page .ads-kicker, .ads-page .ads-note, .ads-page .ads-status {
   color: #3d4a46;
 }
-.ads-card {
+.ads-page .ads-card {
   display: grid;
   gap: 0.9rem;
   margin-top: 1.5rem;
@@ -27,17 +30,17 @@ body {
   background: #fffdf8;
   border: 1px solid #d9d3c6;
 }
-.ads-balance {
+.ads-page .ads-balance {
   display: flex;
   gap: 1.5rem;
 }
-.ads-balance span {
+.ads-page .ads-balance span {
   display: block;
   font-size: 0.8rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.ads-balance strong {
+.ads-page .ads-balance strong {
   font-size: 1.8rem;
 }
 .ads-page label {
@@ -46,27 +49,50 @@ body {
 }
 .ads-page select, .ads-page input[type="file"] {
   font: inherit;
+  font-size: 16px;
 }
-.ads-preview {
+.ads-page .ads-preview {
   width: 100%;
   aspect-ratio: 2 / 1;
   object-fit: cover;
   background: #14181c;
 }
-.primary-btn, .ghost-btn {
+.ads-page .primary-btn, .ads-page .ghost-btn {
   font: inherit;
   cursor: pointer;
   border: 0;
   padding: 0.7rem 1rem;
+  min-height: 44px;
+  touch-action: manipulation;
+  width: 100%;
+  display: block;
+  text-align: center;
 }
-.primary-btn {
+.ads-page .primary-btn {
   background: #24312e;
   color: #f4efe6;
 }
-.ghost-btn {
+.ads-page .ghost-btn {
   background: transparent;
   border: 1px solid #24312e;
+  color: #24312e;
 }
-.ads-back {
+.ads-page .ads-back {
   color: inherit;
+}
+.ads-page #ads-payment {
+  min-height: 280px;
+}
+.ads-page #ads-payment[hidden] {
+  display: none;
+}
+.ads-page .ads-card[hidden],
+.ads-page #ads-board[hidden],
+.ads-page #ads-preview[hidden],
+.ads-page #ads-page-fallback[hidden] {
+  display: none;
+}
+.ads-page #ads-page-link {
+  color: inherit;
+  text-underline-offset: 3px;
 }
