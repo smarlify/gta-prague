@@ -54,7 +54,7 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
     if (flow) return flow;
     flow = mountBillboardAds(flowRoot, {
       showBack: false,
-      showPageLink: true,
+      showCheckout: false,
       getBoardId: () => board,
     });
     return flow;

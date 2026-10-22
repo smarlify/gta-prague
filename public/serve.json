@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/advertise", "destination": "/ads.html" },
+    { "source": "/advertise/", "destination": "/ads.html" }
+  ]
+}

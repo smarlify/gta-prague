@@ -40,22 +40,32 @@ test('the modal close control is a phone-sized button and the city controls stay
   assert.match(main, /billboardBuy\?\.isOpen\(\)&&e\.code!=='Escape'/);
 });
 
-test('opening the modal shows sign-in and the Revolut request without EasyList class names', () => {
+test('the in-game modal links to the advertiser page and leaves sign-in there', () => {
   const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
+  const buy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../src/ads-page.css', import.meta.url), 'utf8');
-  const markup = adsFlow.slice(adsFlow.indexOf('function markup'), adsFlow.indexOf('export function mountBillboardAds'));
-  const paymentAt = markup.indexOf('id="board-payment"');
-  const accountAt = markup.indexOf('id="ads-account" hidden');
-  assert.ok(paymentAt > 0 && accountAt > paymentAt, 'the 50 € request stays visible before sign-in');
-  assert.match(markup, /id="ads-email"/);
-  assert.match(markup, /id="ads-password"/);
-  assert.match(markup, /id="ads-revolut-qr"/);
-  assert.doesNotMatch(markup, /class="ads-card"|class="ads-note"/);
+  const serve = readFileSync(new URL('../public/serve.json', import.meta.url), 'utf8');
+  const pageLink = adsFlow.slice(adsFlow.indexOf('const PAGE_LINK'), adsFlow.indexOf('function checkoutMarkup'));
+  const checkout = adsFlow.slice(adsFlow.indexOf('function checkoutMarkup'), adsFlow.indexOf('function markup'));
+  assert.match(pageLink, /Open the advertiser page/);
+  assert.match(pageLink, /href="\/advertise"/);
+  assert.match(pageLink, /target="_blank"/);
+  assert.match(pageLink, /rel="noopener noreferrer"/);
+  assert.doesNotMatch(pageLink, /ads-email|Create account|Revolut Pay|ads-revolut/);
+  assert.match(buy, /showCheckout:\s*false/);
+  assert.match(checkout, /id="ads-email"/);
+  assert.match(checkout, /id="ads-password"/);
+  assert.match(checkout, /Create account/);
+  assert.match(checkout, /Revolut Pay/);
+  assert.match(checkout, /id="ads-revolut-qr"/);
+  assert.match(checkout, /REVOLUT_CHECKOUT_URL/);
+  const paymentAt = checkout.indexOf('id="board-payment"');
+  const accountAt = checkout.indexOf('id="ads-account" hidden');
+  assert.ok(paymentAt > 0 && accountAt > paymentAt, 'the 50 € request stays visible before the account panel');
+  assert.doesNotMatch(adsFlow, /class="ads-card"|class="ads-note"/);
   assert.doesNotMatch(css, /\.ads-card|\.ads-note/);
   assert.match(css, /\.board-panel\[hidden\]/);
-});
-
-test('the advertiser page link is updated with the board parameter', () => {
-  const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
-  assert.match(adsFlow, /link\.href\s*=\s*id\s*\?\s*`\/ads\.html\?board=\$\{encodeURIComponent\(id\)\}`\s*:\s*'\/ads\.html'/);
+  assert.match(serve, /"source": "\/advertise"/);
+  assert.match(serve, /"destination": "\/ads\.html"/);
+  assert.match(adsFlow, /link\.href = id \? `\/advertise\?board=\$\{encodeURIComponent\(id\)\}` : '\/advertise'/);
 });
