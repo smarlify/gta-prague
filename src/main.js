@@ -12,7 +12,7 @@ import {setTramLivery} from './tram-model.js';
 import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,visitScene} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
-import {bindCharacterPicker,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
+import {bindCharacterPicker,characterSwitchRebuilds,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
@@ -302,16 +302,18 @@ const playerCars=createPlayerCarRenderer(scene),carGroup=playerCars.group;carGro
 let chosenCharacter=resolveDriver(location.search);
 if(new URLSearchParams(location.search).has('driver'))writeCharacterId(undefined,chosenCharacter.id);
 function rememberCharacter(choice){
+ const previous=chosenCharacter;
  chosenCharacter=choice;
  writeStoredPlayerName(choice.name);
  const input=$('player-name');
  if(input&&input.value!==choice.name)input.value=choice.name;
  if(car)car.roadster=!!choice.flies;
  if(choice.ride!=='bike')playerCars.setLook(choice.type,'');
+ // Same street still rebuilds when the ride changes. Hřib's bicycle is not the car already waiting.
  if(!started&&data?.landmarks&&startPoint&&city?.id==='prague'){
   const next=placeForCharacter(choice);
   const heading=startHeading(next.start,choice,car?.heading??0);
-  if(next.start&&(next.start.name!==startPoint.name||Math.abs(heading-(car?.heading??0))>.02)){
+  if(next.start&&(characterSwitchRebuilds(previous,choice)||next.start.name!==startPoint.name||Math.abs(heading-(car?.heading??0))>.02)){
    setStart(next.start);
    startPicker?.set(startPoint);
   }
@@ -721,7 +723,7 @@ function trackGameStart(place=startPoint){
   event_category:'game_interaction'
  });
 }
-function start(){if(!ready)return;if(previewing){startAfterPreview=true;return;}const first=!started;started=true;paused=false;document.body.classList.add('driving');loadingScreen.enter();carGroup.visible=true;marker.visible=false;if(first)trackGameStart(startPoint);toast(touchScreen?'Slide to steer · Hold Go to move · Menu for the map and settings':'WASD or arrow keys to drive · Space to handbrake');$('world').focus();}
+function start(){if(!ready)return;if(previewing){startAfterPreview=true;return;}if(startPoint&&characterSwitchRebuilds({ride:travel?.mode==='bike'?'bike':null},chosenCharacter))setStart(startPoint);const first=!started;started=true;paused=false;document.body.classList.add('driving');loadingScreen.enter();carGroup.visible=travel?.mode!=='bike';marker.visible=false;if(first)trackGameStart(startPoint);toast(touchScreen?'Slide to steer · Hold Go to move · Menu for the map and settings':'WASD or arrow keys to drive · Space to handbrake');$('world').focus();}
 function focusWorldControls(){if(started&&!paused&&!mapOpen&&!police?.busted&&!gameIsStopped())$('world').focus({preventScroll:true});}
 function showDialog(id){if(!ready||police?.busted)return;peopleInteraction?.close();mobileControls?.release();keys.clear();$(id).showModal();mapOpen=true;if(id==='map-dialog')drawCityMap();}
 function closeDialogs(){if($('map-dialog').open)startVisitVersion++;document.querySelectorAll('dialog[open]').forEach(d=>d.close());mapOpen=!!document.querySelector('dialog[open]');mobileControls?.release();keys.clear();focusWorldControls();}

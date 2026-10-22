@@ -6,6 +6,7 @@ import {
   DEFAULT_CHARACTER_ID,
   bindCharacterPicker,
   characterById,
+  characterSwitchRebuilds,
   cycleCharacter,
   isIdleDriverRecord,
   playerPageTitle,
@@ -193,9 +194,16 @@ test('the welcome card puts the car on the same arrow row as the district, outsi
   assert.match(html, /id="character-picker"[^>]*class="district-picker"|class="district-picker"[^>]*id="character-picker"/);
   assert.match(css, /body \.player-name,body \.topbar kbd,#intro \.boot-controls\{display:none\}/);
   assert.doesNotMatch(css, /body\.booting \.topbar\{display:\s*none\}/);
-  assert.doesNotMatch(css, /#character-picker\{[^}]*display:\s*none/);
+  assert.match(css, /#intro:not\(\.ready\) #character-picker\{display:none\}/);
+  assert.doesNotMatch(css, /(^|\n)#character-picker\{[^}]*display:\s*none/);
+  assert.doesNotMatch(css, /#intro:not\(\.ready\) #boot-loader\{[^}]*display:\s*none/);
+  assert.doesNotMatch(css, /#intro:not\(\.ready\) #start-district-picker/);
+  assert.doesNotMatch(css, /#intro:not\(\.ready\) #boot-title/);
+  assert.doesNotMatch(css, /#intro:not\(\.ready\) #start-btn/);
   assert.doesNotMatch(css, /#character-prev\{[^}]*display:\s*none/);
   assert.doesNotMatch(css, /#start-btn\{[^}]*display:\s*none/);
+  const phone = css.slice(css.indexOf('@media(max-width:700px)'));
+  assert.doesNotMatch(phone, /#character-picker\{[^}]*display:\s*none/);
   const hud = await readFile(new URL('../src/style.css', import.meta.url), 'utf8');
   const touch = await readFile(new URL('../src/mobile-controls.css', import.meta.url), 'utf8');
   assert.doesNotMatch(hud, /#view-btn\{display:\s*none\}/);
@@ -222,6 +230,54 @@ test('a missing driver rolls once and does not keep the saved choice', () => {
   assert.equal(resolveDriver('?driver=elon', storage).id, 'elon');
   assert.equal(storage.getItem('gta-praha-character'), 'dave');
   assert.equal(resolveDriver('', memoryStorage(), () => 1).name, 'Elon Musk');
+});
+
+test('choosing Hřib on the start card occupies his pedal bicycle, not the Roadster or the G', async () => {
+  const fromRoadster = characterById('elon');
+  const fromG = characterById('filip');
+  const doc = pickerDoc();
+  const picker = bindCharacterPicker({ doc, storage: memoryStorage(), initial: 'elon' });
+  assert.equal(picker.get().type, 'roadster');
+  doc.nodes.get('character-next').listeners.click({ detail: 1 });
+  doc.nodes.get('character-next').listeners.click({ detail: 1 });
+  const choice = picker.get();
+  assert.equal(choice.id, 'hrib');
+  assert.equal(choice.name, 'Zdeněk Hřib');
+  assert.equal(choice.ride, 'bike');
+  assert.equal(choice.type, 'bicycle');
+  assert.equal(doc.nodes.get('character-label').textContent, 'Bicycle — Zdeněk Hřib');
+  assert.equal(characterSwitchRebuilds(fromRoadster, choice), true);
+  assert.equal(characterSwitchRebuilds(fromG, choice), true);
+  assert.equal(characterSwitchRebuilds(fromRoadster, characterById('dave')), false);
+  const world = {buildings: new SpatialIndex([]), roads: new SpatialIndex([{rings: [[[-200, -200], [200, -200], [200, 200], [-200, 200]]]}]), pavement: new SpatialIndex([{rings: [[[-200, -200], [200, -200], [200, 200], [-200, 200]]]}]), water: []};
+  const travel = new PlayerTravel(makeCar(0, 0), world, {ride: fromRoadster.ride || null});
+  assert.equal(travel.mode, 'car');
+  assert.equal(travel.riding, null);
+  if (characterSwitchRebuilds(fromRoadster, choice)) travel.reset(makeCar(0, 0), world, {ride: choice.ride || null});
+  assert.equal(travel.mode, 'bike');
+  assert.equal(travel.actor, travel.riding);
+  assert.equal(travel.riding.id, 'bike');
+  assert.equal(travel.riding.visual.kind, 'bicycle');
+  assert.notEqual(travel.riding.visual.kind, 'citybike');
+  assert.notEqual(travel.riding.mode, 'scooter');
+  assert.notEqual(travel.mode, 'car');
+  const mesh = createRideVehicle(travel.riding.visual, travel.mode);
+  assert.equal(mesh.root.userData.kind, 'bicycle');
+  assert.notEqual(mesh.root.name, 'Player citybike');
+  mesh.dispose();
+  const back = picker.choose('filip');
+  assert.equal(back.id, 'filip');
+  assert.equal(back.type, 'gwagen');
+  assert.equal(characterSwitchRebuilds(choice, back), true);
+  travel.reset(makeCar(0, 0), world, {ride: back.ride || null});
+  assert.equal(travel.mode, 'car');
+  assert.equal(travel.riding, null);
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(main, /characterSwitchRebuilds\(previous,choice\)/);
+  assert.match(main, /characterSwitchRebuilds\(\{ride:travel\?\.mode==='bike'\?'bike':null\},chosenCharacter\)/);
+  assert.equal(driverFromSearch('?driver=hrib').id, 'hrib');
+  assert.equal(driverFromSearch('?driver=zdenek').ride, 'bike');
+  assert.equal(driverFromSearch('?driver=zdenek-hrib').type, 'bicycle');
 });
 
 test('Zdeněk starts on a pedal bicycle at the normal start, not the museum and not the city bike', () => {

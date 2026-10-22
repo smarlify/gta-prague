@@ -55,6 +55,15 @@ export function cycleCharacter(id, step) {
   return CHARACTERS[cycleIndex(CHARACTERS.length, index, step)];
 }
 
+/**
+ * The occupied vehicle has to be built again when the ride changes.
+ * A new street already does that. Car to car on the same street only swaps the body.
+ * Car to Zdeněk's bicycle (and back) must rebuild, or the previous car stays occupied.
+ */
+export function characterSwitchRebuilds(previous, next) {
+  return (previous?.ride || null) !== (next?.ride || null);
+}
+
 function storageOf(storage) {
   if (storage) return storage;
   try {
