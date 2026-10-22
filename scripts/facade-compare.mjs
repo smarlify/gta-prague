@@ -17,7 +17,7 @@ fs.mkdirSync(out,{recursive:true});
 
 const browser=await chromium.launch({channel:process.env.PW_CHANNEL||'chrome',headless:true,args:['--ignore-gpu-blocklist','--enable-unsafe-swiftshader']});
 const page=await browser.newPage({viewport:{width:1024,height:768}});
-await page.goto(`${base}/?city=${city}`);
+await page.goto(`${base}/?city=${city}&presence=off`);
 // Only the 3D view; re-applied if the dev server reloads the page between views.
 const ready=async()=>{
  await page.waitForFunction(()=>window.openCityDrive?.getState().ready||window.helsinkiBootError,null,{timeout:240000});

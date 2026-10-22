@@ -9,12 +9,51 @@ export const PLAYER_HZ = 10;
 export const AFK_HEARTBEAT_HZ = 1;
 export const DEMO_ROOM = 'demo';
 export const PLAYERS_PATH = 'gta-praha/rooms/demo/players';
+
+/** RTDB path for one room. Tests that must write use a room other than `demo`. */
+export function playersPathFor(roomId = DEMO_ROOM) {
+  const room = rtdbKey(roomId, 64);
+  if (!room) return '';
+  return `gta-praha/rooms/${room}/players`;
+}
+
+/**
+ * Real visits join the demo room. The test runner, an automated browser, and
+ * `?presence=off` must not. A live heartbeat is never a reason to remove a row;
+ * this only decides whether this process may sign in and write.
+ */
+export function presenceJoinAllowed({
+  search = '',
+  webdriver = false,
+  testContext = nodeTestContext(),
+} = {}) {
+  if (testContext) return false;
+  if (webdriver) return false;
+  try {
+    const presence = new URLSearchParams(String(search || '').replace(/^\?/, '')).get('presence');
+    return presence !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function nodeTestContext() {
+  try {
+    const env = globalThis.process?.env;
+    return env ? env.NODE_TEST_CONTEXT : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const MAX_POLICE_UNITS = 12;
 export const MAX_OFFICERS = 8;
 export const MAX_AMBULANCES = 24;
 export const STALE_MS = 8000;
 /** While `afk` is set, peers keep the row for at least a minute after the last heartbeat. */
 export const AFK_STALE_MS = 60_000;
+/** Online hides every session this long after its last heartbeat, whether or not it was AFK. */
+export const ONLINE_STALE_MS = 60_000;
 const IMPULSE_TTL_MS = 2500;
 
 export const TRAVEL_MODES_NET = Object.freeze(['car', 'walk', 'bike', 'scooter']);
@@ -57,11 +96,12 @@ export function presenceIdentity(authUid, sessionId) {
  * child, so set() cannot replace the other player. The room is always demo.
  * The driver name is not part of the path.
  */
-export function playerPresencePath(authUid, sessionId) {
+export function playerPresencePath(authUid, sessionId, roomId = DEMO_ROOM) {
   const auth = rtdbKey(authUid, 128);
   const session = rtdbKey(sessionId, 64);
-  if (!auth || !session) return '';
-  return `${PLAYERS_PATH}/${auth}/${session}`;
+  const base = playersPathFor(roomId);
+  if (!auth || !session || !base) return '';
+  return `${base}/${auth}/${session}`;
 }
 
 function isPresenceRow(value) {
@@ -371,12 +411,19 @@ export function remotePlayersFromMap(map, selfUid, now = Date.now()) {
   return remotes;
 }
 
-/** Rows for the Online list. Idle Driver leftovers are omitted; every other name stays. */
-export function listedPlayers(map, selfUid = '') {
+/**
+ * Rows for the Online list. Idle Driver leftovers are omitted.
+ * A row with no fresh heartbeat drops off about a minute after `updatedAt`.
+ * The database row stays until its owner disconnects — a session that is still
+ * heartbeating is kept.
+ */
+export function listedPlayers(map, selfUid = '', now = Date.now()) {
   const out = [];
   const self = typeof selfUid === 'string' ? selfUid : '';
   for (const [key, value] of eachPresence(map)) {
     if (isIdleDriverRecord(value)) continue;
+    const at = Number(value?.updatedAt);
+    if (!Number.isFinite(at) || now - at > ONLINE_STALE_MS) continue;
     const row = parsePresence(value, key);
     if (!row) continue;
     out.push({ name: row.name, uid: row.uid, you: !!self && row.uid === self });
@@ -384,9 +431,9 @@ export function listedPlayers(map, selfUid = '') {
   return out;
 }
 
-/** The Online button uses this length, including yourself. */
-export function onlinePlayerCount(map, selfUid = '') {
-  return listedPlayers(map, selfUid).length;
+/** The Online button uses this length, including yourself. Stale heartbeats are not counted. */
+export function onlinePlayerCount(map, selfUid = '', now = Date.now()) {
+  return listedPlayers(map, selfUid, now).length;
 }
 
 /** Strip undefined (RTDB rejects undefined). */

@@ -21,7 +21,9 @@ import {
   onlinePlayerCount,
   parsePresence,
   playerPresencePath,
+  playersPathFor,
   presenceIdentity,
+  presenceJoinAllowed,
   presenceSessionId,
   remotePlayersFromMap,
   toRtdb,
@@ -40,7 +42,7 @@ export class PresenceRoom {
   }
 
   path() {
-    return playerPresencePath(this.authUid, this.sessionId);
+    return playerPresencePath(this.authUid, this.sessionId, this.roomId);
   }
 
   get remotes() {
@@ -53,7 +55,7 @@ export class PresenceRoom {
 
   listen() {
     if (this._unsub) return;
-    this._unsub = onValue(ref(this.db, PLAYERS_PATH), (snap) => {
+    this._unsub = onValue(ref(this.db, playersPathFor(this.roomId)), (snap) => {
       this.players = snap.val() || {};
     });
   }
@@ -92,23 +94,44 @@ export class PresenceRoom {
  * `name` seeds presence.name (typed / localStorage / the chosen character).
  * @returns {Promise<{ kind: 'solo' } | { kind: 'joined', room: PresenceRoom }>}
  */
-export async function joinDemoRoom(user = getFirebaseAuth().currentUser, { name, sessionId } = {}) {
-  if (!rtdbConfigured()) return { kind: 'solo' };
-  if (!canJoinMultiplayer(user)) return { kind: 'solo' };
+function safeCurrentUser() {
   try {
-    const db = getFirebaseRtdb();
-    const room = new PresenceRoom(db, DEMO_ROOM, user.uid, sessionId);
+    return getFirebaseAuth().currentUser;
+  } catch {
+    return null;
+  }
+}
+
+export async function joinDemoRoom(user = null, {
+  name,
+  sessionId,
+  roomId = DEMO_ROOM,
+  db = null,
+  write = null,
+  search = '',
+  webdriver = false,
+} = {}) {
+  // The test runner must not touch the live demo room, even if a database
+  // handle was injected. A fake write uses some other room id.
+  if (roomId === DEMO_ROOM && !presenceJoinAllowed({ search, webdriver })) {
+    return { kind: 'solo' };
+  }
+  const current = user || safeCurrentUser();
+  if (!canJoinMultiplayer(current)) return { kind: 'solo' };
+  if (!db && !rtdbConfigured()) return { kind: 'solo' };
+  try {
+    const database = db || getFirebaseRtdb();
+    const room = new PresenceRoom(database, roomId, current.uid, sessionId);
     const rowPath = room.path();
-    if (!room.uid || !rowPath || rowPath === PLAYERS_PATH) return { kind: 'solo' };
-    const rowRef = ref(db, rowPath);
+    if (!room.uid || !rowPath || rowPath === PLAYERS_PATH || !rowPath.includes(`/rooms/${roomId}/`)) {
+      return { kind: 'solo' };
+    }
     const seedName = publishablePlayerName(
       (typeof name === 'string' && name.trim())
         ? name
-        : currentPresenceName(displayNameFor(user) || ''),
+        : currentPresenceName(displayNameFor(current) || ''),
     );
-    await onDisconnect(rowRef).remove();
-    // Seed a minimal row so peers see the join immediately.
-    await set(rowRef, toRtdb({
+    const row = toRtdb({
       uid: room.uid,
       name: seedName,
       x: 0,
@@ -120,9 +143,16 @@ export async function joinDemoRoom(user = getFirebaseAuth().currentUser, { name,
       wanted: { level: 0, heat: 0, status: 'CLEAR', busted: false },
       police: [],
       updatedAt: Date.now(),
-    }));
+    });
+    if (write) {
+      await write(rowPath, row);
+    } else {
+      const rowRef = ref(database, rowPath);
+      await onDisconnect(rowRef).remove();
+      await set(rowRef, row);
+    }
     room._joined = true;
-    room.listen();
+    if (!write) room.listen();
     return { kind: 'joined', room };
   } catch (err) {
     console.warn('joinDemoRoom failed', err);
@@ -144,7 +174,10 @@ export async function goOnline({
   },
   join = joinDemoRoom,
   name,
+  search = '',
+  webdriver = false,
 } = {}) {
+  if (!presenceJoinAllowed({ search, webdriver })) return { kind: 'solo' };
   let user = authUser();
   if (!canJoinMultiplayer(user)) {
     try {
@@ -155,5 +188,5 @@ export async function goOnline({
     }
   }
   if (!canJoinMultiplayer(user)) return { kind: 'solo' };
-  return join(user, { name });
+  return join(user, { name, search, webdriver });
 }

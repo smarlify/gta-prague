@@ -22,7 +22,7 @@ const browser=await chromium.launch({channel:process.env.PW_CHANNEL||'chrome'}),
 // A fresh game per run-up: a rampage brings the police, and a busted driver stops moving.
 async function open(){
  const page=await browser.newPage({viewport:{width:1280,height:800}});page.on('pageerror',e=>errors.push(String(e)));
- await page.goto(`${base}/?city=${id}`);
+ await page.goto(`${base}/?city=${id}&presence=off`);
  await page.waitForFunction(()=>window.openCityDrive?.getState().ready||window.helsinkiBootError,null,{timeout:180000});
  const failed=await page.evaluate(()=>window.helsinkiBootError);if(failed)throw Error(`Game failed to start: ${failed.message}`);
  await page.getByRole('button',{name:'Let’s go for a drive'}).click();await page.waitForTimeout(1500);return page;
