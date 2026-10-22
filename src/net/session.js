@@ -17,6 +17,7 @@ import { rtdbConfigured } from './firebase-rtdb.js';
 import { goOnline, joinDemoRoom } from './room.js';
 import { createRemotePresence } from './remote-presence.js';
 import { bindOnlineHud } from './online-hud.js';
+import { ARREST_RANGE } from '../driver-starts.js';
 
 function paintHex(group) {
   let paint = null;
@@ -67,6 +68,8 @@ export function createMultiplayerSession(scene, {
   getCar = () => null,
   getSiren = () => false,
   getAmbulances = () => [],
+  getPeerArrest = () => null,
+  onPeerArrest = () => {},
   doc = document,
 } = {}) {
   const remotes = createRemotePresence(scene);
@@ -124,6 +127,9 @@ export function createMultiplayerSession(scene, {
     isOnline,
     onlineCount,
     remotes,
+    livePlayers() {
+      return (room?.remotes || []).filter((row) => Number.isFinite(row.x) && Number.isFinite(row.z));
+    },
     async ensureJoinedIfSignedIn() {
       const user = (() => {
         try { return getFirebaseAuth().currentUser; } catch { return null; }
@@ -163,6 +169,16 @@ export function createMultiplayerSession(scene, {
         for (const [key, at] of appliedImpulses) {
           if (now - at > 4000) appliedImpulses.delete(key);
         }
+        if (!busted) {
+          const me = getTravel()?.actor;
+          for (const remote of room.remotes) {
+            if (remote.arrest?.target !== room.uid || !remote.siren || !remote.vehicle?.police) continue;
+            if (!me || !Number.isFinite(me.x)) continue;
+            if (Math.hypot(remote.x - me.x, remote.z - me.z) > ARREST_RANGE + 2) continue;
+            onPeerArrest();
+            break;
+          }
+        }
         if (afk) {
           if (!afkSince) afkSince = now;
         } else {
@@ -180,7 +196,11 @@ export function createMultiplayerSession(scene, {
           const police = getPolice();
           const snap = police?.snapshot?.();
           const block = getRoadblock();
-          const arrest = arrestFrom(block?.snapshot?.(), !!(busted || snap?.busted));
+          let arrest = arrestFrom(block?.snapshot?.(), !!(busted || snap?.busted));
+          if (!busted) {
+            const peer = getPeerArrest();
+            if (peer?.target) arrest = peer;
+          }
           const showForce = (snap?.level > 0) || !!(snap?.busted || busted) || arrest.active;
           const vehicle = vehicleFromTravel(travel, getPlayerCars());
           const presence = buildPresence({

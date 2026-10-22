@@ -8,11 +8,13 @@ export const TRAVEL_MODES=Object.freeze({
  walk:{label:'On foot',speed:2,run:9.6,acceleration:8,braking:12,halfWidth:.28,halfLength:.28},
  swim:{label:'Swimming',speed:1.55,run:2.2,acceleration:3.5,braking:5,halfWidth:.35,halfLength:.45},
  bike:{label:'Bicycle',speed:7,acceleration:2.4,braking:7,halfWidth:.34,halfLength:.9},
+ motorbike:{label:'Motorbike',speed:18,acceleration:6.5,braking:11,halfWidth:.42,halfLength:1.15},
  scooter:{label:'Scooter',speed:25/3.6,acceleration:2.8,braking:8,halfWidth:.3,halfLength:.62},
+ challenger:{label:'Challenger',speed:4.2,acceleration:1.6,braking:3.2,halfWidth:.95,halfLength:1.35},
 });
 export const CRASH_SPEED=2.2; // m/s: slower bumps just stop the ride
 // Impact kinds (impacts.js HITTER_MASS) of the player's own body, and the speeds below which people simply step aside.
-export const HIT_KIND={walk:'walker',swim:'walker',bike:'bicycle',scooter:'scooter'},HIT_SPEED={walker:1,bicycle:1.2,scooter:1.2};
+export const HIT_KIND={walk:'walker',swim:'walker',bike:'bicycle',scooter:'scooter',motorbike:'motorbike',challenger:'walker'},HIT_SPEED={walker:1,bicycle:1.2,scooter:1.2,motorbike:1.4};
 const onFoot=mode=>mode==='walk'||mode==='swim';
 const inMappedWater=(world,x,z)=>world.water?.some(b=>(!b.bbox||x>=b.bbox[0]&&x<=b.bbox[2]&&z>=b.bbox[1]&&z<=b.bbox[3])&&pointInPolygon(x,z,b.rings));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -25,6 +27,8 @@ export function slopeFactor(mode,grade){
  if(mode==='swim')return 1;
  if(mode==='bike')return g>0?Math.max(.3,1/(1+9*g)):Math.min(1.35,1-4*g);
  if(mode==='scooter')return g>0?Math.max(.45,1/(1+4.5*g)):Math.min(1.15,1-2*g);
+ if(mode==='motorbike')return g>0?Math.max(.55,1/(1+3*g)):Math.min(1.12,1-1.2*g);
+ if(mode==='challenger')return 1;
  return 1;
 }
 const slope=[0,0];
@@ -41,6 +45,12 @@ export function travelCollision(p,mode,world,obstacles=[],ignore=[],from=null){
  const buildings=world.collisionBuildings||world.buildings;
  for(const [sx,sz] of [[0,0],[-w,-l],[w,-l],[-w,l],[w,l],[0,-l],[0,l]]){
   const q=offset(p,sx,sz);
+  // The Challenger stays in open water and stops at a bank, a road, or a deck.
+  if(mode==='challenger'){
+   if(!insidePlayable(q.x,q.z,.2))return 'boundary';
+   if(!inMappedWater(world,q.x,q.z)||world.roads.at(q.x,q.z)||world.pavement?.at(q.x,q.z))return 'bank';
+   continue;
+  }
   if(!insidePlayable(q.x,q.z,.2))return 'boundary';
   const building=ignore.length&&buildings.near?buildings.near(q.x,q.z).find(b=>!b.disabled&&!ignore.includes(b)&&pointInPolygon(q.x,q.z,b.rings)):buildings.at(q.x,q.z);
   if(building&&!ignore.includes(building))return 'building';
@@ -105,26 +115,28 @@ export class PlayerTravel{
  reset(car,world,{ride=null}={}){
   for(const source of this.claimedSources||[])source.release?.();
   this.claimedSources=[];this.world=world;this.car=car;this.homeCar=car;car.travelMode='car';car.id='car';this.cars=[car];this.actor=car;this.mode='car';this.rides=starterRides(car,world);this.riding=null;this.transition=null;this.sprint=false;this.sunkCar=null;
-  if(ride==='bike')this.mountStarterBicycle();
+  if(ride==='bike'||ride==='motorbike'||ride==='challenger')this.mountStarterRide(ride);
  }
- // The chosen place stays under the rider. The home car waits on the spot the
- // starter bicycle would have used, so the two do not occupy the same ground.
- mountStarterBicycle(){
+ // The chosen place stays under the rider. The home car waits nearby, so the
+ // two do not occupy the same ground. A boat searches out to the bank.
+ mountStarterRide(mode){
   const start={x:this.car.x,z:this.car.z,heading:this.car.heading};
-  let bike=this.rides.find(item=>item.id==='bike'&&item.mode==='bike');
-  if(!bike){bike={...makeActor(start,'bike'),id:'bike',mode:'bike',parked:true};this.rides.push(bike);}
-  if(Math.hypot(bike.x-start.x,bike.z-start.z)>1){this.car.x=bike.x;this.car.z=bike.z;this.car.heading=bike.heading;}
+  let ride=this.rides.find(item=>item.id===mode&&item.mode===mode);
+  if(!ride){ride={...makeActor(start,mode),id:mode,mode,parked:true};this.rides.push(ride);}
+  if(Math.hypot(ride.x-start.x,ride.z-start.z)>1){this.car.x=ride.x;this.car.z=ride.z;this.car.heading=ride.heading;}
   else{
-   for(let radius=4;radius<=22&&Math.hypot(this.car.x-start.x,this.car.z-start.z)<1;radius+=2){
+   const limit=mode==='challenger'?120:22,step=mode==='challenger'?4:2;
+   for(let radius=4;radius<=limit&&Math.hypot(this.car.x-start.x,this.car.z-start.z)<1;radius+=step){
     for(let i=0;i<16;i++){
      const angle=i*Math.PI/8,spot={x:start.x+Math.cos(angle)*radius,z:start.z+Math.sin(angle)*radius,heading:start.heading};
-     if(travelCollision(spot,'car',this.world,[bike,...this.rides.filter(item=>item!==bike)]))continue;
+     if(travelCollision(spot,'car',this.world,[ride,...this.rides.filter(item=>item!==ride)]))continue;
      this.car.x=spot.x;this.car.z=spot.z;break;
     }
    }
   }
-  Object.assign(bike,start,{speed:0,steer:0,parked:false,visual:{kind:'bicycle'}});
-  this.actor=bike;this.mode='bike';this.riding=bike;
+  const visual=mode==='motorbike'?{kind:'motorbike'}:mode==='challenger'?{kind:'challenger'}:{kind:'bicycle'};
+  Object.assign(ride,start,{speed:0,steer:0,parked:false,visual});
+  this.actor=ride;this.mode=mode;this.riding=ride;
  }
  parked(){return [...this.cars.filter(c=>c!==this.actor),...this.rides.filter(r=>r!==this.riding)];}
  parkedBodies(){return this.parked().map(p=>({...p,hw:p.halfWidth??.98,hl:p.halfLength??2.36,ref:{...p,parked:true}}));}
@@ -228,7 +240,7 @@ export class PlayerTravel{
    p.distance+=gap(p,q);Object.assign(p,{x:q.x,z:q.z,heading:q.heading});
   }
   if(this.riding)Object.assign(this.riding,p);
-  if(collision&&!walk&&Math.abs(before.speed)>=CRASH_SPEED){const v=Math.abs(before.speed);this.crash(v,obstacles);return {collision,moved:gap(before,p),crashed:v};}
+  if(collision&&!walk&&this.mode!=='challenger'&&Math.abs(before.speed)>=CRASH_SPEED){const v=Math.abs(before.speed);this.crash(v,obstacles);return {collision,moved:gap(before,p),crashed:v};}
   return {collision,moved:gap(before,p)};
  }
  snapshot(){const copy=({visual,...actor})=>({...actor});return {mode:this.mode,sprint:this.sprint,actor:copy(this.actor),car:this.car?copy(this.car):null,cars:this.cars.map(copy),rides:this.rides.map(copy),choices:this.choices().map(({id,mode,label,distance,available})=>({id,mode,label,distance,available})),sunk:!!this.sunkCar};}

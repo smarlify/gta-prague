@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {createPersonBatch,personLook,advanceGait,JOINT} from './person-model.js';
-import {createRideVehicle,PLAYER_BIKE,PLAYER_SCOOTER} from './player-ride-models.js';
+import {createRideVehicle,PLAYER_BIKE,PLAYER_SCOOTER,challengerWaterY} from './player-ride-models.js';
 import {groundAt} from './terrain.js';
 
 export function createPlayerTravelRenderer(scene){
@@ -20,15 +20,16 @@ export function createPlayerTravelRenderer(scene){
   for(const {root,ring,motion,ride,lift} of models.values()){
    root.visible=Math.hypot(ride.x-p.x,ride.z-p.z)<220;if(!root.visible)continue;
    const q=travel.riding===ride?p:ride;
-   root.position.set(q.x,lift+groundAt(q.x,q.z),q.z);root.rotation.y=q.heading;
+   const boat=ride.visual?.kind==='challenger'||ride.mode==='challenger';
+   root.position.set(q.x,boat?challengerWaterY(q.x,q.z):lift+groundAt(q.x,q.z),q.z);root.rotation.y=q.heading;
    const f=ride.fallen;if(f)f.elapsed=Math.min(1,(f.elapsed||0)+dt*3);root.rotation.z=f?f.side*(Math.PI/2-.12)*f.elapsed*f.elapsed:0; // tipped onto its side after a crash
    motion?.update(ride.distance||0);
    ring.visible=actorVisible&&travel.mode==='walk'&&travel.riding!==ride&&Math.hypot(ride.x-p.x,ride.z-p.z)<3.2;
   }
   person.begin();hand=null;
-  if(actorVisible&&(travel.mode!=='car'||travel.gagDriver)){
+  if(actorVisible&&travel.mode!=='challenger'&&(travel.mode!=='car'||travel.gagDriver)){
    const driving=travel.mode==='car'&&travel.gagDriver,swimming=travel.mode==='swim';
-   const pose=driving?'hail':swimming||travel.mode==='walk'?'walk':travel.mode==='bike'?'cycle':'scooter';
+   const pose=driving?'hail':swimming||travel.mode==='walk'?'walk':travel.mode==='scooter'?'scooter':'cycle';
    const model=models.get(travel.riding?.id),bike=model?.anchors||PLAYER_BIKE,lift=model?.lift??.12;
    const h=p.heading,lx=-Math.cos(h),lz=Math.sin(h),fx=-Math.sin(h),fz=-Math.cos(h);
    const actor={...p,x:driving?p.x+lx*.38+fx*.15:p.x,z:driving?p.z+lz*.38+fz*.15:p.z,speed:driving?0:Math.abs(p.speed),pose,gaitDirection:pose==='walk'&&p.speed<0?-1:1,groundY:driving?.42:swimming?-.55:pose==='scooter'?PLAYER_SCOOTER.groundY+lift-.12:pose==='cycle'?lift:.12,running:!driving&&!swimming&&Math.abs(p.speed)>2.5,grip:!driving&&!swimming,seated:driving,seatY:.5,

@@ -8,12 +8,12 @@ import {groundPose} from './terrain.js';
 // nose for yaw, one lifting nozzle at each corner) plus four underbody suction
 // fans. It is not magnetic levitation: the wheels are the motors, and the
 // nozzles are compressed-nitrogen rockets with electric actuators.
-// In the air the stick matches the San Andreas flying-cars cheat: throttle
-// lifts the nose and thrusts along it, brake drops the nose, steering rolls.
+// In the air Shift still lifts. W pitches the nose down, S pitches the nose up,
+// and A and D roll. Thrust still follows the nose.
 export const ROADSTER_CLEARANCE=2.6;
 export const ROADSTER_CEILING=64;
 export const ROADSTER_AIR_MAX=72;
-// The flying-cars cheat noses up with the throttle. Pitch and roll stop
+// W noses down and S noses up. Pitch and roll stop
 // before the car can tumble onto its roof; past that, thrust just climbs.
 const ROADSTER_PITCH_LIMIT=.95;
 const ROADSTER_ROLL_LIMIT=1.05;
@@ -53,7 +53,7 @@ export function roadsterStep(car,keys,dt,world){
  }
  if(!Number.isFinite(car.vx))car.vx=0;if(!Number.isFinite(car.vy))car.vy=0;if(!Number.isFinite(car.vz))car.vz=0;if(!Number.isFinite(car.alt))car.alt=0;
  const auth=clamp(((car.alt||0)-.25)/1.1,0,1);
- const pitchStick=(throttle?1:0)-(reverse?1:0);
+ const pitchStick=(reverse?1:0)-(throttle?1:0);
  car.pitchRate=(car.pitchRate||0)+(pitchStick*6.2*auth-(car.pitchRate||0)*3.2)*dt;
  car.rollRate=(car.rollRate||0)+(rollStick*8*auth-(car.rollRate||0)*3.2)*dt;
  car.pitch=clamp((car.pitch||0)+car.pitchRate*dt,-ROADSTER_PITCH_LIMIT,ROADSTER_PITCH_LIMIT);

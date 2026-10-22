@@ -17,7 +17,7 @@ export const STALE_MS = 8000;
 export const AFK_STALE_MS = 60_000;
 const IMPULSE_TTL_MS = 2500;
 
-export const TRAVEL_MODES_NET = Object.freeze(['car', 'walk', 'bike', 'scooter']);
+export const TRAVEL_MODES_NET = Object.freeze(['car', 'walk', 'bike', 'scooter', 'motorbike', 'challenger']);
 
 function finiteNumber(value, fallback = 0) {
   const n = Number(value);
@@ -214,11 +214,14 @@ export function parseArrest(raw) {
   if (!raw || typeof raw !== 'object' || !raw.active) {
     return { active: false, phase: 'idle', t: 0 };
   }
-  return {
+  const row = {
     active: true,
     phase: cleanString(raw.phase, 24) || 'reach',
     t: Math.max(0, finiteNumber(raw.t, 0)),
   };
+  const target = cleanString(raw.target, 128);
+  if (target) row.target = target;
+  return row;
 }
 
 /** Published shove from one client onto another player's car. `speed` is the impulse magnitude. */

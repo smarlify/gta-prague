@@ -1,6 +1,7 @@
 // Welcome-card choice: which vehicle is waiting for Start, and which name the
-// local player publishes. Nothing in the address rolls one of the four.
-// The card cycles that choice with the same ‹ › row as the district and street.
+// local player publishes. A missing ?driver= rolls every driver equally and
+// does not write the roll. The card cycles that choice with the same ‹ › row
+// as the district and the street.
 import {rollIndex, slug} from './cities.js';
 import {cycleIndex} from './start-picker.js';
 import {locationPageTitle} from './worldhood-brand.js';
@@ -18,7 +19,7 @@ export const CHARACTERS = Object.freeze([
   }),
   Object.freeze({
     id: 'elon',
-    label: 'Roadster — Elon Musk',
+    label: 'Tesla Roadster — Elon Musk',
     name: 'Elon Musk',
     type: 'roadster',
     flies: true,
@@ -41,6 +42,43 @@ export const CHARACTERS = Object.freeze([
     flies: false,
     pavlova: false,
   }),
+  Object.freeze({
+    id: 'pavel',
+    label: 'Motorbike — Petr Pavel',
+    name: 'Petr Pavel',
+    type: 'motorbike',
+    ride: 'motorbike',
+    flies: false,
+    pavlova: false,
+  }),
+  Object.freeze({
+    id: 'slachta',
+    label: 'Police car — Robert Šlachta',
+    name: 'Robert Šlachta',
+    type: 'police',
+    flies: false,
+    pavlova: false,
+    police: true,
+    chase: true,
+  }),
+  Object.freeze({
+    id: 'zeman',
+    label: 'Challenger — Miloš Zeman',
+    name: 'Miloš Zeman',
+    type: 'challenger',
+    ride: 'challenger',
+    flies: false,
+    pavlova: false,
+    water: true,
+  }),
+  Object.freeze({
+    id: 'kraus',
+    label: 'BMW X5 — Jan Kraus',
+    name: 'Jan Kraus',
+    type: 'x5',
+    flies: false,
+    pavlova: false,
+  }),
 ]);
 
 export const DEFAULT_CHARACTER_ID = 'elon';
@@ -49,7 +87,7 @@ export function characterById(id) {
   return CHARACTERS.find((choice) => choice.id === id) || CHARACTERS.find((choice) => choice.id === DEFAULT_CHARACTER_ID);
 }
 
-/** The choice `step` places away. -1 from Filip is Zdeněk, and +1 from Zdeněk is Filip. */
+/** The choice `step` places away. -1 from Filip is Jan Kraus, and +1 from Jan Kraus is Filip. */
 export function cycleCharacter(id, step) {
   const index = CHARACTERS.findIndex((choice) => choice.id === id);
   return CHARACTERS[cycleIndex(CHARACTERS.length, index, step)];
@@ -62,6 +100,13 @@ export function cycleCharacter(id, step) {
  */
 export function characterSwitchRebuilds(previous, next) {
   return (previous?.ride || null) !== (next?.ride || null);
+}
+
+/** The ride the player is on, or null while they are in a car or on foot. */
+export function occupiedRide(travel) {
+  const mode = travel?.mode;
+  if (mode === 'bike' || mode === 'motorbike' || mode === 'challenger') return mode;
+  return null;
 }
 
 function storageOf(storage) {
@@ -98,6 +143,14 @@ const DRIVER_QUERY = {
   hrib: 'hrib',
   zdenek: 'hrib',
   'zdenek-hrib': 'hrib',
+  pavel: 'pavel',
+  'petr-pavel': 'pavel',
+  slachta: 'slachta',
+  'robert-slachta': 'slachta',
+  zeman: 'zeman',
+  'milos-zeman': 'zeman',
+  kraus: 'kraus',
+  'jan-kraus': 'kraus',
 };
 
 /** The character named by ?driver=, or null when the param is missing or unknown. */
@@ -110,8 +163,8 @@ export function driverFromSearch(search = '') {
 
 /**
  * A known ?driver= pins that choice.
- * A missing param rolls Filip, Elon, Dave, or Zdeněk once and does not read the saved driver.
- * An unknown value stays on the Roadster.
+ * A missing param rolls every driver equally and does not read or write the saved driver.
+ * An unknown value stays on the Tesla Roadster.
  */
 export function resolveDriver(search = '', storage, roll = Math.random) {
   void storage;
