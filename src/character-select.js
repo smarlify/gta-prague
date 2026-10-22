@@ -144,12 +144,16 @@ const DRIVER_QUERY = {
   zdenek: 'hrib',
   'zdenek-hrib': 'hrib',
   pavel: 'pavel',
+  petr: 'pavel',
   'petr-pavel': 'pavel',
   slachta: 'slachta',
+  robert: 'slachta',
   'robert-slachta': 'slachta',
   zeman: 'zeman',
+  milos: 'zeman',
   'milos-zeman': 'zeman',
   kraus: 'kraus',
+  jan: 'kraus',
   'jan-kraus': 'kraus',
 };
 
