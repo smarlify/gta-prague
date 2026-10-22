@@ -71,6 +71,10 @@ function bind(root, options) {
     const node = q('ads-board');
     node.hidden = !id;
     node.textContent = id ? `This billboard: ${id}` : '';
+    const link = q('ads-page-link');
+    if (link) {
+      link.href = id ? `/ads.html?board=${encodeURIComponent(id)}` : '/ads.html';
+    }
   }
 
   function selectedCurrency() {
@@ -252,7 +256,17 @@ function bind(root, options) {
       });
       await options.presentCheckout(payload);
     } catch (error) {
-      q('ads-status').textContent = error.message;
+      const popupBlocked = error.message === 'popup-blocked';
+      const fallback = q('ads-page-fallback');
+      const link = q('ads-page-link');
+      if (popupBlocked && fallback && link) {
+        const id = chosenBoard();
+        link.href = id ? `/ads.html?board=${encodeURIComponent(id)}` : '/ads.html';
+        fallback.hidden = false;
+        q('ads-status').textContent = 'Allow a payment window to check out. Use the advertiser page to pay.';
+      } else {
+        q('ads-status').textContent = error.message;
+      }
     }
   });
   services().auth.onAuthStateChanged((user) => {

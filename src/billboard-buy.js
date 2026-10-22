@@ -100,23 +100,31 @@ export function createBillboardBuy({root, onOpen = () => {}, onClose = () => {},
       return;
     }
     if (!payload?.url) throw new Error('Checkout did not return a payment page');
-    stopWindow = openBillboardPaymentWindow(payload.url, {
-      win,
-      onResult(result) {
-        stopWindow = () => {};
-        if (result.checkout === 'success' && result.sessionId) {
-          pendingReturn = {checkout: 'success', sessionId: result.sessionId};
-          flow?.sync()?.catch((error) => status(error.message));
-          return;
-        }
-        if (result.checkout === 'cancel') {
-          pendingReturn = {checkout: 'cancel', sessionId: ''};
-          flow?.sync()?.catch((error) => status(error.message));
-          return;
-        }
-        if (result.checkout === 'closed') status('Payment window closed.');
-      },
-    });
+    try {
+      stopWindow = openBillboardPaymentWindow(payload.url, {
+        win,
+        onResult(result) {
+          stopWindow = () => {};
+          if (result.checkout === 'success' && result.sessionId) {
+            pendingReturn = {checkout: 'success', sessionId: result.sessionId};
+            flow?.sync()?.catch((error) => status(error.message));
+            return;
+          }
+          if (result.checkout === 'cancel') {
+            pendingReturn = {checkout: 'cancel', sessionId: ''};
+            flow?.sync()?.catch((error) => status(error.message));
+            return;
+          }
+          if (result.checkout === 'closed') status('Payment window closed.');
+        },
+      });
+    } catch (error) {
+      const popupBlocked = error.message === 'Allow a payment window to check out';
+      if (popupBlocked) {
+        throw new Error('popup-blocked');
+      }
+      throw error;
+    }
   }
 
   function ensure() {

@@ -59,3 +59,17 @@ test('the modal close control is a phone-sized button and the city controls stay
   assert.match(main, /onClose\(\)\{if\(started&&!mapOpen&&!police\?\.busted\)setPaused\(false\)/);
   assert.match(main, /billboardBuy\?\.isOpen\(\)&&e\.code!=='Escape'/);
 });
+
+test('the advertiser page link is updated with the board parameter', () => {
+  const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
+  assert.match(adsFlow, /link\.href\s*=\s*id\s*\?\s*`\/ads\.html\?board=\$\{encodeURIComponent\(id\)\}`\s*:\s*'\/ads\.html'/);
+});
+
+test('popup-blocked payment shows the advertiser page fallback', () => {
+  const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
+  const billboardBuy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
+  assert.match(billboardBuy, /throw new Error\('popup-blocked'\)/);
+  assert.match(adsFlow, /error\.message === 'popup-blocked'/);
+  assert.match(adsFlow, /link\.href = id \? `\/ads\.html\?board=\$\{encodeURIComponent\(id\)\}` : '\/ads\.html'/);
+  assert.match(adsFlow, /fallback\.hidden = false/);
+});
