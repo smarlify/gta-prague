@@ -130,6 +130,29 @@ test('?driver= pins Elon, Turek, Dave, or Zdeněk and an unknown value stays on 
   assert.equal(driverFromSearch(''), null);
 });
 
+test('hundreds of unpinned visits share the listed drivers and do not write the roll', () => {
+  const storage = memoryStorage();
+  writeCharacterId(storage, 'zeman');
+  let writes = 0;
+  const setItem = storage.setItem;
+  storage.setItem = (key, value) => {
+    if (key === 'gta-praha-character') writes += 1;
+    setItem(key, value);
+  };
+  const counts = Object.fromEntries(listedCharacters().map((choice) => [choice.id, 0]));
+  const searches = ['', '?city=prague&start=narodni-muzeum'];
+  for (let i = 0; i < 800; i++) counts[resolveDriver(searches[i % 2], storage).id] += 1;
+  const hit = Object.values(counts).filter((n) => n > 0).length;
+  assert.ok(hit > 1, 'unpinned rolls hit more than one character');
+  assert.equal(hit, listedCharacters().length);
+  for (const [id, n] of Object.entries(counts)) {
+    assert.ok(n > 30 && n < 200, `${id} came up ${n} times in 800 rolls`);
+  }
+  assert.ok(counts.zeman < 800, 'Zeman is not the only result');
+  assert.equal(writes, 0, 'a roll does not write the chosen id');
+  assert.equal(storage.getItem('gta-praha-character'), 'zeman');
+});
+
 test('a saved choice is remembered and an unknown id falls back to the Roadster', () => {
   const storage = memoryStorage();
   assert.equal(writeCharacterId(storage, 'filip').name, 'Filip Turek');
