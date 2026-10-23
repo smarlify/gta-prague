@@ -444,12 +444,13 @@ function uniformTexture(kind,word=POLICE_UNIFORM.text){
 // ---------- instanced batch ----------
 const color=new THREE.Color(),looks=new WeakMap();
 function colors(look){
- let c=looks.get(look);if(c)return c;
+ let c=looks.get(look);if(c&&c.paintRev===(look.paintRev||0))return c;
  const rgb=v=>{color.set(v);return [color.r,color.g,color.b];};
- c={shirt:rgb(look.shirt||'#4b4f55'),skin:rgb(look.skin||'#e3b48f'),trousers:rgb(look.trousers||'#2e3440'),hair:rgb(look.hairStyle==='beanie'?look.hat||'#2a2d33':look.hair||'#3b2a20'),
+ c={paintRev:look.paintRev||0,shirt:rgb(look.shirt||'#4b4f55'),skin:rgb(look.skin||'#e3b48f'),trousers:rgb(look.trousers||'#2e3440'),hair:rgb(look.hairStyle==='beanie'?look.hat||'#2a2d33':look.hair||'#3b2a20'),
   shoes:rgb(look.shoes||'#1b1b1d'),bag:rgb(look.bagColor||'#2b2b2e'),legs:rgb(look.skirt?(look.tights||'#2a2a2e'):look.trousers||'#2e3440'),coat:rgb(look.skirt?look.trousers||'#2e3440':look.shirt||'#4b4f55'),
   case:rgb(look.caseColor||'#334b60'),metal:rgb('#9da4a6'),dark:rgb('#25282b'),scarf:rgb(look.scarf||'#8a2f35'),dog:rgb(look.dogColor||'#5a4030'),
-  black:rgb('#141518'),phone:rgb('#202226'),badge:rgb('#c9ccd0'),vest:rgb(look.uniform==='vest'?'#d4e03c':look.shirt||'#1e2a44')};
+  black:rgb('#141518'),phone:rgb('#202226'),badge:rgb('#c9ccd0'),vest:rgb(look.uniform==='vest'?'#d4e03c':look.shirt||'#1e2a44'),
+  jacket:rgb(look.jacket||look.shirt||'#4b4f55'),hairPigment:rgb(look.hair||'#3b2a20')};
  if(look.hairStyle==='cap'||look.hairStyle==='police')c.hair=rgb(look.hat||'#2a2d33');
  looks.set(look,c);return c;
 }
@@ -551,6 +552,28 @@ export function createPersonBatch(capacity,options={}){
  }
  const jsegFree=(ax,ay,az,bx,by,bz,rx,rz,rgb)=>seg(ax,ay,az,bx,by,bz,rx,rz,1,0,0,rx*.6,rx*.6,rgb);
  const jseg=(a,b,rx,rz,ea,eb,rgb,hx=1,hy=0,hz=0)=>seg(J[a],J[a+1],J[a+2],J[b],J[b+1],J[b+2],rx,rz,hx,hy,hz,ea,eb,rgb);
+ // Glasses and Dave's beard are a few thin plates on the head. The boat figure
+ // does not use this batch. Crowds leave glasses and beard unset.
+ function drawFaceGear(look,hk,col,hx,hy,hz,zx,zy,zz){
+  const h=JOINT.head,X=JOINT.spineX;
+  const plate=(lx,ly,lz,sx,sy,sz,rgb)=>{
+   const cx=J[h]+J[X]*lx+hx*ly+zx*lz,cy=J[h+1]+J[X+1]*lx+hy*ly+zy*lz,cz=J[h+2]+J[X+2]*lx+hz*ly+zz*lz;
+   write(meshes.bag,cursor[BAG]++,J[X]*sx,J[X+1]*sx,J[X+2]*sx,hx*sy,hy*sy,hz*sy,zx*sz,zy*sz,zz*sz,cx+hx*sy*.5,cy+hy*sy*.5,cz+hz*sy*.5,rgb);
+  };
+  if(look.glasses==='sun'||look.glasses==='frame'){
+   const y=.02*hk,z=-.1*hk,dark=look.glasses==='sun'?col.black:col.dark;
+   if(look.glasses==='sun'){plate(-.032*hk,y,z,.032*hk,.018*hk,.005*hk,dark);plate(.032*hk,y,z,.032*hk,.018*hk,.005*hk,dark);plate(0,y,z,.014*hk,.004*hk,.005*hk,dark);}
+   else{plate(0,y+.012*hk,z,.09*hk,.004*hk,.004*hk,dark);plate(0,y-.012*hk,z,.09*hk,.0035*hk,.004*hk,dark);plate(-.045*hk,y,z,.004*hk,.026*hk,.004*hk,dark);plate(.045*hk,y,z,.004*hk,.026*hk,.004*hk,dark);plate(0,y,z,.012*hk,.004*hk,.004*hk,dark);}
+  }
+  if(look.beard){
+   plate(0,-.038*hk,-.092*hk,.05*hk,.012*hk,.014*hk,col.hairPigment);
+   plate(0,-.072*hk,-.062*hk,.058*hk,.042*hk,.02*hk,col.hairPigment);
+  }
+  if(look.hairPeek&&(look.hairStyle==='police'||look.hairStyle==='cap')){
+   plate(-.062*hk,-.02*hk,.01*hk,.02*hk,.03*hk,.02*hk,col.hairPigment);
+   plate(.062*hk,-.02*hk,.01*hk,.02*hk,.03*hk,.02*hk,col.hairPigment);
+  }
+ }
  // `viewer` ({x,z}) selects each person's level by distance; without one everybody is drawn in full.
  function begin(viewer=null){cursor.fill(0);minX=minZ=minY=Infinity;maxX=maxZ=maxY=-Infinity;focus=viewer&&Number.isFinite(viewer.x)&&Number.isFinite(viewer.z)?viewer:null;}
  function draw(actor,look=actor,gait=actor,time=0){
@@ -568,16 +591,21 @@ export function createPersonBatch(capacity,options={}){
   const bulk=look.outer==='puffer'?1.1:look.uniform==='vest'?1.06:1;
   const tw=.125*H*sw*bulk,td=.07*H*(.9+.1*build)*(1+.04*fem)*bulk,tl=PROPORTIONS.torso*H;
   const tm=look.uniform&&UNIFORM[look.uniform]>=0?UNIFORM[look.uniform]:0;
-  write(list[tm],cursor[tm]++,J[X]*tw,J[X+1]*tw,J[X+2]*tw,J[Y]*tl,J[Y+1]*tl,J[Y+2]*tl,J[Z]*td,J[Z+1]*td,J[Z+2]*td,J[b],J[b+1],J[b+2],tm?WHITE:col.shirt);
+  const shell=look.jacket&&!look.uniform?col.jacket:col.shirt;
+  write(list[tm],cursor[tm]++,J[X]*tw,J[X+1]*tw,J[X+2]*tw,J[Y]*tl,J[Y+1]*tl,J[Y+2]*tl,J[Z]*td,J[Z+1]*td,J[Z+2]*td,J[b],J[b+1],J[b+2],tm?WHITE:shell);
+  if(look.jacket&&!tm){const py=PROPORTIONS.torso*H*.58,front=-.09*H,sy=.22*H,sx=.05*H,sz=.015*H;
+   const cx=J[b]+J[Y]*py+J[Z]*front,cy=J[b+1]+J[Y+1]*py+J[Z+1]*front,cz=J[b+2]+J[Y+2]*py+J[Z+2]*front;
+   write(meshes.bag,cursor[BAG]++,J[X]*sx,J[X+1]*sx,J[X+2]*sx,J[Y]*sy,J[Y+1]*sy,J[Y+2]*sy,J[Z]*sz,J[Z+1]*sz,J[Z+2]*sz,cx+J[Y]*sy*.5,cy+J[Y+1]*sy*.5,cz+J[Y+2]*sy*.5,col.shirt);}
   // Head and hair share the head frame.
   const hY=JOINT.headY,hx=J[hY],hy=J[hY+1],hz=J[hY+2],zx=J[X+1]*hz-J[X+2]*hy,zy=J[X+2]*hx-J[X]*hz,zz=J[X]*hy-J[X+1]*hx,h=JOINT.head;
   const headIndex=cursor[1];
   if(headIndex<faceState.count){facePose(actor,look,gait,time,face,distance<=lod.face);faceState.setXYZW(headIndex,face[0],face[1],face[2],face[3]);faceShape.setXYZW(headIndex,face[4],face[5],face[6],face[7]);}
   write(meshes.head,cursor[1]++,J[X]*hk,J[X+1]*hk,J[X+2]*hk,hx*hk,hy*hk,hz*hk,zx*hk,zy*hk,zz*hk,J[h],J[h+1],J[h+2],col.skin);
   const style=look.hairStyle||(look.hat?'beanie':'short');
-  const capped=style==='cap'||style==='police';
-  if(style!=='bald'){const g=style==='beanie'||capped?1.1:style==='short'?1:1.04,lift=style==='beanie'?.012:capped?.016:0;
-   write(meshes.hair,cursor[2]++,J[X]*hk*g,J[X+1]*hk*g,J[X+2]*hk*g,hx*hk*g,hy*hk*g,hz*hk*g,zx*hk*g,zy*hk*g,zz*hk*g,J[h]+hx*lift,J[h+1]+hy*lift,J[h+2]+hz*lift,col.hair);}
+  const capped=style==='cap'||style==='police',fade=style==='fade';
+  if(style!=='bald'){const g=style==='beanie'||capped?1.1:style==='short'||fade?1:1.04,gx=fade?g*.86:g,gz=fade?g*.97:g,lift=style==='beanie'?.012:capped?.016:0;
+   write(meshes.hair,cursor[2]++,J[X]*hk*gx,J[X+1]*hk*gx,J[X+2]*hk*gx,hx*hk*g,hy*hk*g,hz*hk*g,zx*hk*gz,zy*hk*gz,zz*hk*gz,J[h]+hx*lift,J[h+1]+hy*lift,J[h+2]+hz*lift,col.hair);}
+  drawFaceGear(look,hk,col,hx,hy,hz,zx,zy,zz);
   // Peak of a cap (police caps get a silver badge above it).
   if(capped){const f=-.098*hk,u=.045*hk;
    write(meshes.bag,cursor[BAG]++,J[X]*.165*hk,J[X+1]*.165*hk,J[X+2]*.165*hk,hx*.012*hk,hy*.012*hk,hz*.012*hk,zx*.085*hk,zy*.085*hk,zz*.085*hk,J[h]+hx*u+zx*f,J[h+1]+hy*u+zy*f,J[h+2]+hz*u+zz*f,style==='police'?col.black:col.hair);
@@ -593,8 +621,8 @@ export function createPersonBatch(capacity,options={}){
   seg(J[hl]-pw*.5,J[hl+1]+.004*H,J[hl+2],J[hr]+pw*.5,J[hr+1]+.004*H,J[hr+2],.065*H*(.9+.1*build),.06*H*hw,0,1,0,.02*k,.02*k,col.trousers);
   // Arms: upper arm from the shoulder joint inside the rounded shoulder, forearm from the elbow, hand.
   for(let side=0;side<2;side++){const o=side*3;
-   jseg(JOINT.shoulderL+o,JOINT.elbowL+o,.047*limb*sw,.05*limb,.04*k,.025*k,col.shirt);
-   jseg(JOINT.elbowL+o,JOINT.wristL+o,.04*limb,.041*limb,.025*k,.012*k,col.shirt);
+   jseg(JOINT.shoulderL+o,JOINT.elbowL+o,.047*limb*sw,.05*limb,.04*k,.025*k,shell);
+   jseg(JOINT.elbowL+o,JOINT.wristL+o,.04*limb,.041*limb,.025*k,.012*k,shell);
    jseg(JOINT.wristL+o,JOINT.handL+o,.036*k,.02*k,.01*k,0,col.skin,0,0,1);
   }
   // Long hair / bun as a hair-coloured segment behind the head.
@@ -669,7 +697,8 @@ export function createPersonBatch(capacity,options={}){
   px=actor.x;pz=actor.z;minX=Math.min(minX,px);maxX=Math.max(maxX,px);minZ=Math.min(minZ,pz);maxZ=Math.max(maxZ,pz);if(actor.knockdown?.body){const b=actor.knockdown.body;minX=Math.min(minX,b.x);maxX=Math.max(maxX,b.x);minZ=Math.min(minZ,b.z);maxZ=Math.max(maxZ,b.z);}c=Math.cos(actor.heading||0);s=Math.sin(actor.heading||0);ground=(actor.groundY??options.ground??.13)+groundAt(px,pz);minY=Math.min(minY,ground);maxY=Math.max(maxY,ground);
   const X=JOINT.spineX,Y=JOINT.spineY,Z=JOINT.spineZ,b=JOINT.base;
   const tw=.125*H*sw,td=.07*H*(.9+.1*build)*(1+.04*fem),tl=PROPORTIONS.torso*H;
-  write(meshes.lowTorso,cursor[LOW_TORSO]++,J[X]*tw,J[X+1]*tw,J[X+2]*tw,J[Y]*tl,J[Y+1]*tl,J[Y+2]*tl,J[Z]*td,J[Z+1]*td,J[Z+2]*td,J[b],J[b+1],J[b+2],look.uniform?col.vest:col.shirt);
+  const shell=look.jacket&&!look.uniform?col.jacket:col.shirt;
+  write(meshes.lowTorso,cursor[LOW_TORSO]++,J[X]*tw,J[X+1]*tw,J[X+2]*tw,J[Y]*tl,J[Y+1]*tl,J[Y+2]*tl,J[Z]*td,J[Z+1]*td,J[Z+2]*td,J[b],J[b+1],J[b+2],look.uniform?col.vest:shell);
   if(accessoryOn(actor,look)==='dog'){const D=look.dogSize||1,q=H/1.74;jsegFree(-.6*q,.36*D,-.62*q-.26*D,-.6*q,.36*D,-.62*q+.26*D,.1*D,.12*D,col.dog);}
   const hY=JOINT.headY,hx=J[hY],hy=J[hY+1],hz=J[hY+2],zx=J[X+1]*hz-J[X+2]*hy,zy=J[X+2]*hx-J[X]*hz,zz=J[X]*hy-J[X+1]*hx,h=JOINT.head;
   const style=look.hairStyle||(look.hat?'beanie':'short'),g=style==='bald'?1:1.04;
@@ -677,8 +706,8 @@ export function createPersonBatch(capacity,options={}){
   for(let side=0;side<2;side++){const o=side*3;
    jseg(JOINT.hipL+o,JOINT.kneeL+o,.07*limb*hw,.074*limb,.05*k,.03*k,col.legs);
    jseg(JOINT.kneeL+o,JOINT.ankleL+o,.053*limb,.056*limb,.035*k,.06*k,col.legs);
-   jseg(JOINT.shoulderL+o,JOINT.elbowL+o,.047*limb*sw,.05*limb,.04*k,.025*k,col.shirt);
-   jseg(JOINT.elbowL+o,JOINT.wristL+o,.04*limb,.041*limb,.025*k,.03*k,col.shirt);
+   jseg(JOINT.shoulderL+o,JOINT.elbowL+o,.047*limb*sw,.05*limb,.04*k,.025*k,shell);
+   jseg(JOINT.elbowL+o,JOINT.wristL+o,.04*limb,.041*limb,.025*k,.03*k,shell);
   }
   const hl=JOINT.hipL,hr=JOINT.hipR,pw=.07*H*hw;
   seg(J[hl]-pw*.5,J[hl+1]+.004*H,J[hl+2],J[hr]+pw*.5,J[hr+1]+.004*H,J[hr+2],.065*H*(.9+.1*build),.06*H*hw,0,1,0,.02*k,.02*k,col.trousers);

@@ -1,20 +1,31 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {bicycleGeometry,cityBikeGeometry,scooterGeometry} from './parked-micromobility.js';
-import {waterAt} from './terrain.js';
+import {groundAt,hasTerrain,waterAt} from './terrain.js';
 import {WATER_LEVEL} from './quay.js';
+import {ZEMAN_BOAT} from './character-looks.js';
 
 // These anchors are shared by the visible bicycle and the player's foot IK.
 export const PLAYER_BIKE={hipY:1.01,hipZ:.23,crankY:.33,crankZ:.05,crankR:.17,crankPerMetre:1.15,pedalX:.14,pedalTop:.0175,barX:.24,barY:1.05,barZ:-.48};
 export const PLAYER_CITY_BIKE={...PLAYER_BIKE,hipY:1.02,hipZ:.2,crankY:.36,crankZ:.08,barY:1,barZ:-.47,wheelHalfBase:.56};
 export const PLAYER_SCOOTER={hipY:.90,footX:.025,frontZ:-.09,backZ:.155,groundY:.324,barX:.22,barY:.946,barZ:-.455};
 export const PLAYER_MOTORBIKE={hipY:1.02,hipZ:.02,crankY:.38,crankZ:.22,crankR:.02,crankPerMetre:0,pedalX:.18,pedalTop:0,barX:.32,barY:1.08,barZ:-.62,wheelHalfBase:.78};
-// Prague's river mesh sits at waterAt minus this drop (see createSea riverDrop).
+// Prague's river mesh starts on the harbour line, then createSea drops it by
+// -WATER_LEVEL - 0.1 - riverDrop. Where the water grid has no sample, that
+// drape uses the ground. The Vltava is one of those reaches, so the boat
+// follows the ground there instead of hovering on the harbour line.
 export const PRAGUE_RIVER_DROP=.85;
+const HULL_Y=.16,HULL_SY=.32;
+export const CHALLENGER_HULL_BOTTOM=HULL_Y-HULL_SY;
+export const CHALLENGER_TUBE_BOTTOM=.2;
+export function riverSurfaceY(x,z){
+ if(!hasTerrain())return WATER_LEVEL;
+ const surveyed=waterAt(x,z);
+ const level=surveyed==null?groundAt(x,z):surveyed;
+ return level-.1-PRAGUE_RIVER_DROP;
+}
 export function challengerWaterY(x,z){
- const w=waterAt(x,z);
- if(w==null)return WATER_LEVEL;
- return w-.1-PRAGUE_RIVER_DROP;
+ return riverSurfaceY(x,z)-CHALLENGER_HULL_BOTTOM;
 }
 
 export function addBicycleMotion(root,anchors=PLAYER_BIKE){
@@ -84,18 +95,24 @@ export function createChallenger(){
  const root=new THREE.Group();root.name='Challenger';root.rotation.order='YXZ';root.userData={kind:'challenger',word:'CHALLENGER'};
  const blue=new THREE.MeshStandardMaterial({color:'#1a4f86',roughness:.45,metalness:.15,name:'hull'});
  const yellow=new THREE.MeshStandardMaterial({color:'#f5c400',roughness:.4,metalness:.2,name:'tube'});
- const hull=new THREE.Mesh(new THREE.SphereGeometry(1,16,10),blue);hull.scale.set(1.05,.32,1.55);hull.position.y=.16;hull.name='hull';hull.castShadow=true;root.add(hull);
+ const hull=new THREE.Mesh(new THREE.SphereGeometry(1,16,10),blue);hull.scale.set(1.05,HULL_SY,1.55);hull.position.y=HULL_Y;hull.name='hull';hull.castShadow=true;root.add(hull);
  const tube=new THREE.Mesh(new THREE.TorusGeometry(1.02,.2,10,28),yellow);tube.rotation.x=Math.PI/2;tube.position.y=.4;tube.name='tube';tube.castShadow=true;root.add(tube);
  const wordMat=new THREE.MeshBasicMaterial({map:wordTexture('CHALLENGER'),transparent:true});
  for(const side of [-1,1]){
   const plate=new THREE.Mesh(new THREE.PlaneGeometry(1.15,.28),wordMat);plate.name='challenger-word';plate.position.set(side*1.08,.48,0);plate.rotation.y=side>0?Math.PI/2:-Math.PI/2;root.add(plate);
  }
- const figure=new THREE.Group();figure.name='figure';figure.position.set(0,.18,.05);root.add(figure);
- const skin=new THREE.MeshStandardMaterial({color:'#e0b090',roughness:.7});
- const cloth=new THREE.MeshStandardMaterial({color:'#243044',roughness:.8});
+ const figure=new THREE.Group();figure.name='figure';figure.position.set(0,ZEMAN_BOAT.y,.05);figure.scale.setScalar(ZEMAN_BOAT.scale);root.add(figure);
+ const skin=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.skin,roughness:.7});
+ const cloth=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.jacket,roughness:.8,name:'jacket'});
  const torso=new THREE.Mesh(new THREE.BoxGeometry(.72,.4,.9),cloth);torso.position.set(0,.08,.05);torso.rotation.x=-1.05;torso.name='torso';figure.add(torso);
- const belly=new THREE.Mesh(new THREE.SphereGeometry(.32,10,8),cloth);belly.scale.set(1.15,.8,1);belly.position.set(0,.02,.15);figure.add(belly);
+ const belly=new THREE.Mesh(new THREE.SphereGeometry(.32,10,8),cloth);belly.scale.set(1.15,.8,1);belly.position.set(0,.02,.15);belly.name='belly';figure.add(belly);
  const head=new THREE.Mesh(new THREE.SphereGeometry(.16,10,8),skin);head.position.set(0,.42,-.28);head.name='head';figure.add(head);
+ const hair=new THREE.Mesh(new THREE.SphereGeometry(.175,8,6,0,Math.PI*2,0,Math.PI*.6),new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.hair,roughness:.85}));
+ hair.name='hair';hair.position.y=.04;head.add(hair);
+ const frame=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.glasses,roughness:.35,metalness:.2});
+ const glasses=new THREE.Group();glasses.name='glasses';head.add(glasses);
+ for(const x of [-.055,.055]){const rim=new THREE.Mesh(new THREE.TorusGeometry(.04,.007,5,10),frame);rim.position.set(x,.02,-.15);glasses.add(rim);}
+ const bridge=new THREE.Mesh(new THREE.BoxGeometry(.04,.008,.008),frame);bridge.position.set(0,.02,-.155);glasses.add(bridge);
  for(const side of [-1,1]){
   const arm=new THREE.Group();arm.position.set(side*.34,.28,-.05);figure.add(arm);
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.7,6),skin);shaft.position.y=.28;shaft.rotation.z=side*-.35;shaft.rotation.x=-.4;arm.add(shaft);

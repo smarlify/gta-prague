@@ -85,6 +85,7 @@ export function createMultiplayerSession(scene, {
   getCar = () => null,
   getSiren = () => false,
   getAmbulances = () => [],
+  getCharacter = () => '',
   getPeerArrest = () => null,
   onPeerArrest = () => {},
   doc = document,
@@ -254,6 +255,7 @@ export function createMultiplayerSession(scene, {
             siren: !!getSiren() && !!vehicle?.police,
             impulse: pendingImpulse,
             ambulances: getAmbulances(),
+            character: getCharacter(),
           });
           if (presence) void room.publishPlayer(presence);
         }

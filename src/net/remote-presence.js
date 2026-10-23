@@ -5,7 +5,8 @@
  */
 import * as THREE from 'three';
 import { createVehicle, animateVehicle, revealCabinGlass } from '../vehicles.js';
-import { createPersonBatch, personLook, advanceGait } from '../person-model.js';
+import { createPersonBatch, advanceGait } from '../person-model.js';
+import { applyCharacterLook, genericPlayerLook } from '../character-looks.js';
 import { ambulanceVehicle, dressPlayerLook, seatedCabDriver } from '../player-travel-renderer.js';
 import { slachtaWearsUniform } from '../driver-starts.js';
 import { OFFICER_LOOK, officerLook } from '../roadblock.js';
@@ -130,28 +131,15 @@ function createCarMesh(vehicle) {
   return model;
 }
 
-function createPedMesh(uid, police = false) {
+function createPedMesh(uid, characterId = '') {
   const batch = createPersonBatch(1, {
     name: `Remote ${uid}`,
-    ...(police ? { police: { word: 'POLICIE' } } : {}),
+    police: { word: 'POLICIE' },
   });
-  const look = personLook(hashSeed(uid), {
-    height: 1.75,
-    coat: 0,
-    skirt: false,
-    shirt: '#3a5a6a',
-    trousers: '#273b4a',
-    age: 'adult',
-    accessory: null,
-    phoneWalk: false,
-    stoop: 0,
-    outer: 'jacket',
-    scarf: null,
-    hairStyle: 'short',
-    bagType: null,
-  });
+  const look = genericPlayerLook();
+  applyCharacterLook(look, characterId);
   const civilian = Object.fromEntries(Object.keys(OFFICER_LOOK).map((key) => [key, look[key]]));
-  return { batch, look, gait: {}, civilian, uniformOn: false };
+  return { batch, look, gait: {}, civilian, uniformOn: false, characterId: characterId || '' };
 }
 
 function hashSeed(uid) {
@@ -226,12 +214,37 @@ class RemoteActor {
       this.ride = createRideVehicle({ kind, color: mode === 'motorbike' ? '#c5ccd1' : '#6f9cc4' }, mode);
       this.root.add(this.ride.root);
       if (mode !== 'challenger') {
-        this.ped = createPedMesh(this.uid);
+        this.ped = createPedMesh(this.uid, net.character || '');
         this.root.add(this.ped.batch.group);
       }
     } else {
-      this.ped = createPedMesh(this.uid);
+      this.ped = createPedMesh(this.uid, net.character || '');
       this.root.add(this.ped.batch.group);
+    }
+  }
+
+  syncLook(net) {
+    if (!this.ped) return;
+    const id = typeof net.character === 'string' ? net.character : '';
+    if (this.ped.characterId !== id) {
+      applyCharacterLook(this.ped.look, id);
+      this.ped.characterId = id;
+      for (const key of Object.keys(OFFICER_LOOK)) {
+        if (this.ped.look[key] === undefined) delete this.ped.civilian[key];
+        else this.ped.civilian[key] = this.ped.look[key];
+      }
+      this.ped.uniformOn = false;
+    }
+    const mode = net.mode === 'swim' ? 'walk' : (net.mode || 'walk');
+    const officer = slachtaWearsUniform({
+      police: id === 'slachta',
+      name: net.name,
+      mode,
+      policeCar: !!(net.vehicle?.police || net.vehicle?.type === 'police'),
+    });
+    if (this.ped.uniformOn !== officer) {
+      dressPlayerLook(this.ped.look, this.ped.civilian, officer);
+      this.ped.uniformOn = officer;
     }
   }
 
@@ -242,19 +255,11 @@ class RemoteActor {
       return;
     }
     if (!this.ped) {
-      this.ped = createPedMesh(this.uid, true);
+      this.ped = createPedMesh(this.uid, net.character || '');
       this.root.add(this.ped.batch.group);
       this.ped.batch.group.position.y = -groundAt(seat.x, seat.z);
     }
-    const officer = slachtaWearsUniform({
-      name: net.name,
-      mode: 'car',
-      policeCar: !!(net.vehicle?.police || net.vehicle?.type === 'police'),
-    });
-    if (this.ped.uniformOn !== officer) {
-      dressPlayerLook(this.ped.look, this.ped.civilian, officer);
-      this.ped.uniformOn = officer;
-    }
+    this.syncLook(net);
     const actor = {
       x: seat.x,
       z: seat.z,
@@ -327,6 +332,7 @@ class RemoteActor {
       this.ride.root.rotation.set(0, 0, 0);
       this.ride.motion?.update((this.ride._dist = (this.ride._dist || 0) + Math.abs(speed) * dt));
       if (this.ped && this.mode !== 'challenger') {
+        this.syncLook(net);
         const pose = this.mode === 'scooter' ? 'scooter' : 'cycle';
         const bike = this.ride.anchors || PLAYER_BIKE;
         const actor = {
@@ -343,6 +349,7 @@ class RemoteActor {
         this.ped.batch.group.visible = true;
       }
     } else if (this.ped) {
+      this.syncLook(net);
       const actor = {
         x: 0, z: 0, heading: 0, speed: Math.abs(speed), pose: 'walk',
         groundY: 0.12, running: Math.abs(speed) > 2.5, grip: false, seated: false,

@@ -339,6 +339,7 @@ multiplayer=createMultiplayerSession(scene,{
  getCar:()=>car,
  getSiren:()=>stolenSirenOn,
  getAmbulances:()=>(pavlova?.units||[]).map(unit=>({x:unit.x,z:unit.z,heading:unit.heading})),
+ getCharacter:()=>chosenCharacter?.id||'',
  getPeerArrest:()=>slachtaArrest({
   characterId:chosenCharacter?.id,
   siren:stolenSirenOn,
@@ -349,6 +350,7 @@ multiplayer=createMultiplayerSession(scene,{
  onPeerArrest:()=>applyPeerArrest(),
 });
 const travelRenderer=createPlayerTravelRenderer(scene);
+travelRenderer.setCharacter(chosenCharacter?.id);
 const travelUI=createTravelUI({interact:interactTravel,toggleRun:()=>{if(travel?.mode==='walk')travel.sprint=!travel.sprint;},focusWorld:()=>$('world').focus()});
 const peopleUI=createPeopleInteractionUI({interact:talkToPerson,choose:replyToPerson,toggleVoice:()=>$('sound-btn').click(),focusWorld:()=>$('world').focus()});
 const marketUI=createMarketShopUI({action:marketAction,buy:buyAtStall,close:()=>{marketShop?.close();refreshMarketUI();},focusWorld:()=>$('world').focus()});
@@ -735,6 +737,7 @@ function placeForCharacter(choice=chosenCharacter){
 }
 function paintCharacterLook(choice){
  if(!choice)return;
+ travelRenderer.setCharacter(choice.id);
  if(choice.police)playerCars.setLook('police','');
  else if(!choice.ride)playerCars.setLook(choice.type,'');
 }
