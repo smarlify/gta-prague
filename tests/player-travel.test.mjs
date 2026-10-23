@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SpatialIndex,setPlayableRadius} from '../src/geo.js';
+import {SpatialIndex,pointInPolygon,setPlayableRadius} from '../src/geo.js';
 import {makeCar} from '../src/physics.js';
 import {PlayerTravel,travelCollision,TRAVEL_MODES,exitPosition,slopeFactor,cameraBody} from '../src/player-travel.js';
+import {GENERIC_JACKET,characterLook,genericPlayerLook} from '../src/character-looks.js';
 import {createDriveCameraState,stepDriveCamera} from '../src/driving-camera.js';
 import {setTerrain} from '../src/terrain.js';
 import {trafficFootprintsOverlap,sweptContact} from '../src/contact-geometry.js';
@@ -182,4 +183,37 @@ test('a motorbike or Challenger mounts at the chosen place, and a later car choi
  assert.equal(boat.mode,'car');assert.equal(boat.riding,null);
  assert.equal(travelCollision({x:0,z:0,heading:0},'car',land),null);
  assert.throws(()=>travelCollision({x:0,z:0,heading:0},'hoverboard',land),/Unknown travel mode/);
+});
+
+test('Zeman steps from the Challenger onto a nearby shore and can board the boat again',()=>{
+ const water=[{rings:[[[-40,-20],[3,-20],[3,20],[-40,20],[-40,-20]]]}];
+ const shore={buildings:new SpatialIndex([]),roads:new SpatialIndex([]),pavement:new SpatialIndex([rect(3.5,-20,40,40)]),water};
+ const near=new PlayerTravel(makeCar(0,0,0),shore,{ride:'challenger'});
+ assert.equal(near.mode,'challenger');
+ const boat={x:near.actor.x,z:near.actor.z,heading:near.actor.heading};
+ const left=near.interact();
+ assert.equal(left.ok,true,left.message);
+ assert.equal(near.mode,'walk');
+ assert.equal(travelCollision(near.actor,'walk',shore),null);
+ assert.equal(water.some(w=>pointInPolygon(near.actor.x,near.actor.z,w.rings)),false);
+ const dx=near.actor.x-boat.x,dz=near.actor.z-boat.z;
+ assert.ok(-Math.sin(near.actor.heading)*dx-Math.cos(near.actor.heading)*dz>0,'he faces the shore he stepped onto');
+ const parked=near.rides.find(r=>r.mode==='challenger');
+ assert.equal(parked.x,boat.x);assert.equal(parked.z,boat.z);assert.equal(parked.parked,true);
+ const standing=characterLook('zeman'),generic=genericPlayerLook();
+ assert.equal(standing.shirt,GENERIC_JACKET);
+ assert.equal(standing.shirt,generic.shirt);
+ assert.equal(standing.glasses,null);
+ assert.equal(standing.hairStyle,generic.hairStyle);
+ near.car.x=80;near.car.z=80;
+ const back=near.interact();
+ assert.equal(back.ok,true,back.message);
+ assert.equal(near.mode,'challenger');
+ assert.equal(near.actor.x,boat.x);assert.equal(near.actor.z,boat.z);
+ const far=new PlayerTravel(makeCar(-30,0,0),shore,{ride:'challenger'});
+ const stay=far.interact();
+ assert.equal(stay.ok,false);
+ assert.match(stay.message,/shore/);
+ assert.equal(far.mode,'challenger');
+ assert.equal(far.actor.x,-30);assert.equal(far.actor.z,0);
 });

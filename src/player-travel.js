@@ -72,6 +72,32 @@ export function clearTravelPath(from,to,world,obstacles=[],ignore=[]){
  for(let i=1;i<=n;i++){const next={...from,x:from.x+(to.x-from.x)*i/n,z:from.z+(to.z-from.z)*i/n};if(travelCollision(next,'walk',world,obstacles,ignore,previous))return false;previous=next;}
  return true;
 }
+// A quay a few steps from the boat. Further than this is open water.
+const SHORE_REACH=8;
+function solidBetween(from,to,world){
+ const buildings=world.collisionBuildings||world.buildings;if(!buildings?.at)return false;
+ const n=Math.max(1,Math.ceil(gap(from,to)/.5));
+ for(let i=1;i<=n;i++){const x=from.x+(to.x-from.x)*i/n,z=from.z+(to.z-from.z)*i/n;if(buildings.at(x,z))return true;}
+ return false;
+}
+// Nearest walkable ground. The heading faces that shore, away from the boat.
+function shoreLanding(p,world,obstacles){
+ const blocked=[p,...obstacles];
+ for(let radius=1;radius<=SHORE_REACH;radius+=.5){
+  const steps=Math.max(12,Math.round(radius*6));
+  for(let i=0;i<steps;i++){
+   const angle=i*Math.PI*2/steps,q={x:p.x+Math.cos(angle)*radius,z:p.z+Math.sin(angle)*radius,heading:p.heading||0};
+   if(travelCollision(q,'walk',world,blocked)||solidBetween(p,q,world))continue;
+   return {x:q.x,z:q.z,heading:Math.atan2(-(q.x-p.x),-(q.z-p.z))};
+  }
+ }
+ return null;
+}
+function canBoardChallenger(person,boat,world,obstacles,ignore){
+ if(travelCollision({x:person.x,z:person.z,heading:person.heading||0},'walk',world,obstacles,ignore))return false;
+ if(travelCollision(boat,'challenger',world,obstacles,ignore))return false;
+ return !solidBetween(person,boat,world);
+}
 // A dock can surround the front wheel. Roll the ride a short way onto clear
 // ground before mounting, without removing the dock or crossing a solid wall.
 export function mountPosition(ride,mode,world,obstacles=[],ignore=[]){
@@ -83,6 +109,7 @@ export function mountPosition(ride,mode,world,obstacles=[],ignore=[]){
  return null;
 }
 export function exitPosition(p,mode,world,obstacles=[]){
+ if(mode==='challenger')return shoreLanding(p,world,obstacles);
  const car=mode==='car',side=car?1.7:.9,end=car?3:1.5;
  for(const [x,z] of [[-side,0],[side,0],[-side,1],[side,1],[0,end],[0,-end]]){
   const q=offset(p,x,z);
@@ -148,11 +175,13 @@ export class PlayerTravel{
   const sources=[...this.carSources().map(s=>({source:s,mode:'car'})),...this.rideSources().filter(s=>s.mode==='bike'||s.mode==='scooter').map(source=>({source,mode:source.mode}))].filter(({source:s})=>s.actor&&!s.actor.playerTaken&&(s.actor.edge!==null||s.allowStopped)&&gap(this.actor,s.actor)<14),parked=this.parked();
   const entries=[...this.cars.map(actor=>({id:actor.id,mode:'car',actor,label:actor.label||'Car'})),...this.rides.map(actor=>({id:actor.id,mode:actor.mode,actor,label:actor.label||TRAVEL_MODES[actor.mode].label})),...sources.map(({source,mode})=>({id:source.id,mode,actor:source.actor,label:source.label||(mode==='car'?'Car':TRAVEL_MODES[mode].label),source}))];
   return entries.map(r=>{
-   const distance=gap(this.actor,r.actor),near=r.mode==='car'?bodyContains(r.actor,this.actor.x,this.actor.z,1.4):distance<3;
+   const distance=gap(this.actor,r.actor),near=r.mode==='car'?bodyContains(r.actor,this.actor.x,this.actor.z,1.4):distance<(r.mode==='challenger'?SHORE_REACH:3);
    // The target vehicle's own collider is ignored only for reaching it;
    // real buildings and intervening vehicles still prevent entry.
+   // The Challenger stays in the water, so the walk up to it crosses the river edge.
    const ignore=r.source?.obstacle?[r.source.obstacle]:[],bodies=[...parked,...obstacles].filter(b=>b!==r.actor),stopped=Math.abs(r.actor.speed||0)<=1.2;
-   const path=onFoot(this.mode)&&near&&stopped&&r.source?.canClaim?.()!==false&&clearTravelPath(this.actor,r.actor,this.world,bodies,ignore);
+   const approach=r.mode==='challenger'?canBoardChallenger(this.actor,r.actor,this.world,bodies,ignore):clearTravelPath(this.actor,r.actor,this.world,bodies,ignore);
+   const path=onFoot(this.mode)&&near&&stopped&&r.source?.canClaim?.()!==false&&approach;
    const mount=path&&r.mode!=='car'?mountPosition(r.actor,r.mode,this.world,bodies,ignore):null;
    return {...r,distance,mount,available:!!path&&(r.mode==='car'||!!mount)};
   });
@@ -165,13 +194,13 @@ export class PlayerTravel{
    if(this.mode==='car'&&(this.actor.flying||(this.actor.alt||0)>.4))return {ok:false,message:'Land before getting out.'};
    if(Math.abs(this.actor.speed)>1.2)return {ok:false,message:'Stop before getting off.'};
    const position=exitPosition(this.actor,this.mode,this.world,[...this.parked(),...obstacles]);
-   if(!position)return {ok:false,message:'There is no room to get off here. Move to a clear spot.'};
+   if(!position)return {ok:false,message:this.mode==='challenger'?'Bring the boat to the shore.':'There is no room to get off here. Move to a clear spot.'};
    this.actor.speed=0;this.actor.steer=0;if(this.riding){Object.assign(this.riding,this.actor);this.riding.parked=true;}
    const from={...this.actor};this.actor=makeActor(position,'walk',this.actor.distance);this.mode='walk';this.riding=null;this.startTransition(from);
    return {ok:true,message:'On foot'};
   }
   const choice=id?this.choices(obstacles).find(c=>c.id===id&&c.available):this.nearest(obstacles);
-  if(!choice)return {ok:false,message:this.mode==='swim'?'Reach the shore, then Enter a stopped car.':'Move beside a stopped car, bicycle or scooter.'};
+  if(!choice)return {ok:false,message:this.mode==='swim'?'Reach the shore, then Enter a stopped car.':'Move beside a stopped car, bicycle, scooter or boat.'};
   let target=choice.actor;
   if(choice.source){
    const taken=choice.source.claim?.();if(taken===false)return {ok:false,message:'Wait for the ride to stop.'};

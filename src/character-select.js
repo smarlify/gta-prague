@@ -70,8 +70,6 @@ export const CHARACTERS = Object.freeze([
     flies: false,
     pavlova: false,
     water: true,
-    // Hidden until the Challenger looks right. The boat, the Vltava start, and the mesh stay.
-    listed: false,
   }),
   Object.freeze({
     id: 'kraus',

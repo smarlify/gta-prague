@@ -2,7 +2,7 @@
  * GTA Praha presence schema for the demo RTDB room.
  * Visual presence only — city/traffic stay local; no host election.
  */
-import { isIdleDriverRecord, publishablePlayerName } from '../character-select.js';
+import { CHARACTERS, isIdleDriverRecord, publishablePlayerName } from '../character-select.js';
 
 export const PLAYER_HZ = 10;
 /** AFK tabs heartbeat about once a second instead of the live 10 Hz pose stream. */
@@ -66,6 +66,14 @@ function finiteNumber(value, fallback = 0) {
 function cleanString(value, max = 64) {
   if (typeof value !== 'string') return '';
   return value.trim().slice(0, max);
+}
+
+const CHARACTER_IDS = new Set(CHARACTERS.map((choice) => choice.id));
+
+/** Published character id. Unknown strings are dropped. No new secrets. */
+export function presenceCharacter(id) {
+  const clean = cleanString(typeof id === 'string' ? id : '', 16);
+  return CHARACTER_IDS.has(clean) ? clean : '';
 }
 
 /** RTDB keys reject . # $ / [ ]. */
@@ -330,6 +338,7 @@ export function buildPresence({
   siren = false,
   impulse = null,
   ambulances = null,
+  character = '',
   updatedAt = Date.now(),
 } = {}) {
   const cleanUid = cleanString(uid, 128);
@@ -348,6 +357,7 @@ export function buildPresence({
     heading: finiteNumber(heading),
     speed: finiteNumber(speed),
     mode: normalizeMode(mode),
+    character: presenceCharacter(character),
     updatedAt: finiteNumber(updatedAt, Date.now()),
     wanted: wantedRow,
     afk: !!afk,
@@ -397,6 +407,7 @@ export function parsePresence(raw, uidHint = '') {
     siren: raw.siren,
     impulse: raw.impulse,
     ambulances: raw.ambulances,
+    character: raw.character,
     updatedAt: raw.updatedAt,
   });
 }
