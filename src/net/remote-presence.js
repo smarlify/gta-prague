@@ -4,15 +4,17 @@
  * (see carBodies); this module does not run Mobility.knock.
  */
 import * as THREE from 'three';
-import { createVehicle, animateVehicle } from '../vehicles.js';
+import { createVehicle, animateVehicle, revealCabinGlass } from '../vehicles.js';
 import { createPersonBatch, personLook, advanceGait } from '../person-model.js';
+import { ambulanceVehicle, dressPlayerLook, seatedCabDriver } from '../player-travel-renderer.js';
+import { slachtaWearsUniform } from '../driver-starts.js';
+import { OFFICER_LOOK, officerLook } from '../roadblock.js';
 import { createRideVehicle, PLAYER_BIKE, PLAYER_SCOOTER, challengerWaterY } from '../player-ride-models.js';
 import { createPoliceBody, unitNumber, unitVariant, policeAgencyFor } from '../police-model.js';
 import { attachPursuitLights, flashPursuitLights, strobe } from '../police-renderer.js';
 import { createAmbulanceMesh } from '../pavlova-scene.js';
 import { createSiren } from '../police-siren.js';
 import { createPoliceCarSource } from '../police-entry.js';
-import { officerLook } from '../roadblock.js';
 import { groundAt, groundPose } from '../terrain.js';
 import { unregisterEnvMaterial } from '../environment.js';
 
@@ -105,9 +107,11 @@ function arrestStandins(net) {
 }
 
 function createCarMesh(vehicle) {
+  if (ambulanceVehicle(vehicle)) return null;
   if (vehicle?.police || vehicle?.type === 'police') {
     const model = createPoliceBody(vehicle.variant || 'estate', vehicle.livery || 'praha');
     attachPursuitLights(model, 0.17);
+    revealCabinGlass(model);
     model.name = 'Remote player car';
     return model;
   }
@@ -115,6 +119,7 @@ function createCarMesh(vehicle) {
     ? vehicle.type
     : 'roadster';
   const model = createVehicle(0, false, type);
+  revealCabinGlass(model);
   const colour = vehicle?.colour || vehicle?.color;
   if (colour) {
     model.traverse((m) => {
@@ -125,8 +130,11 @@ function createCarMesh(vehicle) {
   return model;
 }
 
-function createPedMesh(uid) {
-  const batch = createPersonBatch(1, { name: `Remote ${uid}` });
+function createPedMesh(uid, police = false) {
+  const batch = createPersonBatch(1, {
+    name: `Remote ${uid}`,
+    ...(police ? { police: { word: 'POLICIE' } } : {}),
+  });
   const look = personLook(hashSeed(uid), {
     height: 1.75,
     coat: 0,
@@ -142,7 +150,8 @@ function createPedMesh(uid) {
     hairStyle: 'short',
     bagType: null,
   });
-  return { batch, look, gait: {} };
+  const civilian = Object.fromEntries(Object.keys(OFFICER_LOOK).map((key) => [key, look[key]]));
+  return { batch, look, gait: {}, civilian, uniformOn: false };
 }
 
 function hashSeed(uid) {
@@ -211,7 +220,7 @@ class RemoteActor {
     this.vehicleKey = vKey;
     if (mode === 'car') {
       this.car = createCarMesh(net.vehicle);
-      this.root.add(this.car);
+      if (this.car) this.root.add(this.car);
     } else if (mode === 'bike' || mode === 'scooter' || mode === 'motorbike' || mode === 'challenger') {
       const kind = mode === 'scooter' ? 'scooter' : mode === 'motorbike' ? 'motorbike' : mode === 'challenger' ? 'challenger' : 'bicycle';
       this.ride = createRideVehicle({ kind, color: mode === 'motorbike' ? '#c5ccd1' : '#6f9cc4' }, mode);
@@ -224,6 +233,45 @@ class RemoteActor {
       this.ped = createPedMesh(this.uid);
       this.root.add(this.ped.batch.group);
     }
+  }
+
+  drawSeatedDriver(net, dt) {
+    const seat = seatedCabDriver(net.vehicle);
+    if (!seat) {
+      if (this.ped) this.ped.batch.group.visible = false;
+      return;
+    }
+    if (!this.ped) {
+      this.ped = createPedMesh(this.uid, true);
+      this.root.add(this.ped.batch.group);
+      this.ped.batch.group.position.y = -groundAt(seat.x, seat.z);
+    }
+    const officer = slachtaWearsUniform({
+      name: net.name,
+      mode: 'car',
+      policeCar: !!(net.vehicle?.police || net.vehicle?.type === 'police'),
+    });
+    if (this.ped.uniformOn !== officer) {
+      dressPlayerLook(this.ped.look, this.ped.civilian, officer);
+      this.ped.uniformOn = officer;
+    }
+    const actor = {
+      x: seat.x,
+      z: seat.z,
+      heading: 0,
+      speed: 0,
+      pose: seat.pose,
+      groundY: seat.groundY - 0.12,
+      running: false,
+      grip: false,
+      seated: true,
+      seatY: seat.seatY,
+    };
+    this.ped.batch.begin();
+    advanceGait(actor, this.ped.gait, dt, this.ped.look);
+    this.ped.batch.draw(actor, this.ped.look, this.ped.gait);
+    this.ped.batch.end();
+    this.ped.batch.group.visible = true;
   }
 
   clearBody() {
@@ -268,9 +316,11 @@ class RemoteActor {
       this.car.rotation.set(slope.pitch, 0, slope.roll, 'YXZ');
       animateVehicle(this.car, speed, 0, dt, false);
       if (this.car.userData.policeLights) flashPursuitLights(this.car, this.clock, this.sirenOn);
-      if (this.ped) this.ped.batch.group.visible = false;
       if (this.ride) this.ride.root.visible = false;
       this.car.visible = true;
+      this.drawSeatedDriver(net, dt);
+    } else if (this.mode === 'car') {
+      if (this.ped) this.ped.batch.group.visible = false;
     } else if (this.ride) {
       this.ride.root.visible = true;
       this.ride.root.position.set(0, this.mode === 'challenger' ? 0 : (this.ride.lift || 0.12), 0);

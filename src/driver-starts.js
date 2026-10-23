@@ -156,9 +156,17 @@ export function slachtaArrest({
   return {active: true, phase: 'bust', t: 0, target: target.uid};
 }
 
-/** On foot, or the visible driver of his own cruiser. Another character never wears it. */
-export function slachtaWearsUniform({police = false, mode = '', gagDriver = false, policeCar = false} = {}) {
-  if (!police) return false;
+const SLACHTA_NAME = 'robert šlachta';
+
+/** Published name for Robert Šlachta. A renamed player is someone else. */
+export function isSlachtaName(name) {
+  return String(name ?? '').replace(/\s+/g, ' ').trim().toLowerCase() === SLACHTA_NAME;
+}
+
+/** On foot, or at the wheel of his own cruiser. Another character never wears it. */
+export function slachtaWearsUniform({police = false, mode = '', policeCar = false, name = ''} = {}) {
+  const officer = !!police || isSlachtaName(name);
+  if (!officer) return false;
   if (mode === 'walk') return true;
-  return mode === 'car' && !!policeCar && !!gagDriver;
+  return mode === 'car' && !!policeCar;
 }

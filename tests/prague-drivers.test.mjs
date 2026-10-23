@@ -220,10 +220,14 @@ test('Šlachta is placed behind a body, and only he arrests with the siren on', 
   assert.equal(slachtaArrest({...home, others: [{...near, wanted: null}]}), null);
   assert.equal(ARREST_RANGE, 8);
   assert.equal(slachtaWearsUniform({police: true, mode: 'walk'}), true);
-  assert.equal(slachtaWearsUniform({police: true, mode: 'car', policeCar: true, gagDriver: true}), true);
+  assert.equal(slachtaWearsUniform({police: true, mode: 'car', policeCar: true}), true);
+  assert.equal(slachtaWearsUniform({police: true, mode: 'car', policeCar: true, gagDriver: false}), true);
+  assert.equal(slachtaWearsUniform({name: 'Robert Šlachta', mode: 'car', policeCar: true}), true);
+  assert.equal(slachtaWearsUniform({name: 'Filip Turek', mode: 'car', policeCar: true}), false);
   assert.equal(slachtaWearsUniform({police: false, mode: 'walk'}), false);
   assert.equal(slachtaWearsUniform({police: false, mode: 'car', policeCar: true, gagDriver: true}), false);
   assert.equal(slachtaWearsUniform({police: true, mode: 'car', policeCar: false, gagDriver: false}), false);
+  assert.equal(slachtaWearsUniform({name: 'Robert Šlachta', mode: 'car', policeCar: false}), false);
   const look = {shirt: '#d65f39', trousers: '#273b4a', hairStyle: 'short', outer: 'jacket'};
   const saved = {shirt: look.shirt, trousers: look.trousers, hairStyle: look.hairStyle, outer: look.outer, uniform: undefined};
   dressPlayerLook(look, saved, true);

@@ -267,6 +267,21 @@ function buildRoadster(detailed){
  if(detailed)body.add(headBeams(s));
  return group;
 }
+// Occupied cars only. Clone first so a shared traffic template stays opaque.
+export function revealCabinGlass(model){
+ model?.traverse(mesh=>{
+  if(!mesh.isMesh||mesh.userData.cabinGlass)return;
+  const current=mesh.material;
+  if(!current||current.name!=='glass')return;
+  const mat=current.clone();
+  mat.name='glass';
+  mat.transparent=true;
+  mat.opacity=.22;
+  mat.depthWrite=false;
+  mesh.material=mat;
+  mesh.userData.cabinGlass=true;
+ });
+}
 export function createDetailedVehicle(colour=0,detailed=false,type=detailed?PLAYER_CAR_TYPE:'sedan'){
  if(!specs[type])throw Error(`Unknown vehicle type: ${type}`);
  if(!templates.has(type))templates.set(type,type==='roadster'?buildRoadster(false):build(type,false));

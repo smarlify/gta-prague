@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {createVehicle,animateVehicle,applyPlayerLamps,PLAYER_CAR_TYPE} from './vehicles.js';
+import {createVehicle,animateVehicle,applyPlayerLamps,PLAYER_CAR_TYPE,revealCabinGlass} from './vehicles.js';
 import {createVehicleDamage} from './vehicle-damage.js';
 import {createPoliceBody} from './police-model.js';
 import {attachPursuitLights,flashPursuitLights} from './police-renderer.js';
@@ -14,6 +14,7 @@ export function createPlayerCarRenderer(scene){
  active.rotation.order='YXZ';
  const starter=createVehicle(0,true,PLAYER_CAR_TYPE),entries=new Map();let home=null,current=null,first,lookKey=`${PLAYER_CAR_TYPE}|`;
  const build=(model,owned=false)=>{
+  revealCabinGlass(model);
   const shared=new Set();model.traverse(m=>{if(m.isMesh)shared.add(m.geometry);});
   const damage=createVehicleDamage(model),privateGeometry=new Set(),materials=new Set(),lights=[];
   model.traverse(m=>{if(m.isSpotLight)lights.push(m);else if(m.isMesh){if(!shared.has(m.geometry))privateGeometry.add(m.geometry);if(m.material?.name==='paint')materials.add(m.material);}});
