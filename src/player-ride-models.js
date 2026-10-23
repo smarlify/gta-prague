@@ -90,6 +90,70 @@ export function createMotorbike(){
  return {root,frame,anchors:PLAYER_MOTORBIKE,motion,lift:.12,dispose:trackDispose(root)};
 }
 
+function rod(from,to,radius,material,name){
+ const a=new THREE.Vector3(...from),b=new THREE.Vector3(...to),dir=b.clone().sub(a),length=dir.length();
+ const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius*.86,length,6),material);
+ mesh.position.copy(a).add(b).multiplyScalar(.5);
+ mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.multiplyScalar(1/length));
+ mesh.castShadow=true;if(name)mesh.name=name;return mesh;
+}
+function oval(at,radius,scale,material,name){
+ const mesh=new THREE.Mesh(new THREE.SphereGeometry(radius,10,8),material);
+ mesh.scale.set(scale[0],scale[1],scale[2]);mesh.position.set(at[0],at[1],at[2]);mesh.castShadow=true;if(name)mesh.name=name;return mesh;
+}
+// Broad face toward the chase camera, long axis along the shaft, so the blade
+// reads as a paddle and not as a vertical post.
+function paddleBlade(at,along,material){
+ const mesh=new THREE.Mesh(new THREE.SphereGeometry(.16,8,6),material);
+ mesh.scale.set(.72,.2,1.85);mesh.position.set(at[0],at[1],at[2]);mesh.name='paddle';mesh.castShadow=true;
+ const face=new THREE.Vector3(0,.42,.91).normalize(),shaft=new THREE.Vector3(along[0],along[1],along[2]).normalize();
+ const x=new THREE.Vector3().crossVectors(face,shaft);if(x.lengthSq()<1e-8)x.set(1,0,0);else x.normalize();
+ const z=new THREE.Vector3().crossVectors(x,face).normalize();
+ mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x,face,z));
+ return mesh;
+}
+
+// The chase camera sits behind the stern (+Z) and only a little above the boat.
+// Head and glasses face that lens. Belly is forward in the ring. Legs drop into
+// the hull, which meets the water. Both arms stay up on the paddles.
+function addChallengerPaddler(root,yellow){
+ const figure=new THREE.Group();figure.name='figure';root.add(figure);
+ const skin=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.skin,roughness:.7});
+ const cloth=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.jacket,roughness:.8,name:'jacket'});
+ const hairMat=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.hair,roughness:.85});
+ const glass=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.glasses,roughness:.35,metalness:.2});
+ const lensMat=new THREE.MeshStandardMaterial({color:'#141820',roughness:.15,metalness:.35,transparent:true,opacity:.7});
+ const wood=new THREE.MeshStandardMaterial({color:'#8d5a32',roughness:.75});
+ const trousers=new THREE.MeshStandardMaterial({color:'#243044',roughness:.8});
+ figure.add(oval([0,.9,.34],.26,[1.55,.5,.85],cloth,'torso'));
+ figure.add(oval([0,.58,-.08],.4,[1.4,.8,1],cloth,'belly'));
+ const head=new THREE.Group();head.name='head';head.position.set(0,1.24,.5);figure.add(head);
+ const skull=new THREE.Mesh(new THREE.SphereGeometry(.22,10,8),skin);skull.castShadow=true;head.add(skull);
+ const hair=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),hairMat);
+ hair.name='hair';hair.position.set(0,.14,-.02);hair.scale.set(1.35,.7,1.05);head.add(hair);
+ for(const x of [-.17,.17]){const temple=new THREE.Mesh(new THREE.SphereGeometry(.06,6,5),hairMat);temple.position.set(x,.08,0);head.add(temple);}
+ const nose=new THREE.Mesh(new THREE.SphereGeometry(.035,6,5),skin);nose.position.set(0,.02,.27);head.add(nose);
+ for(const x of [-.2,.2]){const ear=new THREE.Mesh(new THREE.SphereGeometry(.05,6,4),skin);ear.position.set(x,-.02,.02);head.add(ear);}
+ const glasses=new THREE.Group();glasses.name='glasses';glasses.position.set(0,.11,.26);glasses.rotation.x=-.45;head.add(glasses);
+ for(const x of [-.08,.08]){
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(.062,.014,5,10),glass);rim.position.set(x,0,0);glasses.add(rim);
+  const lens=new THREE.Mesh(new THREE.CircleGeometry(.05,8),lensMat);lens.position.set(x,0,.005);lens.rotation.y=Math.PI;glasses.add(lens);
+ }
+ const bridge=new THREE.Mesh(new THREE.BoxGeometry(.055,.014,.014),glass);bridge.position.set(0,.012,0);glasses.add(bridge);
+ figure.add(rod([0,1.02,.4],[0,1.14,.48],.09,skin,'neck'));
+ for(const side of [-1,1]){
+  const shoulder=[side*.38,.96,.32],elbow=[side*.5,1.14,-.04],hand=[side*.34,1.28,-.18],bladeAt=[side*.58,1.5,-.32];
+  figure.add(rod(shoulder,elbow,.08,cloth,'sleeve'));
+  figure.add(rod(elbow,hand,.065,cloth,'sleeve'));
+  figure.add(oval(hand,.06,[1,1,1],skin,'hand'));
+  figure.add(rod(hand,bladeAt,.03,wood,'paddle-shaft'));
+  figure.add(paddleBlade(bladeAt,[bladeAt[0]-hand[0],bladeAt[1]-hand[1],bladeAt[2]-hand[2]],yellow));
+  const hip=[side*.2,.4,-.06],knee=[side*.22,.14,-.4],foot=[side*.14,-.16,-.55];
+  figure.add(rod(hip,knee,.12,trousers,'leg'));
+  figure.add(rod(knee,foot,.1,trousers,'leg'));
+ }
+}
+
 // Yellow tube, blue hull, the word CHALLENGER, and a heavy reclined figure low in the ring.
 export function createChallenger(){
  const root=new THREE.Group();root.name='Challenger';root.rotation.order='YXZ';root.userData={kind:'challenger',word:'CHALLENGER'};
@@ -101,23 +165,7 @@ export function createChallenger(){
  for(const side of [-1,1]){
   const plate=new THREE.Mesh(new THREE.PlaneGeometry(1.15,.28),wordMat);plate.name='challenger-word';plate.position.set(side*1.08,.48,0);plate.rotation.y=side>0?Math.PI/2:-Math.PI/2;root.add(plate);
  }
- const figure=new THREE.Group();figure.name='figure';figure.position.set(0,ZEMAN_BOAT.y,.05);figure.scale.setScalar(ZEMAN_BOAT.scale);root.add(figure);
- const skin=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.skin,roughness:.7});
- const cloth=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.jacket,roughness:.8,name:'jacket'});
- const torso=new THREE.Mesh(new THREE.BoxGeometry(.72,.4,.9),cloth);torso.position.set(0,.08,.05);torso.rotation.x=-1.05;torso.name='torso';figure.add(torso);
- const belly=new THREE.Mesh(new THREE.SphereGeometry(.32,10,8),cloth);belly.scale.set(1.15,.8,1);belly.position.set(0,.02,.15);belly.name='belly';figure.add(belly);
- const head=new THREE.Mesh(new THREE.SphereGeometry(.16,10,8),skin);head.position.set(0,.42,-.28);head.name='head';figure.add(head);
- const hair=new THREE.Mesh(new THREE.SphereGeometry(.175,8,6,0,Math.PI*2,0,Math.PI*.6),new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.hair,roughness:.85}));
- hair.name='hair';hair.position.y=.04;head.add(hair);
- const frame=new THREE.MeshStandardMaterial({color:ZEMAN_BOAT.glasses,roughness:.35,metalness:.2});
- const glasses=new THREE.Group();glasses.name='glasses';head.add(glasses);
- for(const x of [-.055,.055]){const rim=new THREE.Mesh(new THREE.TorusGeometry(.04,.007,5,10),frame);rim.position.set(x,.02,-.15);glasses.add(rim);}
- const bridge=new THREE.Mesh(new THREE.BoxGeometry(.04,.008,.008),frame);bridge.position.set(0,.02,-.155);glasses.add(bridge);
- for(const side of [-1,1]){
-  const arm=new THREE.Group();arm.position.set(side*.34,.28,-.05);figure.add(arm);
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.7,6),skin);shaft.position.y=.28;shaft.rotation.z=side*-.35;shaft.rotation.x=-.4;arm.add(shaft);
-  const blade=new THREE.Mesh(new THREE.BoxGeometry(.08,.28,.16),yellow);blade.position.set(side*-.12,.62,.05);blade.name='paddle';arm.add(blade);
- }
+ addChallengerPaddler(root,yellow);
  return {root,frame:hull,anchors:null,motion:null,lift:0,dispose:trackDispose(root)};
 }
 

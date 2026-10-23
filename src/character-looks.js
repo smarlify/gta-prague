@@ -129,8 +129,6 @@ export const ZEMAN_BOAT = Object.freeze({
   hair: '#9a958e',
   glasses: '#1a1c20',
   skin: '#e0b090',
-  scale: 1.65,
-  y: 0.68,
 });
 
 /** Standing look for a published character. Zeman and anyone else stay generic. */

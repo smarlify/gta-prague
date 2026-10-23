@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
-import {Box3, Group, Scene} from 'three';
+import {Box3, Group, PerspectiveCamera, Raycaster, Scene, Vector3} from 'three';
 import {createPersonBatch} from '../src/person-model.js';
 import {
   GENERIC_JACKET,
@@ -140,15 +140,90 @@ test('Zeman on foot stays generic, and the boat figure has grey hair, glasses, a
 
   const boat = createChallenger();
   boat.root.updateMatrixWorld(true);
-  const hull = new Box3().setFromObject(boat.root.getObjectByName('hull'));
-  const head = new Box3().setFromObject(boat.root.getObjectByName('head'));
+  const boxOf = (name) => new Box3().setFromObject(boat.root.getObjectByName(name));
+  const center = (name) => boxOf(name).getCenter(new Vector3());
+  const hull = boxOf('hull');
+  const head = boxOf('head');
+  const torso = boxOf('torso');
+  const belly = boxOf('belly');
   assert.ok(head.min.y > hull.max.y + 0.2, 'the head is above the hull, not a speck inside it');
   assert.equal(boat.root.getObjectByName('hair').material.color.getHexString(), ZEMAN_BOAT.hair.slice(1));
   assert.ok(boat.root.getObjectByName('glasses'));
   assert.equal(boat.root.getObjectByName('torso').material.color.getHexString(), ZEMAN_BOAT.jacket.slice(1));
-  assert.ok(boat.root.getObjectByName('belly'));
-  assert.ok(boat.root.getObjectByName('torso').rotation.x < -0.8, 'he stays reclined');
-  assert.ok(boat.root.getObjectByName('paddle'));
+  assert.equal(boat.root.getObjectByName('belly').material.color.getHexString(), ZEMAN_BOAT.jacket.slice(1));
+
+  const headC = center('head');
+  const torsoC = center('torso');
+  const bellyC = center('belly');
+  assert.ok(headC.z > torsoC.z + 0.1, 'the head is on the stern, toward the chase camera');
+  assert.ok(headC.y > torsoC.y, 'the head sits above the jacket');
+  assert.ok(bellyC.z < torsoC.z, 'the belly is forward in the ring');
+  assert.ok(bellyC.y < torsoC.y, 'the belly sits lower than the shoulders');
+  const torsoSize = torso.getSize(new Vector3());
+  const bellySize = belly.getSize(new Vector3());
+  assert.ok(torsoSize.y < torsoSize.x, 'the jacket is a low mass, not an upright rectangle');
+  assert.ok(bellySize.x > torsoSize.x, 'the belly is wider than the shoulders');
+  assert.ok(center('glasses').z > headC.z, 'glasses face the chase camera');
+
+  const tube = boat.root.getObjectByName('tube');
+  assert.equal(tube.geometry.type, 'TorusGeometry');
+  assert.ok(Math.abs(tube.rotation.x - Math.PI / 2) < 1e-6);
+  const tubeSize = boxOf('tube').getSize(new Vector3());
+  assert.ok(tubeSize.y < 0.5 && tubeSize.x > 2, 'the tube is one flat ring');
+
+  const paddles = [];
+  boat.root.traverse((object) => { if (object.name === 'paddle') paddles.push(object); });
+  assert.equal(paddles.length, 2);
+  for (const blade of paddles) {
+    const bladeBox = new Box3().setFromObject(blade);
+    const size = bladeBox.getSize(new Vector3());
+    const bladeC = bladeBox.getCenter(new Vector3());
+    assert.ok(Math.abs(bladeC.x) > 0.45, 'blades sit out beside the boat');
+    assert.ok(bladeC.y > headC.y, 'paddles are up');
+    assert.ok(size.y < size.x + size.z, 'a blade is not a tall vertical post');
+  }
+  let sleeves = 0;
+  boat.root.traverse((object) => {
+    if (object.name !== 'sleeve') return;
+    sleeves += 1;
+    assert.equal(object.material.color.getHexString(), ZEMAN_BOAT.jacket.slice(1));
+  });
+  assert.equal(sleeves, 4, 'both arms are jacket sleeves');
+  let legMin = Infinity;
+  boat.root.traverse((object) => {
+    if (object.name === 'leg') legMin = Math.min(legMin, new Box3().setFromObject(object).min.y);
+  });
+  assert.ok(legMin < CHALLENGER_HULL_BOTTOM, 'the lower body is in the water');
+
+  const camera = new PerspectiveCamera(58, 16 / 9, 0.1, 40);
+  camera.position.set(0, 3.29, 4.37);
+  camera.lookAt(0, 1.99, -2);
+  camera.updateMatrixWorld();
+  const raycaster = new Raycaster();
+  const counts = {};
+  const ndc = new Vector3();
+  const columns = 192;
+  const rows = 108;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < columns; x++) {
+      ndc.set((x + 0.5) / columns * 2 - 1, -((y + 0.5) / rows) * 2 + 1, 0.5);
+      raycaster.setFromCamera(ndc, camera);
+      let node = raycaster.intersectObject(boat.root, true)[0]?.object;
+      let name = '';
+      while (node) {
+        if (node.name) { name = node.name; break; }
+        node = node.parent;
+      }
+      if (name) counts[name] = (counts[name] || 0) + 1;
+    }
+  }
+  const saw = JSON.stringify(counts);
+  assert.ok(counts.glasses > 0, `glasses read from the chase camera ${saw}`);
+  assert.ok(counts.hair > 0, `grey hair reads from the chase camera ${saw}`);
+  assert.ok(counts.belly > 0, `the belly is visible in the ring ${saw}`);
+  assert.ok((counts.torso || 0) + (counts.sleeve || 0) > 0, `the jacket is visible ${saw}`);
+  assert.ok(counts.paddle > 0, `the paddles are up in view ${saw}`);
+  assert.ok(counts.tube > 0, `the yellow ring is in view ${saw}`);
   boat.dispose();
 }));
 

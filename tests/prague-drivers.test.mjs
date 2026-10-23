@@ -8,6 +8,7 @@ import {characterById, resolveDriver} from '../src/character-select.js';
 import {startCycleKey} from '../src/cities.js';
 import {resolveDriverStart} from '../src/pavlova.js';
 import {PlayerTravel, TRAVEL_MODES, travelCollision} from '../src/player-travel.js';
+import {Vector3} from 'three';
 import {createMotorbike, createChallenger} from '../src/player-ride-models.js';
 import {createVehicle, VEHICLE_TYPES} from '../src/vehicles.js';
 import {
@@ -167,7 +168,11 @@ test('the Challenger stays in mapped water and stops at a bank', () => {
   assert.equal(boat.root.userData.word, 'CHALLENGER');
   assert.equal(boat.root.getObjectByName('hull').material.color.getHexString(), '1a4f86');
   assert.equal(boat.root.getObjectByName('tube').material.color.getHexString(), 'f5c400');
-  assert.ok(boat.root.getObjectByName('torso').rotation.x < -0.8);
+  assert.equal(boat.root.getObjectByName('tube').geometry.type, 'TorusGeometry');
+  boat.root.updateMatrixWorld(true);
+  const headZ = boat.root.getObjectByName('head').getWorldPosition(new Vector3()).z;
+  const bellyZ = boat.root.getObjectByName('belly').getWorldPosition(new Vector3()).z;
+  assert.ok(headZ > bellyZ, 'he reclines with his head toward the stern');
   assert.ok(boat.root.getObjectByName('paddle'));
   boat.dispose();
 });
