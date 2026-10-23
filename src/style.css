@@ -66,7 +66,7 @@ body.clean-capture.driving #app .speedometer{margin-left:auto}
 @media(prefers-reduced-motion:reduce){#wanted.seen #wanted-stars .on{animation:none}}
 
 /* ===== Daytime (T) and weather (Y) — owned by lighting/post feature ===== */
-#look-btn,#weather-btn{min-width:118px}#look-btn>span:first-child,#weather-btn>span:first-child{font-size:17px}#look-btn kbd,#weather-btn kbd{margin-left:2px}
+#look-btn,#weather-btn{min-width:118px}#look-btn>span:first-child,#weather-btn>span:first-child{font-size:17px}#view-btn kbd,#look-btn kbd,#weather-btn kbd{margin-left:2px}
 @media(max-width:700px){#look-btn,#weather-btn{min-width:0}#look-label,#weather-label{font-size:10px}}
 
 /* ===== Station hot zone: arrest cinematic and BUSTED screen — owned by finale feature (src/finale.js) ===== */
