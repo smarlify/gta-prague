@@ -250,6 +250,17 @@ test('the same character id paints the local ped and the remote copy', () => wit
   assert.ok(boat.getObjectByName('glasses'));
 }));
 
+test('boot creates the travel renderer before the welcome picker paints it', () => {
+  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const renderer = source.indexOf('const travelRenderer=createPlayerTravelRenderer(scene);');
+  const picker = source.indexOf('bindCharacterPicker({initial:chosenCharacter.id,onChange:rememberCharacter});');
+  assert.notEqual(renderer, -1);
+  assert.notEqual(picker, -1);
+  // bindCharacterPicker calls onChange before it returns. That calls
+  // travelRenderer.setCharacter, which throws if the const is still in the temporal dead zone.
+  assert.ok(renderer < picker);
+});
+
 test('applyCharacterLook does not keep the previous beard or glasses', () => {
   const look = characterLook('dave');
   applyCharacterLook(look, 'elon');
