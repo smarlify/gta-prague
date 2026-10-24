@@ -55,13 +55,14 @@ test('the in-game modal links to the advertiser page and leaves sign-in there', 
   assert.match(buy, /showCheckout:\s*false/);
   assert.match(checkout, /id="ads-email"/);
   assert.match(checkout, /id="ads-password"/);
-  assert.match(checkout, /Create account/);
+  assert.match(checkout, /type="submit">Create account/);
   assert.match(checkout, /Revolut Pay/);
   assert.match(checkout, /id="ads-revolut-qr"/);
   assert.match(checkout, /REVOLUT_CHECKOUT_URL/);
-  const paymentAt = checkout.indexOf('id="board-payment"');
-  const accountAt = checkout.indexOf('id="ads-account" hidden');
-  assert.ok(paymentAt > 0 && accountAt > paymentAt, 'the 50 € request stays visible before the account panel');
+  assert.match(checkout, /id="board-payment" hidden/);
+  assert.match(checkout, /id="ads-account" hidden/);
+  assert.match(checkout, /I've paid the 50 €/);
+  assert.doesNotMatch(checkout, /id="ads-create"|type="button">Create account/);
   assert.doesNotMatch(adsFlow, /class="ads-card"|class="ads-note"/);
   assert.doesNotMatch(css, /\.ads-card|\.ads-note/);
   assert.match(css, /\.board-panel\[hidden\]/);

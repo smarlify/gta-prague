@@ -3,6 +3,7 @@ import {signOut} from 'firebase/auth';
 import {doc, getDoc, setDoc, updateDoc} from 'firebase/firestore';
 import {ref, uploadBytes, getDownloadURL} from 'firebase/storage';
 import {billboardFirebase} from './firebase.js';
+import {applyAdvertiserAccess, submitAdvertiserAuth} from './advertiser-auth.js';
 import {authFailureMessage, createEmailAccount, signInWithEmail} from './email-auth.js';
 import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH, boardId, checkoutAmount, emptyAccount} from '../firebase/functions/ad-credits.js';
 import {adsEndpoints} from './billboard-feed.js';
@@ -14,19 +15,20 @@ const PAGE_LINK = '<p id="ads-page-fallback" class="board-note"><a id="ads-page-
 function checkoutMarkup() {
   // EasyList hides .ads-card and .ads-note. The advertiser page keeps board-panel.
   return `<section class="board-panel" id="ads-signed-out">
-      <p>Sign in with email to upload an image and pay.</p>
+      <p id="ads-intro" class="board-note">Create an account with your email. The 50 € payment appears after you are signed in.</p>
       <form id="ads-auth">
         <label>Email
-          <input id="ads-email" type="email" autocomplete="username" required />
+          <input id="ads-email" name="email" type="email" autocomplete="username" required />
         </label>
         <label>Password
-          <input id="ads-password" type="password" autocomplete="current-password" minlength="6" required />
+          <input id="ads-password" name="password" type="password" autocomplete="new-password" minlength="6" required />
         </label>
-        <button id="ads-sign-in" class="primary-btn" type="submit">Sign in</button>
-        <button id="ads-create" class="ghost-btn" type="button">Create account</button>
+        <p id="ads-password-hint" class="board-note">At least 6 characters.</p>
+        <button id="ads-submit" class="primary-btn" type="submit">Create account</button>
+        <button id="ads-switch" class="ghost-btn" type="button">I already have an account</button>
       </form>
     </section>
-    <section class="board-panel" id="board-payment">
+    <section class="board-panel" id="board-payment" hidden>
       <p>GTA Praha has sent you a payment request for 50 €. Pay with Revolut Link, Revolut Pay, or scan the code.</p>
       <p class="ads-pay-label">Revolut Link</p>
       <p><a class="ads-revolut" id="ads-revolut" href="${REVOLUT_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer">${REVOLUT_CHECKOUT_URL}</a></p>
@@ -37,6 +39,7 @@ function checkoutMarkup() {
       </figure>
     </section>
     <section class="board-panel" id="ads-account" hidden>
+      <p id="ads-who" class="board-note"></p>
       <div class="ads-balance">
         <p><span>Spent</span><strong id="ads-spent">0</strong></p>
         <p><span>Remaining</span><strong id="ads-remaining">0</strong></p>
@@ -53,9 +56,14 @@ function checkoutMarkup() {
 
 function markup({showBack, showCheckout}) {
   const kicker = showBack ? '<p class="ads-kicker"><a class="ads-back" href="/">GTA Praha</a></p>' : '';
+  // The in-game modal keeps the short placeholder. The advertiser page names itself.
+  const title = showCheckout ? 'Advertise in GTA Praha' : 'Your ad can be here';
+  const lede = showCheckout
+    ? 'Zde může být vaše reklama. Your ad can be here. One landscape image goes on one board.'
+    : 'Zde může být vaše reklama. One landscape image goes on one board.';
   return `${kicker}
-    <h1 id="billboard-ads-title">Your ad can be here</h1>
-    <p>Zde může být vaše reklama. One landscape image goes on one board.</p>
+    <h1 id="billboard-ads-title">${title}</h1>
+    <p>${lede}</p>
     <p id="ads-board" class="board-note" hidden></p>
     ${showCheckout ? checkoutMarkup() : PAGE_LINK}
     <p id="ads-status" class="ads-status" role="status"></p>`;
@@ -126,14 +134,6 @@ function bind(root, options) {
     return billboardFirebase();
   }
 
-  function credentials() {
-    const email = q('ads-email').value.trim();
-    const password = q('ads-password').value;
-    if (!email || !password) throw new Error('Enter an email and a password.');
-    if (password.length < 6) throw new Error('Use a password of at least 6 characters.');
-    return {email, password};
-  }
-
   async function authedPost(path, body) {
     const user = services().auth.currentUser;
     if (!user) throw new Error('Sign in required');
@@ -172,8 +172,9 @@ function bind(root, options) {
   }
 
   async function showAccount(user) {
-    q('ads-signed-out').hidden = true;
-    q('ads-account').hidden = false;
+    applyAdvertiserAccess(root, user);
+    const who = q('ads-who');
+    if (who) who.textContent = user.email ? `Signed in as ${user.email}` : 'Signed in';
     await ensureAccount(user.uid);
     await saveSelectedBoard(user.uid);
     paintChosenBoard();
@@ -196,35 +197,65 @@ function bind(root, options) {
     paintChosenBoard();
     const user = services().auth.currentUser;
     if (!user || user.isAnonymous) {
-      q('ads-signed-out').hidden = false;
-      q('ads-account').hidden = true;
+      applyAdvertiserAccess(root, null);
       return Promise.resolve();
     }
     return showAccount(user);
   }
 
-  async function withAuth(action) {
+  let mode = 'create';
+
+  function paintMode() {
+    const creating = mode === 'create';
+    q('ads-submit').textContent = creating ? 'Create account' : 'Sign in';
+    q('ads-switch').textContent = creating ? 'I already have an account' : 'Create an account';
+    q('ads-password').autocomplete = creating ? 'new-password' : 'current-password';
+    q('ads-intro').textContent = creating
+      ? 'Create an account with your email. The 50 € payment appears after you are signed in.'
+      : 'Sign in with the email and password you already created.';
+  }
+
+  function failureText(error) {
+    const message = authFailureMessage(error);
+    const missed = error?.code === 'auth/invalid-credential' || error?.code === 'auth/user-not-found' || error?.code === 'auth/wrong-password';
+    if (mode === 'sign-in' && missed) return `${message} Create an account if you are new.`;
+    return message;
+  }
+
+  async function withAuth() {
     if (authBusy) return;
     authBusy = true;
-    q('ads-status').textContent = '';
+    q('ads-status').textContent = mode === 'create' ? 'Creating your account…' : 'Signing in…';
+    q('ads-submit').disabled = true;
     try {
-      const {email, password} = credentials();
-      const user = await action(email, password);
+      const user = await submitAdvertiserAuth(mode, q('ads-email').value, q('ads-password').value, {
+        create: (email, password) => createEmailAccount(services().auth, email, password),
+        signIn: (email, password) => signInWithEmail(services().auth, email, password),
+      });
       await showAccount(user);
+      q('ads-status').textContent = '';
     } catch (error) {
-      q('ads-status').textContent = authFailureMessage(error);
+      if (error?.code === 'auth/email-already-in-use') {
+        mode = 'sign-in';
+        paintMode();
+      }
+      q('ads-status').textContent = failureText(error);
     } finally {
       authBusy = false;
+      if (q('ads-submit')) q('ads-submit').disabled = false;
     }
   }
 
   paintChosenBoard();
+  paintMode();
   q('ads-auth').addEventListener('submit', (event) => {
     event.preventDefault();
-    withAuth((email, password) => signInWithEmail(services().auth, email, password));
+    withAuth();
   });
-  q('ads-create').addEventListener('click', () => {
-    withAuth((email, password) => createEmailAccount(services().auth, email, password));
+  q('ads-switch').addEventListener('click', () => {
+    mode = mode === 'create' ? 'sign-in' : 'create';
+    paintMode();
+    q('ads-status').textContent = '';
   });
   q('ads-sign-out').addEventListener('click', () => {
     pendingClaim = '';
@@ -285,8 +316,7 @@ function bind(root, options) {
   });
   services().auth.onAuthStateChanged((user) => {
     if (!user || user.isAnonymous) {
-      q('ads-signed-out').hidden = false;
-      q('ads-account').hidden = true;
+      applyAdvertiserAccess(root, null);
       return;
     }
     showAccount(user).catch((error) => {

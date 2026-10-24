@@ -30,6 +30,9 @@ body.ads-standalone {
   background: #fffdf8;
   border: 1px solid #d9d3c6;
 }
+.ads-page .board-panel p {
+  margin: 0;
+}
 .ads-page .ads-balance {
   display: flex;
   gap: 1.5rem;
@@ -57,9 +60,16 @@ body.ads-standalone {
   font: inherit;
   font-size: 16px;
   box-sizing: border-box;
+  width: 100%;
   padding: 0.55rem 0.7rem;
   border: 1px solid #d9d3c6;
   background: #fff;
+}
+.ads-page input:focus-visible,
+.ads-page .primary-btn:focus-visible,
+.ads-page .ghost-btn:focus-visible {
+  outline: 3px solid #28795f;
+  outline-offset: 2px;
 }
 .ads-page .ads-revolut {
   color: inherit;
