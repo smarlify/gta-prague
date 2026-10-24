@@ -73,6 +73,10 @@ test('the advertiser page submits account creation and keeps Revolut behind sign
   assert.match(adsFlow, /signInWithEmail\(services\(\)\.auth/);
   assert.match(adsFlow, /applyAdvertiserAccess\(root, user\)/);
   assert.match(adsFlow, /applyAdvertiserAccess\(root, null\)/);
+  const signedOut = checkout.slice(checkout.indexOf('id="ads-signed-out"'), checkout.indexOf('id="board-payment"'));
+  assert.match(signedOut, /Create an account with your email\./);
+  assert.doesNotMatch(signedOut, /50/);
+  assert.doesNotMatch(adsFlow, /payment appears after you are signed in/);
   assert.match(checkout, /id="ads-submit"[^>]*type="submit">Create account/);
   assert.match(checkout, /id="board-payment" hidden/);
   assert.match(checkout, /I've paid the 50 €/);
