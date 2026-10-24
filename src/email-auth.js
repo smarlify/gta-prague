@@ -18,8 +18,13 @@ export function authFailureMessage(error) {
       return 'Too many attempts. Wait a moment and try again.';
     case 'auth/operation-not-allowed':
       return 'Email sign-in is not enabled yet.';
+    case 'auth/network-request-failed':
+      return 'The account service did not respond. Check the connection and try again.';
+    case 'auth/unauthorized-domain':
+      return 'This site cannot open accounts yet.';
     default:
-      return error?.message || 'Sign-in failed.';
+      if (code.startsWith('auth/')) return 'Sign-in failed. Try again.';
+      return error?.message || 'Sign-in failed. Try again.';
   }
 }
 
