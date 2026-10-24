@@ -76,6 +76,12 @@ test('the advertiser page submits account creation and keeps Revolut behind sign
   assert.match(checkout, /id="ads-submit"[^>]*type="submit">Create account/);
   assert.match(checkout, /id="board-payment" hidden/);
   assert.match(checkout, /I've paid the 50 €/);
+  assert.match(checkout, /class="board-actions"/);
+  const css = readFileSync(new URL('../src/ads-page.css', import.meta.url), 'utf8');
+  assert.match(css, /\.ads-page #ads-auth \{[^}]*gap:\s*1rem/);
+  assert.match(css, /\.ads-page label \{[^}]*gap:\s*0\.5rem/);
+  assert.match(css, /\.ads-page \.board-actions \{[^}]*gap:\s*0\.75rem/);
+  assert.doesNotMatch(css, /\.ads-card|\.ads-note/);
   assert.equal(authFailureMessage({code: 'auth/invalid-credential'}), 'Email or password does not match.');
   assert.equal(authFailureMessage({code: 'auth/network-request-failed'}), 'The account service did not respond. Check the connection and try again.');
   assert.equal(authFailureMessage({code: 'auth/unauthorized-domain'}), 'This site cannot open accounts yet.');

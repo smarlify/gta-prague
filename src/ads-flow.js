@@ -15,17 +15,19 @@ const PAGE_LINK = '<p id="ads-page-fallback" class="board-note"><a id="ads-page-
 function checkoutMarkup() {
   // EasyList hides .ads-card and .ads-note. The advertiser page keeps board-panel.
   return `<section class="board-panel" id="ads-signed-out">
-      <p id="ads-intro" class="board-note">Create an account with your email. The 50 € payment appears after you are signed in.</p>
+      <p id="ads-intro" class="board-note">Create an account with your email.</p>
       <form id="ads-auth">
         <label>Email
           <input id="ads-email" name="email" type="email" autocomplete="username" required />
         </label>
         <label>Password
           <input id="ads-password" name="password" type="password" autocomplete="new-password" minlength="6" required />
+          <span id="ads-password-hint" class="board-note">At least 6 characters.</span>
         </label>
-        <p id="ads-password-hint" class="board-note">At least 6 characters.</p>
-        <button id="ads-submit" class="primary-btn" type="submit">Create account</button>
-        <button id="ads-switch" class="ghost-btn" type="button">I already have an account</button>
+        <div class="board-actions">
+          <button id="ads-submit" class="primary-btn" type="submit">Create account</button>
+          <button id="ads-switch" class="ghost-btn" type="button">I already have an account</button>
+        </div>
       </form>
     </section>
     <section class="board-panel" id="board-payment" hidden>
@@ -49,8 +51,10 @@ function checkoutMarkup() {
         <input id="ads-file" type="file" accept="image/jpeg,image/png,image/webp" />
       </label>
       <p id="ads-price" class="board-note"></p>
-      <button id="ads-confirm" class="primary-btn" type="button">I've paid the 50 €</button>
-      <button id="ads-sign-out" class="ghost-btn" type="button">Sign out</button>
+      <div class="board-actions">
+        <button id="ads-confirm" class="primary-btn" type="button">I've paid the 50 €</button>
+        <button id="ads-sign-out" class="ghost-btn" type="button">Sign out</button>
+      </div>
     </section>`;
 }
 
@@ -211,7 +215,7 @@ function bind(root, options) {
     q('ads-switch').textContent = creating ? 'I already have an account' : 'Create an account';
     q('ads-password').autocomplete = creating ? 'new-password' : 'current-password';
     q('ads-intro').textContent = creating
-      ? 'Create an account with your email. The 50 € payment appears after you are signed in.'
+      ? 'Create an account with your email.'
       : 'Sign in with the email and password you already created.';
   }
 
