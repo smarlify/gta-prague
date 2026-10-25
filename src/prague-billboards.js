@@ -3,7 +3,7 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {SpatialIndex} from './geo.js';
 import {solidBox} from './world-objects.js';
 import {PRAGUE_AREAS} from './area-caption.js';
-import {boardId, paintPlaceholder, facesForDay, pragueDayKey} from '../firebase/functions/ad-credits.js';
+import {boardId, httpUrl, paintPlaceholder, facesForDay, pragueDayKey} from '../firebase/functions/ad-credits.js';
 import storedSites from './prague-billboard-sites.json' with {type: 'json'};
 
 export const BOARDS_PER_DISTRICT = 10;
@@ -13,6 +13,8 @@ export const BILLBOARD_BUY_RELEASE = 26;
 // Longer than one HUD sample (~140 ms). A single far reading must not drop the control.
 export const BILLBOARD_BUY_RELEASE_HOLD = 0.5;
 export const BUY_BILLBOARD_LABEL = 'Buy this billboard';
+export const VISIT_BILLBOARD_LABEL = 'Visit this link';
+export const BILLBOARD_TEXTURE_MAX = 2048;
 const BOARD_WIDTH = 7.2;
 const BOARD_HEIGHT = 3.6;
 const BOARD_BOTTOM = 2.5;
@@ -52,6 +54,32 @@ function districtSlug(name) {
 // Standalone advertiser page. The in-game button opens a modal and does not assign this URL.
 export function billboardPurchaseUrl(siteId) {
   return `/advertise?board=${encodeURIComponent(siteId)}`;
+}
+
+// A paid face with a link is visited. A paid face without a link stays quiet.
+// An empty face keeps the buy offer.
+export function billboardCallToAction(face) {
+  const image = face?.imageUrl || '';
+  const link = httpUrl(face?.linkUrl);
+  if (image && link) return {kind: 'visit', label: VISIT_BILLBOARD_LABEL, url: link};
+  if (image) return {kind: 'shown', label: '', url: ''};
+  return {kind: 'buy', label: BUY_BILLBOARD_LABEL, url: ''};
+}
+
+export function openBillboardLink(url, opener = (href) => window.open(href, '_blank', 'noopener,noreferrer')) {
+  const href = httpUrl(url);
+  if (!href) return false;
+  opener(href);
+  return true;
+}
+
+// Phone GPUs often stop at 2048. A larger photo would upload as an empty texture.
+export function billboardTextureSize(width, height, max = BILLBOARD_TEXTURE_MAX) {
+  const w = Math.max(0, Math.round(Number(width) || 0));
+  const h = Math.max(0, Math.round(Number(height) || 0));
+  if (!w || !h || (w <= max && h <= max)) return {width: w, height: h, scaled: false};
+  const scale = max / Math.max(w, h);
+  return {width: Math.max(1, Math.round(w * scale)), height: Math.max(1, Math.round(h * scale)), scaled: true};
 }
 
 // Player position is the same x/z on foot and in a car. Equal distances keep the earlier site id.
@@ -339,17 +367,35 @@ export function createPragueBillboards(sites = storedSites) {
   }
   group.userData = {placeholder: true, sites};
   group.obstacles = obstacles;
+  const posted = new Map();
+
+  function fitTexture(map) {
+    const image = map?.image;
+    const size = billboardTextureSize(image?.width, image?.height);
+    if (!size.scaled || typeof document === 'undefined') return map;
+    const canvas = document.createElement('canvas');
+    canvas.width = size.width;
+    canvas.height = size.height;
+    canvas.getContext('2d').drawImage(image, 0, 0, size.width, size.height);
+    map.image = canvas;
+    map.needsUpdate = true;
+    return map;
+  }
 
   async function setCreatives(creatives, date = new Date()) {
     const day = pragueDayKey(date);
     const plan = facesForDay(sites, creatives, day);
+    posted.clear();
+    for (const face of plan) {
+      if (face.imageUrl) posted.set(face.id, face);
+    }
     await Promise.all(plan.map(async (face) => {
       const materials = faces.get(face.id);
       if (!materials) return;
       let map = placeholder;
       if (face.imageUrl) {
         try {
-          map = await new THREE.TextureLoader().loadAsync(face.imageUrl);
+          map = fitTexture(await new THREE.TextureLoader().loadAsync(face.imageUrl));
           map.colorSpace = THREE.SRGBColorSpace;
           map.anisotropy = 4;
         } catch {
@@ -364,5 +410,9 @@ export function createPragueBillboards(sites = storedSites) {
     }));
   }
 
-  return {group, obstacles, sites, setCreatives};
+  function actionFor(id) {
+    return billboardCallToAction(posted.get(id) || null);
+  }
+
+  return {group, obstacles, sites, setCreatives, actionFor};
 }

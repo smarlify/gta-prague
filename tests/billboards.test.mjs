@@ -5,7 +5,7 @@ import {gunzipSync} from 'node:zlib';
 import {SpatialIndex} from '../src/geo.js';
 import {PRAGUE_AREAS} from '../src/area-caption.js';
 import * as THREE from 'three';
-import {BILLBOARD_BUY_REACH, BILLBOARD_BUY_RELEASE, BILLBOARD_BUY_RELEASE_HOLD, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, billboardBuyOffer, billboardFromPointer, billboardPurchaseUrl, nearestBillboard, placePragueBillboards} from '../src/prague-billboards.js';
+import {BILLBOARD_BUY_REACH, BILLBOARD_BUY_RELEASE, BILLBOARD_BUY_RELEASE_HOLD, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, VISIT_BILLBOARD_LABEL, billboardBuyOffer, billboardCallToAction, billboardFromPointer, billboardPurchaseUrl, billboardTextureSize, nearestBillboard, openBillboardLink, placePragueBillboards} from '../src/prague-billboards.js';
 import storedSites from '../src/prague-billboard-sites.json' with {type: 'json'};
 import {
   PACK_CREDITS,
@@ -18,6 +18,7 @@ import {
   emptyAccount,
   facesForDay,
   grantPurchase,
+  httpUrl,
   paintPlaceholder,
   pragueDayKey,
   settleCredits,
@@ -241,4 +242,67 @@ test('a selected board id paints that site rather than a random one', () => {
   assert.equal(boardId('../credits'), '');
   const amount = checkoutAmount({feePaid: false});
   assert.equal(checkoutMetadata('ada', amount, 'praha-1-stare-mesto-01').boardId, 'praha-1-stare-mesto-01');
+  const linked = facesForDay(sites, [{...ada, linkUrl: 'https://smarlify.co/visit'}], '2026-10-20');
+  assert.equal(linked[2].linkUrl, 'https://smarlify.co/visit');
+  assert.equal(linked[0].linkUrl, '');
+  assert.equal(linked[0].imageUrl, null);
+});
+
+test('a paid board visits its link and an empty board stays for sale', () => {
+  assert.equal(httpUrl('https://smarlify.co/visit'), 'https://smarlify.co/visit');
+  assert.equal(httpUrl('  http://example.com/a  '), 'http://example.com/a');
+  assert.equal(httpUrl('javascript:alert(1)'), '');
+  assert.equal(httpUrl('https://user:secret@example.com'), '');
+  assert.equal(httpUrl(''), '');
+  const buy = billboardCallToAction(null);
+  assert.equal(buy.kind, 'buy');
+  assert.equal(buy.label, BUY_BILLBOARD_LABEL);
+  const shown = billboardCallToAction({imageUrl: 'https://example.test/ad.jpg', linkUrl: ''});
+  assert.equal(shown.kind, 'shown');
+  assert.equal(shown.label, '');
+  const visit = billboardCallToAction({imageUrl: 'https://example.test/ad.jpg', linkUrl: 'https://smarlify.co/visit'});
+  assert.equal(visit.kind, 'visit');
+  assert.equal(visit.label, VISIT_BILLBOARD_LABEL);
+  assert.equal(visit.url, 'https://smarlify.co/visit');
+  assert.equal(billboardCallToAction({imageUrl: 'https://example.test/ad.jpg', linkUrl: 'javascript:alert(1)'}).kind, 'shown');
+  assert.equal(billboardCallToAction({linkUrl: 'https://smarlify.co'}).kind, 'buy');
+  const opened = [];
+  assert.equal(openBillboardLink('https://smarlify.co/visit', (href) => opened.push(href)), true);
+  assert.deepEqual(opened, ['https://smarlify.co/visit']);
+  assert.equal(openBillboardLink('javascript:alert(1)', () => opened.push('nope')), false);
+  assert.deepEqual(opened, ['https://smarlify.co/visit']);
+  const fitted = billboardTextureSize(3024, 1964);
+  assert.equal(fitted.scaled, true);
+  assert.equal(fitted.width, 2048);
+  assert.ok(fitted.height < 2048);
+  assert.equal(billboardTextureSize(800, 400).scaled, false);
+  const settled = settleCredits({
+    ...emptyAccount(),
+    credits: 12,
+    feePaid: true,
+    imageUrl: 'https://example.test/ad.jpg',
+    linkUrl: 'https://smarlify.co/visit',
+    paused: false,
+    lastSettledDay: '2026-10-25',
+    selectedBoardId: 'board-01',
+  }, '2026-10-25');
+  assert.equal(settled.credits, 12);
+  assert.equal(settled.linkUrl, 'https://smarlify.co/visit');
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const ads = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
+  const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
+  assert.match(html, /Buy this billboard/);
+  assert.match(main, /action\.kind==='shown'/);
+  assert.match(main, /openBillboardLink\(buyBillboardBtn\.dataset\.href\)/);
+  assert.match(main, /action\.kind==='visit'/);
+  assert.match(ads, /id="ads-link"/);
+  assert.match(ads, /type="url"/);
+  assert.match(ads, /\{linkUrl\}/);
+  assert.doesNotMatch(ads.slice(ads.indexOf('async function saveLink'), ads.indexOf('function sync')), /credits/);
+  assert.match(rules, /request\.auth\.uid == uid/);
+  assert.match(rules, /moneyUnchanged\(\)/);
+  assert.match(rules, /hasOnly\(\['imageUrl', 'selectedBoardId', 'linkUrl'\]\)/);
+  assert.match(rules, /linkUrlOk\(\)/);
+  assert.doesNotMatch(rules, /allow read: if true/);
 });
