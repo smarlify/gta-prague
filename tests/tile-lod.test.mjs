@@ -70,7 +70,7 @@ test('tree chunks step canopy detail down with distance, hide past the fog and c
  const chunks=[chunk(0),chunk(300),chunk(600),chunk(1200)];
  applyTreeLod(chunks,new THREE.Vector3(0,0,0),geometries);
  assert.deepEqual(chunks.map(c=>c.leaf.geometry.parameters.detail),[2,1,0,0]);
- assert.deepEqual(chunks.map(c=>c.leaf.visible),[true,true,true,false]);
+ assert.deepEqual(chunks.map(c=>c.leaf.visible),[true,true,false,false]);
  assert.deepEqual(chunks.map(c=>c.leaf.castShadow),[true,false,false,false]);
  assert.equal(treeLeafDetail(100),2);
 });
@@ -84,8 +84,8 @@ test('detailed tree buckets hand over full → reduced canopy → blob proxies w
  at(170);assert.ok(near.every(m=>m.visible),"still near inside the band");assert.ok(near.every(m=>!m.castShadow),"but no longer casting at 170 m");
  at(200);assert.ok(near.every(m=>!m.visible));assert.ok(far.every(m=>m.visible&&!m.castShadow),'reduced canopy takes over');assert.equal(c.leaf.visible,false);
  at(170);assert.ok(near.every(m=>!m.visible),"stays mid inside the band");
- at(500);assert.ok(far.every(m=>!m.visible));assert.ok(c.leaf.visible&&c.trunk.visible,'blob proxy beyond the reduced canopy range');
- at(450);assert.ok(c.leaf.visible,'stays on the proxy inside the band');
+ at(440);assert.ok(far.every(m=>m.visible&&!m.castShadow),'reduced canopy still covers the street ahead');assert.equal(c.leaf.visible,false);
+ at(500);assert.ok(near.every(m=>!m.visible)&&far.every(m=>!m.visible)&&!c.leaf.visible,'hidden once the draw distance closes');
  at(100);assert.ok(near.every(m=>m.visible));assert.equal(c.leaf.visible,false);
 });
 

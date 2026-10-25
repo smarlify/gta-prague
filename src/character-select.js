@@ -1,7 +1,8 @@
 // Welcome-card choice: which vehicle is waiting for Start, and which name the
 // local player publishes. A missing ?driver= rolls every listed driver equally
 // and does not write the roll. The card cycles that choice with the same ‹ ›
-// row as the district and the street.
+// row as the district and the street. The name in that row, and the top-bar
+// name field, are selects: picking one jumps to that driver and car.
 import {rollIndex, slug} from './cities.js';
 import {cycleIndex} from './start-picker.js';
 import {locationPageTitle} from './worldhood-brand.js';
@@ -220,6 +221,39 @@ export function playerPageTitle(name, place) {
   return `${who} · ${locationPageTitle(place)}`;
 }
 
+function isDriverSelect(node) {
+  return String(node?.tagName || '').toUpperCase() === 'SELECT';
+}
+
+/** Options come from the listed cast. `dataset.name` is the published driver name. */
+function fillDriverSelect(select) {
+  if (!isDriverSelect(select) || select.dataset.drivers === '1') return;
+  const create = select.ownerDocument?.createElement?.bind(select.ownerDocument);
+  if (!create || !select.append) return;
+  select.replaceChildren?.();
+  for (const choice of listedCharacters()) {
+    const option = create('option');
+    option.value = choice.id;
+    option.textContent = choice.label;
+    if (!option.dataset) option.dataset = {};
+    option.dataset.name = choice.name;
+    select.append(option);
+  }
+  select.dataset.drivers = '1';
+}
+
+function bindDriverSelect(select, current, choose) {
+  if (!isDriverSelect(select) || select.dataset.bound === '1') return;
+  select.dataset.bound = '1';
+  fillDriverSelect(select);
+  select.addEventListener('change', () => {
+    const id = select.value;
+    select.blur?.();
+    if (!id || id === current().id) return;
+    choose(id);
+  });
+}
+
 export function bindCharacterPicker({
   doc = document,
   storage,
@@ -230,15 +264,21 @@ export function bindCharacterPicker({
   let current = initial ? characterById(initial) : readCharacter(storage);
   const buttons = root ? [...root.querySelectorAll('[data-character]')] : [];
   const label = doc.getElementById?.('character-label');
+  const nameField = doc.getElementById?.('player-name');
   const prev = doc.getElementById?.('character-prev');
   const next = doc.getElementById?.('character-next');
+  const selects = [label, nameField].filter((node, index, list) => isDriverSelect(node) && list.indexOf(node) === index);
 
   function paint() {
     for (const button of buttons) {
       const on = button.dataset.character === current.id;
       button.setAttribute('aria-checked', on ? 'true' : 'false');
     }
-    if (label) label.textContent = current.label;
+    if (label && !isDriverSelect(label)) label.textContent = current.label;
+    for (const select of selects) {
+      fillDriverSelect(select);
+      if (select.value !== current.id) select.value = current.id;
+    }
   }
 
   function choose(id) {
@@ -279,6 +319,7 @@ export function bindCharacterPicker({
   };
   arrow(prev, -1);
   arrow(next, 1);
+  for (const select of selects) bindDriverSelect(select, () => current, choose);
 
   paint();
   onChange?.(current);
