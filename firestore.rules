@@ -15,6 +15,22 @@ service cloud.firestore {
           && (request.resource.data.selectedBoardId == ''
             || request.resource.data.selectedBoardId.matches('^[a-z0-9]+(-[a-z0-9]+)*$')));
     }
+    function linkUrlOk() {
+      return !('linkUrl' in request.resource.data)
+        || (request.resource.data.linkUrl is string
+          && request.resource.data.linkUrl.size() < 2000
+          && (request.resource.data.linkUrl == ''
+            || request.resource.data.linkUrl.matches('https://[A-Za-z0-9.-]+(?::[0-9]+)?(?:[/?#][^\\s]*)?')
+            || request.resource.data.linkUrl.matches('http://[A-Za-z0-9.-]+(?::[0-9]+)?(?:[/?#][^\\s]*)?')));
+    }
+    function linkUnset() {
+      return !('linkUrl' in request.resource.data) || request.resource.data.linkUrl == '';
+    }
+    function accountKeys() {
+      return request.resource.data.keys().hasOnly([
+        'credits', 'spent', 'feePaid', 'imageUrl', 'linkUrl', 'paused', 'lastSettledDay', 'selectedBoardId'
+      ]);
+    }
     // matches() compares the whole string. A host-only pattern rejects the download URL.
     function ownBillboardImage(uid) {
       return request.resource.data.imageUrl is string
@@ -25,17 +41,20 @@ service cloud.firestore {
     match /billboardAccounts/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid
+        && accountKeys()
         && request.resource.data.credits == 0
         && request.resource.data.spent == 0
         && request.resource.data.feePaid == false
         && request.resource.data.paused == true
         && request.resource.data.lastSettledDay == ''
         && request.resource.data.imageUrl == ''
-        && request.resource.data.selectedBoardId == '';
+        && request.resource.data.selectedBoardId == ''
+        && linkUnset();
       allow update: if request.auth != null && request.auth.uid == uid
         && moneyUnchanged()
         && boardChoiceOk()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageUrl', 'selectedBoardId'])
+        && linkUrlOk()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageUrl', 'selectedBoardId', 'linkUrl'])
         && ownBillboardImage(uid);
       allow delete: if false;
     }

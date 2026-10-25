@@ -3,7 +3,7 @@ import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import {randomUUID} from 'node:crypto';
-import {boardId, checkoutAmount, emptyAccount, pragueDayKey, settleCredits} from './ad-credits.js';
+import {boardId, checkoutAmount, emptyAccount, httpUrl, pragueDayKey, settleCredits} from './ad-credits.js';
 import {claimAsPaidSession, createRevolutCheckout, paidSessionAccount, settlePaidSession} from './billboard-payment.js';
 
 // Gen2 runs as the Compute Engine service account, which needs roles/datastore.user.
@@ -145,7 +145,7 @@ export const listBillboardCreatives = onRequest({region, cors: true}, async (req
       if (settled.credits !== account.credits || settled.spent !== account.spent || settled.paused !== account.paused || settled.lastSettledDay !== account.lastSettledDay) {
         await doc.ref.set(settled, {merge: true});
       }
-      if (settled.imageUrl && settled.credits > 0) creatives.push({uid: doc.id, imageUrl: settled.imageUrl, credits: settled.credits, selectedBoardId: boardId(settled.selectedBoardId)});
+      if (settled.imageUrl && settled.credits > 0) creatives.push({uid: doc.id, imageUrl: settled.imageUrl, credits: settled.credits, selectedBoardId: boardId(settled.selectedBoardId), linkUrl: httpUrl(settled.linkUrl)});
     }
     res.json({day: today, creatives});
   } catch (error) {

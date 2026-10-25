@@ -18,7 +18,22 @@ export function checkoutAmount({feePaid = false} = {}) {
 }
 
 export function emptyAccount() {
-  return {credits: 0, spent: 0, feePaid: false, imageUrl: '', paused: true, lastSettledDay: '', selectedBoardId: ''};
+  return {credits: 0, spent: 0, feePaid: false, imageUrl: '', linkUrl: '', paused: true, lastSettledDay: '', selectedBoardId: ''};
+}
+
+// An advertiser link is an http(s) address. Anything else is dropped.
+export function httpUrl(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw || raw.length > 2000) return '';
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return '';
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+  if (!url.hostname || url.username || url.password || url.href.length > 2000) return '';
+  return url.href;
 }
 
 // Site ids such as praha-1-stare-mesto-01. Empty means the account has not chosen a board.
@@ -125,7 +140,7 @@ export function facesForDay(sites, creatives, dayKey) {
   const assigned = assignBoards(sites.map((site) => site.id), creatives);
   return sites.map((site) => {
     const creative = assigned.get(site.id);
-    return {id: site.id, imageUrl: creative?.imageUrl || null};
+    return {id: site.id, imageUrl: creative?.imageUrl || null, linkUrl: creative ? httpUrl(creative.linkUrl) : ''};
   });
 }
 

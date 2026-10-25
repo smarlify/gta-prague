@@ -67,7 +67,8 @@ body.ads-standalone .ads-page {
   font-size: 16px;
 }
 .ads-page input[type="email"],
-.ads-page input[type="password"] {
+.ads-page input[type="password"],
+.ads-page input[type="url"] {
   font: inherit;
   font-size: 16px;
   box-sizing: border-box;
