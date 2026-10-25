@@ -6,6 +6,7 @@ import {randomUUID} from 'node:crypto';
 import {boardId, checkoutAmount, emptyAccount, pragueDayKey, settleCredits} from './ad-credits.js';
 import {claimAsPaidSession, createRevolutCheckout, paidSessionAccount, settlePaidSession} from './billboard-payment.js';
 
+// Gen2 runs as the Compute Engine service account, which needs roles/datastore.user.
 initializeApp();
 
 const region = 'europe-west1';

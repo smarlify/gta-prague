@@ -15,6 +15,13 @@ service cloud.firestore {
           && (request.resource.data.selectedBoardId == ''
             || request.resource.data.selectedBoardId.matches('^[a-z0-9]+(-[a-z0-9]+)*$')));
     }
+    // matches() compares the whole string. A host-only pattern rejects the download URL.
+    function ownBillboardImage(uid) {
+      return request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.size() < 2000
+        && (request.resource.data.imageUrl == ''
+          || request.resource.data.imageUrl.matches('https://firebasestorage\\.googleapis\\.com/v0/b/[^/]+/o/billboards%2F' + uid + '%2F[^?]+(\\?.*)?'));
+    }
     match /billboardAccounts/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid
@@ -29,9 +36,7 @@ service cloud.firestore {
         && moneyUnchanged()
         && boardChoiceOk()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageUrl', 'selectedBoardId'])
-        && request.resource.data.imageUrl is string
-        && request.resource.data.imageUrl.size() < 2000
-        && (request.resource.data.imageUrl == '' || request.resource.data.imageUrl.matches('^https://firebasestorage\\.googleapis\\.com/'));
+        && ownBillboardImage(uid);
       allow delete: if false;
     }
     match /billboardPayments/{id} {
