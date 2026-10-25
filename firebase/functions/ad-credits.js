@@ -58,6 +58,15 @@ export function ownedBoardIds(account) {
   return ids;
 }
 
+export function withOwnedBoards(account) {
+  const boardIds = ownedBoardIds(account);
+  return {
+    ...account,
+    boardIds,
+    selectedBoardId: boardId(account?.selectedBoardId) || boardIds[0] || '',
+  };
+}
+
 // A second purchase appends a board. The credit balance stays on this same account.
 export function addOwnedBoard(account, id) {
   const chosen = boardId(id);
@@ -145,27 +154,27 @@ export function settleCredits(account, todayKey) {
   };
   // A zero balance pauses new link opens. The saved image stays on the boards they own.
   if (!current.imageUrl || current.credits === 0) {
-    return {...current, paused: true};
+    return withOwnedBoards({...current, paused: true});
   }
   if (current.paused || !current.lastSettledDay) {
-    if (current.lastSettledDay === todayKey) return {...current, paused: false};
-    return {
+    if (current.lastSettledDay === todayKey) return withOwnedBoards({...current, paused: false});
+    return withOwnedBoards({
       ...current,
       credits: current.credits - 1,
       spent: current.spent + 1,
       paused: current.credits - 1 === 0,
       lastSettledDay: todayKey,
-    };
+    });
   }
   const due = daysAfter(current.lastSettledDay, todayKey);
   const spend = Math.min(current.credits, Math.max(0, due));
-  return {
+  return withOwnedBoards({
     ...current,
     credits: current.credits - spend,
     spent: current.spent + spend,
     paused: current.credits - spend === 0,
     lastSettledDay: todayKey,
-  };
+  });
 }
 
 function earlierAccount(a, b) {
@@ -205,11 +214,16 @@ export function chargeLinkOpen(account) {
   const credits = creditCount(account?.credits);
   const spent = creditCount(account?.spent);
   const current = {...emptyAccount(), ...account, credits, spent};
-  if (credits < 1) return {ok: false, account: current};
+  if (credits < 1) return {ok: false, account: withOwnedBoards(current)};
   const nextCredits = credits - 1;
   return {
     ok: true,
-    account: {...current, credits: nextCredits, spent: spent + 1, paused: nextCredits === 0 ? true : current.paused},
+    account: withOwnedBoards({
+      ...current,
+      credits: nextCredits,
+      spent: spent + 1,
+      paused: nextCredits === 0 ? true : current.paused,
+    }),
   };
 }
 
@@ -220,7 +234,7 @@ export function applyBillboardOpen(accounts, siteId) {
   const assigned = assignBoards(id ? [id] : [], list);
   const creative = id ? assigned.get(id) : undefined;
   const url = httpUrl(creative?.linkUrl);
-  if (!creative?.uid || !url) return {ok: false, url: '', accounts: list};
+  if (!creative?.uid || !url || !(creative.credits > 0)) return {ok: false, url: '', accounts: list};
   const index = list.findIndex((account) => account.uid === creative.uid);
   if (index < 0) return {ok: false, url: '', accounts: list};
   const charge = chargeLinkOpen(list[index]);
