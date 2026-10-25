@@ -52,9 +52,9 @@ import {inHarbour} from './harbour-layout.js';
 import {Cyclists,createCyclistRenderer} from './cyclists.js';
 import {ScooterRiders,createScooterRiderRenderer} from './scooter-riders.js';
 import {createBindAds} from './bind-ads.js';
-import {billboardBuyOffer,billboardCallToAction,billboardFromPointer,createPragueBillboards,openBillboardLink} from './prague-billboards.js';
+import {billboardBuyOffer,billboardCallToAction,billboardFromPointer,billboardVisitUrl,createPragueBillboards,openBillboardLink} from './prague-billboards.js';
 import {createBillboardBuy} from './billboard-buy.js';
-import {fetchLiveCreatives} from './billboard-feed.js';
+import {fetchLiveCreatives,requestBillboardOpen} from './billboard-feed.js';
 import {createLasipalatsiStops} from './lasipalatsi-stop.js';
 import {createKauppatoriTramStops} from './kauppatori-tram-stops.js';
 import {createStationStreetLife} from './station-street-life.js';
@@ -385,20 +385,45 @@ const billboardBuy=createBillboardBuy({
  onClose(){if(started&&!mapOpen&&!police?.busted)setPaused(false);},
 });
 function openBillboardBuy(id){if(!id||billboardBuy.isOpen())return;billboardBuy.open(id);}
-// pointerdown preventDefault drops the click that would otherwise land on the modal just opened under the cursor.
-buyBillboardBtn?.addEventListener('pointerdown',event=>{if(event.button===0)event.preventDefault();});
+// Open a tab during the click, then point it at the URL only after the owner's shared pool pays 1 credit.
+function beginBillboardVisit(id,localHref){
+ if(!id)return;
+ let popup=window.open('about:blank','_blank');
+ if(!popup||popup===window)popup=null;
+ requestBillboardOpen(id).then(result=>{
+  const url=billboardVisitUrl({charged:result?.url,status:result?.status,localHref});
+  const opened=openBillboardLink(url,href=>{
+   if(popup&&!popup.closed){
+    try{popup.opener=null;}catch(e){}
+    try{popup.location.replace(href);return;}catch(e){}
+   }
+   window.open(href,'_blank','noopener,noreferrer');
+  });
+  if(!opened){if(popup&&!popup.closed)popup.close();return;}
+  if(result?.status===200)fetchLiveCreatives().then(list=>pragueBoards?.setCreatives(list)).catch(()=>{});
+ }).catch(()=>{if(popup&&!popup.closed)popup.close();});
+}
+let billboardPress={id:'',href:''};
+// pointerdown preventDefault is only for a buy, so the new modal does not take the click. A visit must keep the gesture.
+buyBillboardBtn?.addEventListener('pointerdown',event=>{
+ if(event.button!==0)return;
+ billboardPress={id:buyBillboardBtn.dataset.board||'',href:buyBillboardBtn.dataset.href||''};
+ if(!billboardPress.href)event.preventDefault();
+});
 buyBillboardBtn?.addEventListener('pointerup',event=>{
  if(event.button!==0)return;
- const id=buyBillboardBtn.dataset.board;
+ const id=billboardPress.id;
+ const href=billboardPress.href;
+ billboardPress={id:'',href:''};
  if(!id)return;
  event.stopPropagation();
- if(openBillboardLink(buyBillboardBtn.dataset.href))return;
+ if(href){beginBillboardVisit(id,href);return;}
  openBillboardBuy(id);
 });
 function activateBillboard(id){
  if(!id||billboardBuy.isOpen())return;
  const action=pragueBoards?.actionFor?.(id)||billboardCallToAction(null);
- if(action.kind==='visit'){openBillboardLink(action.url);return;}
+ if(action.kind==='visit'){beginBillboardVisit(id,action.url);return;}
  if(action.kind==='shown')return;
  openBillboardBuy(id);
 }

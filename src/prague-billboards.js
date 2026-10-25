@@ -66,11 +66,31 @@ export function billboardCallToAction(face) {
   return {kind: 'buy', label: BUY_BILLBOARD_LABEL, url: ''};
 }
 
-export function openBillboardLink(url, opener = (href) => window.open(href, '_blank', 'noopener,noreferrer')) {
+function browserOpen(href) {
+  const opened = window.open(href, '_blank', 'noopener,noreferrer');
+  if (opened) return;
+  const link = document.createElement('a');
+  link.href = href;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
+export function openBillboardLink(url, opener = browserOpen) {
   const href = httpUrl(url);
   if (!href) return false;
   opener(href);
   return true;
+}
+
+// A charged response is the board URL. A refused open (no credits) stays shut.
+// A missing endpoint still uses the public URL already on that board.
+export function billboardVisitUrl({charged = '', status = 0, localHref = ''} = {}) {
+  if (status === 200) return httpUrl(charged);
+  if (status === 404 || status === 0) return httpUrl(localHref);
+  return '';
 }
 
 // Phone GPUs often stop at 2048. A larger photo would upload as an empty texture.
@@ -154,8 +174,10 @@ export function billboardFromPointer(event, camera, group, sites) {
   raycaster.setFromCamera(pointerNdc, camera);
   const hits = raycaster.intersectObject(group, true);
   if (!hits.length) return '';
-  const named = boardId(hits[0].object?.name);
-  if (named) return named;
+  for (const hit of hits) {
+    const named = boardId(hit.object?.name);
+    if (named) return named;
+  }
   const point = hits[0].point;
   let best = '';
   let bestGap = 8;

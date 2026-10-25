@@ -43,6 +43,44 @@ export function boardId(value) {
   return id;
 }
 
+// Paid boards live on the account. A legacy account has only selectedBoardId.
+// boardIds, once stored, is the whole set: a later selectedBoardId cannot add a free board.
+export function ownedBoardIds(account) {
+  if (Array.isArray(account?.boardIds)) {
+    const ids = [];
+    for (const value of account.boardIds) {
+      const id = boardId(value);
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+    return ids;
+  }
+  const single = boardId(account?.selectedBoardId);
+  return single ? [single] : [];
+}
+
+// A second purchase appends a board. The credit balance stays on this same account.
+export function addOwnedBoard(account, id) {
+  const chosen = boardId(id);
+  const boardIds = ownedBoardIds(account);
+  if (chosen && !boardIds.includes(chosen)) boardIds.push(chosen);
+  const selectedBoardId = chosen || boardId(account?.selectedBoardId) || boardIds[0] || '';
+  return {...account, boardIds, selectedBoardId};
+}
+
+function hasPaidBoards(account) {
+  if (Array.isArray(account?.boardIds) && ownedBoardIds(account).length) return true;
+  return !!(boardId(account?.selectedBoardId) && (account?.feePaid || creditCount(account?.credits) > 0));
+}
+
+// The first checkout may record a board before any are paid. A later one must not replace paid boards.
+export function selectBoardForCheckout(account, chosen) {
+  const id = boardId(chosen);
+  const current = {...emptyAccount(), ...account};
+  if (!id || hasPaidBoards(current)) return current;
+  if (boardId(current.selectedBoardId) === id) return current;
+  return {...current, selectedBoardId: id};
+}
+
 export function checkoutMetadata(uid, amount, selectedBoardId) {
   return {
     uid,
@@ -122,16 +160,51 @@ function earlierAccount(a, b) {
   return 0;
 }
 
-// A live creative owns the board it selected. Unbought boards stay empty.
+// A live creative owns every board on its account. Unbought boards stay empty.
 // Two live buyers of the same board keep the earlier account id for the day.
 export function assignBoards(boardIds, creatives) {
-  const live = (creatives || []).filter((item) => item?.imageUrl && item.credits > 0 && boardId(item.selectedBoardId));
+  const live = (creatives || []).filter((item) => item?.imageUrl && item.credits > 0 && ownedBoardIds(item).length);
   const assigned = new Map();
   for (const id of boardIds) {
-    const claimants = live.filter((item) => item.selectedBoardId === id).sort(earlierAccount);
+    const claimants = live.filter((item) => ownedBoardIds(item).includes(id)).sort(earlierAccount);
     if (claimants[0]) assigned.set(id, claimants[0]);
   }
   return assigned;
+}
+
+function creditCount(value) {
+  return Math.max(0, Math.trunc(Number(value) || 0));
+}
+
+// One successful open of a board URL. The account balance is shared by every board that person owns.
+// A zero balance does not open and does not go negative. This does not also settle a Prague day.
+export function chargeLinkOpen(account) {
+  const credits = creditCount(account?.credits);
+  const spent = creditCount(account?.spent);
+  const current = {...emptyAccount(), ...account, credits, spent};
+  if (credits < 1) return {ok: false, account: current};
+  const nextCredits = credits - 1;
+  return {
+    ok: true,
+    account: {...current, credits: nextCredits, spent: spent + 1, paused: nextCredits === 0 ? true : current.paused},
+  };
+}
+
+// Charges the person whose ad is on that board. Another buyer's balance is left as it was.
+export function applyBillboardOpen(accounts, siteId) {
+  const list = (accounts || []).map((account) => ({...account}));
+  const id = boardId(siteId);
+  const assigned = assignBoards(id ? [id] : [], list);
+  const creative = id ? assigned.get(id) : undefined;
+  const url = httpUrl(creative?.linkUrl);
+  if (!creative?.uid || !url) return {ok: false, url: '', accounts: list};
+  const index = list.findIndex((account) => account.uid === creative.uid);
+  if (index < 0) return {ok: false, url: '', accounts: list};
+  const charge = chargeLinkOpen(list[index]);
+  if (!charge.ok) return {ok: false, url: '', accounts: list};
+  const next = list.slice();
+  next[index] = charge.account;
+  return {ok: true, url, uid: creative.uid, accounts: next};
 }
 
 export function facesForDay(sites, creatives, dayKey) {

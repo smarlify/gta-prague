@@ -3,7 +3,7 @@ import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import {randomUUID} from 'node:crypto';
-import {boardId, checkoutAmount, emptyAccount, httpUrl, pragueDayKey, settleCredits} from './ad-credits.js';
+import {applyBillboardOpen, boardId, chargeLinkOpen, checkoutAmount, emptyAccount, httpUrl, ownedBoardIds, pragueDayKey, selectBoardForCheckout, settleCredits} from './ad-credits.js';
 import {claimAsPaidSession, createRevolutCheckout, paidSessionAccount, settlePaidSession} from './billboard-payment.js';
 
 // Gen2 runs as the Compute Engine service account, which needs roles/datastore.user.
@@ -53,15 +53,25 @@ async function applyPaidSession(session) {
   return {applied: true, credits};
 }
 
-async function readSettled(uid) {
-  const ref = accounts().doc(uid);
-  const snap = await ref.get();
-  const account = snap.exists ? {...emptyAccount(), ...snap.data()} : emptyAccount();
-  const settled = settleCredits(account, pragueDayKey());
-  if (!snap.exists || settled.credits !== account.credits || settled.spent !== account.spent || settled.paused !== account.paused || settled.lastSettledDay !== account.lastSettledDay) {
-    await ref.set(settled, {merge: true});
-  }
+async function settleAccount(ref) {
+  const today = pragueDayKey();
+  let settled = emptyAccount();
+  await getFirestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const account = snap.exists ? {...emptyAccount(), ...snap.data()} : emptyAccount();
+    settled = settleCredits(account, today);
+    const changed = !snap.exists
+      || settled.credits !== account.credits
+      || settled.spent !== account.spent
+      || settled.paused !== account.paused
+      || settled.lastSettledDay !== account.lastSettledDay;
+    if (changed) tx.set(ref, settled, {merge: true});
+  });
   return settled;
+}
+
+async function readSettled(uid) {
+  return settleAccount(accounts().doc(uid));
 }
 
 export const createBillboardCheckout = onRequest({region, cors: true}, async (req, res) => {
@@ -74,7 +84,10 @@ export const createBillboardCheckout = onRequest({region, cors: true}, async (re
     const account = await readSettled(uid);
     const amount = checkoutAmount({feePaid: account.feePaid});
     const chosen = boardId(req.body?.boardId) || boardId(account.selectedBoardId);
-    if (chosen && account.selectedBoardId !== chosen) await accounts().doc(uid).set({selectedBoardId: chosen}, {merge: true});
+    const selected = selectBoardForCheckout(account, req.body?.boardId || account.selectedBoardId);
+    if (boardId(selected.selectedBoardId) && boardId(selected.selectedBoardId) !== boardId(account.selectedBoardId)) {
+      await accounts().doc(uid).set({selectedBoardId: selected.selectedBoardId}, {merge: true});
+    }
     const claim = createRevolutCheckout({uid, amount, boardId: chosen, claimId: randomUUID()});
     await payments().doc(claim.claimId).set({
       uid,
@@ -140,14 +153,63 @@ export const listBillboardCreatives = onRequest({region, cors: true}, async (req
     const snap = await accounts().limit(200).get();
     const creatives = [];
     for (const doc of snap.docs) {
-      const account = {...emptyAccount(), ...doc.data()};
-      const settled = settleCredits(account, today);
-      if (settled.credits !== account.credits || settled.spent !== account.spent || settled.paused !== account.paused || settled.lastSettledDay !== account.lastSettledDay) {
-        await doc.ref.set(settled, {merge: true});
+      const settled = await settleAccount(doc.ref);
+      if (settled.imageUrl && settled.credits > 0) {
+        const ids = ownedBoardIds(settled);
+        creatives.push({
+          uid: doc.id,
+          imageUrl: settled.imageUrl,
+          credits: settled.credits,
+          selectedBoardId: boardId(settled.selectedBoardId) || ids[0] || '',
+          boardIds: ids,
+          linkUrl: httpUrl(settled.linkUrl),
+        });
       }
-      if (settled.imageUrl && settled.credits > 0) creatives.push({uid: doc.id, imageUrl: settled.imageUrl, credits: settled.credits, selectedBoardId: boardId(settled.selectedBoardId), linkUrl: httpUrl(settled.linkUrl)});
     }
     res.json({day: today, creatives});
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// A player at a board opens that board's public link. One open costs the owner's shared pool one credit.
+export const openBillboardVisit = onRequest({region, cors: true}, async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({error: 'POST only'});
+    return;
+  }
+  try {
+    const id = boardId(req.body?.boardId);
+    if (!id) {
+      const error = new Error('Missing billboard');
+      error.status = 400;
+      throw error;
+    }
+    const snap = await accounts().limit(200).get();
+    const loaded = snap.docs.map((doc) => ({uid: doc.id, ...emptyAccount(), ...doc.data()}));
+    const preview = applyBillboardOpen(loaded, id);
+    if (!preview.ok || !preview.uid) {
+      res.status(409).json({error: 'This billboard link is not open'});
+      return;
+    }
+    const ref = accounts().doc(preview.uid);
+    let url = '';
+    await getFirestore().runTransaction(async (tx) => {
+      url = '';
+      const fresh = await tx.get(ref);
+      const account = {uid: preview.uid, ...emptyAccount(), ...(fresh.exists ? fresh.data() : {})};
+      const owns = ownedBoardIds(account).includes(id);
+      const link = httpUrl(account.linkUrl);
+      const charge = chargeLinkOpen(account);
+      if (!owns || !link || !account.imageUrl || !charge.ok) return;
+      tx.set(ref, {credits: charge.account.credits, spent: charge.account.spent, paused: charge.account.paused}, {merge: true});
+      url = link;
+    });
+    if (!url) {
+      res.status(409).json({error: 'This billboard link is not open'});
+      return;
+    }
+    res.json({url});
   } catch (error) {
     sendError(res, error);
   }
