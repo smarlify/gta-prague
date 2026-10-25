@@ -3,6 +3,7 @@ import {groundAt} from './terrain.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {speciesFamily} from './place-data.js';
 import {attachSnow} from './weather.js';
+import {DRAW_DISTANCE} from './sky.js';
 
 // Species-shaped trees for cities with a tree register (any city whose trees carry a species name).
 // Each family's silhouette, colours and proportions were read from current photos of Tampere's
@@ -140,7 +141,8 @@ export function treeInstance(t,i=0){
 
 // All species trees of a city in three BatchedMeshes (near, mid, far): one draw call per level, with
 // per-tree visibility by distance and per-tree frustum culling. Returns {group, update(focus), stats}.
-export const SPECIES_LOD={near:140,mid:460,far:850};
+// far hides a tree. Was 850, level with the old fog; mid stays inside it so the cheap tier still covers the last of the haze.
+export const SPECIES_LOD={near:140,mid:DRAW_DISTANCE-50,far:DRAW_DISTANCE};
 export function treeLevel(d,b=SPECIES_LOD){return d<b.near?'near':d<b.mid?'mid':d<b.far?'far':null;}
 export function createSpeciesTrees(trees){
  const group=new THREE.Group();group.name='Species trees';

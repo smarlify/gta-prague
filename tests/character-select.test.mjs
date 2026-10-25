@@ -265,13 +265,16 @@ test('the welcome card puts the car on the same arrow row as the district, outsi
   assert.match(car, /M15 5l-7 7 7 7/);
   assert.match(district, /M15 5l-7 7 7 7/);
   assert.match(html, /id="character-next"[^>]*class="start-arrow"/);
-  assert.match(html, /id="character-label"[^>]*>Tesla Roadster — Elon Musk</);
+  assert.match(html, /<select id="character-label"[^>]*class="start-district"/);
+  assert.match(html, /<select id="player-name"[^>]*aria-label="Car and driver"/);
+  assert.doesNotMatch(html, /id="player-name"[^>]*type="text"/);
+  assert.doesNotMatch(html, /<span id="character-label"/);
   assert.ok(html.indexOf('id="character-prev"') < html.indexOf('id="district-prev"'), 'the car row sits above the district');
   assert.ok(html.indexOf('id="district-prev"') < html.indexOf('id="start-prev"'), 'the district row sits above the street');
   assert.ok(html.indexOf('id="boot-title"') < html.indexOf('id="load-detail"'), 'the loading line sits under the heading');
   assert.ok(html.indexOf('id="character-next"') < html.indexOf('id="boot-launch"'), 'the car row is not inside the hidden launch block');
   assert.match(html, /id="character-picker"[^>]*class="district-picker"|class="district-picker"[^>]*id="character-picker"/);
-  assert.match(css, /body \.player-name,body \.topbar kbd,#intro \.boot-controls\{display:none\}/);
+  assert.match(css, /body \.topbar \.player-name,body \.topbar kbd,#intro \.boot-controls\{display:none\}/);
   assert.doesNotMatch(css, /body\.booting \.topbar\{display:\s*none\}/);
   assert.match(css, /#intro:not\(\.ready\) #character-picker\{display:none\}/);
   assert.doesNotMatch(css, /(^|\n)#character-picker\{[^}]*display:\s*none/);
@@ -288,6 +291,46 @@ test('the welcome card puts the car on the same arrow row as the district, outsi
   assert.doesNotMatch(hud, /#view-btn\{display:\s*none\}/);
   assert.doesNotMatch(touch, /\.topbar nav\{display:\s*none\}/);
   assert.doesNotMatch(hud, /body\.touch \.right-tools\{display:\s*none\}/);
+});
+
+test('the driver selects list every car and choosing one switches the driver', () => {
+  const doc = selectDoc();
+  const storage = memoryStorage();
+  const picked = [];
+  const picker = bindCharacterPicker({
+    doc,
+    storage,
+    initial: 'elon',
+    onChange: (choice) => picked.push(choice.id),
+  });
+  const card = doc.nodes.get('character-label');
+  const hud = doc.nodes.get('player-name');
+  const labels = listedCharacters().map((choice) => choice.label);
+  assert.deepEqual(card.options.map((option) => option.textContent), labels);
+  assert.deepEqual(hud.options.map((option) => option.value), listedCharacters().map((choice) => choice.id));
+  assert.equal(card.value, 'elon');
+  assert.equal(hud.value, 'elon');
+  assert.equal(card.selectedOptions[0].dataset.name, 'Elon Musk');
+  assert.equal(storage.getItem('gta-praha-character'), null, 'painting the current driver does not write the roll');
+  card.value = 'zeman';
+  card.listeners.change();
+  assert.equal(card.blurred, 1, 'choosing a driver blurs so Enter still starts the game');
+  assert.equal(picker.get().id, 'zeman');
+  assert.equal(picker.get().name, 'Miloš Zeman');
+  assert.equal(picker.get().water, true);
+  assert.equal(card.value, 'zeman');
+  assert.equal(hud.value, 'zeman');
+  assert.equal(hud.selectedOptions[0].dataset.name, 'Miloš Zeman');
+  assert.equal(storage.getItem('gta-praha-character'), 'zeman');
+  hud.value = 'pavel';
+  hud.listeners.change();
+  assert.equal(picker.get().label, 'Motorbike — Petr Pavel');
+  assert.equal(card.value, 'pavel');
+  assert.equal(card.options.length, listedCharacters().length);
+  card.value = 'pavel';
+  card.listeners.change();
+  assert.equal(picker.get().id, 'pavel', 'the same driver does not re-choose');
+  assert.deepEqual(picked, ['elon', 'zeman', 'pavel']);
 });
 
 test('a missing driver rolls once and does not keep the saved choice', () => {
@@ -461,6 +504,58 @@ test('Zdeněk starts on a pedal bicycle at the normal start, not the museum and 
   pedal.dispose();
   city.dispose();
 });
+
+function makeSelect(id) {
+  const node = {
+    id,
+    tagName: 'SELECT',
+    dataset: {},
+    options: [],
+    listeners: {},
+    blurred: 0,
+    _value: '',
+    get value() { return node._value; },
+    set value(next) { node._value = next; },
+    get selectedIndex() { return node.options.findIndex((option) => option.value === node._value); },
+    get selectedOptions() {
+      const found = node.options.find((option) => option.value === node._value);
+      return found ? [found] : [];
+    },
+    setAttribute() {},
+    addEventListener(type, fn) { node.listeners[type] = fn; },
+    append(option) { node.options.push(option); },
+    replaceChildren() { node.options.length = 0; },
+    querySelectorAll() { return []; },
+    blur() { node.blurred += 1; },
+    ownerDocument: {
+      createElement() { return { value: '', textContent: '', dataset: {} }; },
+    },
+  };
+  return node;
+}
+
+function selectDoc() {
+  const nodes = new Map();
+  const picker = {
+    id: 'character-picker',
+    querySelectorAll() { return []; },
+  };
+  nodes.set('character-picker', picker);
+  nodes.set('character-label', makeSelect('character-label'));
+  nodes.set('player-name', makeSelect('player-name'));
+  for (const id of ['character-prev', 'character-next']) {
+    nodes.set(id, {
+      id,
+      dataset: {},
+      listeners: {},
+      blurred: 0,
+      setAttribute() {},
+      addEventListener(type, fn) { this.listeners[type] = fn; },
+      blur() { this.blurred += 1; },
+    });
+  }
+  return { nodes, getElementById: (id) => nodes.get(id) };
+}
 
 function pickerDoc() {
   const nodes = new Map();

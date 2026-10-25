@@ -32,7 +32,7 @@ test('register trees get their family, height and a young-tree form', () => {
  assert.equal(treeInstance({p:[1,2],family:'spruce',height:12}).family,'spruce');
 });
 test('one batched mesh per level; trees shown by distance', () => {
- const trees=[{p:[0,0],species:'ACER PLATANOIDES',height:14},{p:[300,0],species:'PICEA ABIES',height:18,conifer:true},{p:[700,0],species:'BETULA PENDULA',height:15},{p:[2000,0],species:'TILIA',height:10}];
+ const trees=[{p:[0,0],species:'ACER PLATANOIDES',height:14},{p:[300,0],species:'PICEA ABIES',height:18,conifer:true},{p:[430,0],species:'BETULA PENDULA',height:15},{p:[2000,0],species:'TILIA',height:10}];
  const s=createSpeciesTrees(trees);
  assert.equal(s.group.children.length,3);assert.equal(s.stats.drawCalls,3);
  s.update({x:0,z:0});assert.deepEqual(s.levels(),{near:1,mid:1,far:1});

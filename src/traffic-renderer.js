@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {DRAW_DISTANCE} from './sky.js';
 import {createVehicle,animateVehicle,VEHICLE_TYPES} from './vehicles.js';
 import {registerEnvMaterial} from './environment.js';
 import {groundPose} from './terrain.js';
@@ -30,7 +31,7 @@ totalEmissiveRadiance*=vColor.rgb;
 // Beyond `detail` a vehicle is two instance-coloured boxes (body + cabin) in two extra
 // batches per family, and past `hide` it is skipped: cars near the player keep full detail.
 // Moving cars keep their full model until they are small on screen; a shape swap at 150 m was a visible pop.
-export const TRAFFIC_LOD={detail:260,hide:650};
+export const TRAFFIC_LOD={detail:260,hide:DRAW_DISTANCE};
 export function createTrafficRenderer(actors,{types=VEHICLE_TYPES,paintColors=null,lod=TRAFFIC_LOD}={}){
  const families=types.map(type=>({type,entries:[],batches:[],low:[]}));
  actors.forEach((actor,i)=>{const family=families[i%families.length],model=createVehicle(1+(i*5)%8,false,family.type),parts=[];model.traverse(m=>{if(m.isMesh){if(m.material.name==='paint'){if(paintColors?.length)m.material.color.set(paintColors[i%paintColors.length]);

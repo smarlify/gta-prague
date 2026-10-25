@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {bicycleGeometry,cityBikeGeometry,scooterGeometry} from './parked-micromobility.js';
+import {createPirateFlag} from './pirate-flag.js';
 import {groundAt,hasTerrain,waterAt} from './terrain.js';
 import {WATER_LEVEL} from './quay.js';
 import {ZEMAN_BOAT} from './character-looks.js';
@@ -182,5 +183,7 @@ export function createRideVehicle(visual={},mode='bike'){
  for(const part of visual.parts||[]){const mesh=new THREE.Mesh(part.geometry.clone(),part.material.clone());mesh.castShadow=true;root.add(mesh);}
  const anchors=kind==='citybike'?PLAYER_CITY_BIKE:PLAYER_BIKE,motion=mode==='bike'?addBicycleMotion(root,anchors):null;
  const geometries=new Set(),materials=new Set();root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material);});
- return {root,frame,anchors,motion,lift:visual.lift??.12,dispose(){for(const g of geometries)g.dispose();for(const m of materials)m.dispose();root.removeFromParent();}};
+ const vehicle={root,frame,anchors,motion,flag:null,lift:visual.lift??.12,dispose(){vehicle.flag?.dispose();vehicle.flag=null;for(const g of geometries)g.dispose();for(const m of materials)m.dispose();root.removeFromParent();}};
+ if(visual.flag==='pirate'&&kind==='bicycle'){vehicle.flag=createPirateFlag();root.add(vehicle.flag.group);}
+ return vehicle;
 }

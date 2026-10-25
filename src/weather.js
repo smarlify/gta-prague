@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SUN_OFFSET,SKY_PALETTE,LIGHTING,FOG_COLOR} from './sky.js';
+import {SUN_OFFSET,SKY_PALETTE,LIGHTING,FOG_COLOR,DRAW_DISTANCE,FOG_NEAR} from './sky.js';
 import {GRADE_DEFAULTS} from './post.js';
 
 // Daytime and weather compose. A daytime preset owns the sun, the sky and the clear grade.
@@ -20,7 +20,7 @@ const midday={
  sky:{zenith:'#2b64bd',mid:'#6d9dd6',horizon:SKY_PALETTE.horizon,sunGlow:SKY_PALETTE.sunGlow,cloudLit:SKY_PALETTE.cloudLit,cloudShade:SKY_PALETTE.cloudShade,coverage:.5,sunDisc:1},
  sunOffset:[...SUN_OFFSET],sunColor:LIGHTING.sunColor,sunIntensity:LIGHTING.sunIntensity,
  hemiSky:LIGHTING.hemiSky,hemiGround:LIGHTING.hemiGround,hemiIntensity:LIGHTING.hemiIntensity,
- fog:{color:FOG_COLOR,near:330,far:850},
+ fog:{color:FOG_COLOR,near:FOG_NEAR,far:DRAW_DISTANCE},
  sea:{deep:'#28332f',shore:'#434a42',sunColor:'#fff1d6'},
  grade:{...GRADE_DEFAULTS},
  ...clear,
@@ -31,7 +31,7 @@ const morning={
  sky:{zenith:'#3a6eae',mid:'#8eb4d4',horizon:'#f3d7c2',sunGlow:'#ffe0b8',cloudLit:'#fff0dc',cloudShade:'#9aa8b8',coverage:.42,sunDisc:1},
  sunOffset:[236,96,28],sunColor:'#ffd2a2',sunIntensity:1.85,
  hemiSky:'#d5e2f2',hemiGround:'#6e7568',hemiIntensity:1.45,
- fog:{color:'#f3d7c2',near:300,far:820},
+ fog:{color:'#f3d7c2',near:FOG_NEAR-20,far:DRAW_DISTANCE-20},
  sea:{deep:'#2a3334',shore:'#4a524c',sunColor:'#ffe0b8'},
  grade:{...GRADE_DEFAULTS,exposure:1.02,tint:[1.02,.99,.96],lift:[.015,.012,.018],saturation:1.02,bloomStrength:.22,vignette:.22},
  ...clear,
@@ -42,7 +42,7 @@ const golden={
  sky:{zenith:'#4d7cb7',mid:'#9ab2cf',horizon:'#f0cfae',sunGlow:'#ffd9a0',cloudLit:'#ffe3c4',cloudShade:'#9a8fa0',coverage:.56,sunDisc:1},
  sunOffset:[-208,118,-250],sunColor:'#ffc37a',sunIntensity:2.0,
  hemiSky:'#c4d2e6',hemiGround:'#746a5e',hemiIntensity:1.7,
- fog:{color:'#f0cfae',near:280,far:800},
+ fog:{color:'#f0cfae',near:FOG_NEAR-40,far:DRAW_DISTANCE-30},
  sea:{deep:'#2c3230',shore:'#4a4640',sunColor:'#ffd9a0'},
  grade:{...GRADE_DEFAULTS,exposure:1.0,tint:[1.03,1,.96],lift:[.02,.014,.02],saturation:1.04,bloomStrength:.3,vignette:.26},
  ...clear,
@@ -54,7 +54,7 @@ const night={
  sky:{zenith:'#070d18',mid:'#121c30',horizon:'#1c283c',sunGlow:'#2a384c',cloudLit:'#243044',cloudShade:'#101820',coverage:.35,sunDisc:.2},
  sunOffset:[-30,36,-160],sunColor:'#b7c6de',sunIntensity:.58,
  hemiSky:'#8eabcc',hemiGround:'#3a424c',hemiIntensity:1.1,
- fog:{color:'#1c283c',near:300,far:800},
+ fog:{color:'#1c283c',near:FOG_NEAR-20,far:DRAW_DISTANCE-50},
  sea:{deep:'#0c1218',shore:'#161c24',sunColor:'#b7c6de'},
  grade:{...GRADE_DEFAULTS,exposure:.86,tint:[.9,.94,1.08],lift:[.008,.01,.028],saturation:.78,contrast:1.05,bloomStrength:.16,vignette:.3},
  ...clear,
@@ -66,7 +66,7 @@ const whitenight={
  sky:{zenith:'#223a62',mid:'#4f6a99',horizon:'#e3b7b0',sunGlow:'#ffc9b0',cloudLit:'#d7b4b8',cloudShade:'#5e5d7c',coverage:.6,sunDisc:.6},
  sunOffset:[-59,42,-338],sunColor:'#ffb48c',sunIntensity:1.3,
  hemiSky:'#a9bbda',hemiGround:'#55575f',hemiIntensity:1.7,
- fog:{color:'#e3b7b0',near:260,far:780},
+ fog:{color:'#e3b7b0',near:FOG_NEAR-50,far:DRAW_DISTANCE-60},
  sea:{deep:'#1f2630',shore:'#3b3a44',sunColor:'#ffc9b0'},
  grade:{...GRADE_DEFAULTS,exposure:.9,tint:[.98,.97,1.06],lift:[.02,.02,.05],saturation:.9,contrast:1.0,bloomStrength:.3,vignette:.3},
  ...clear,
@@ -78,10 +78,10 @@ export const LOOK_ORDER=Object.freeze(['morning','midday','golden','night','whit
 // Thunderstorm is rain plus the flash in createLook, not a second sky.
 export const WEATHERS=Object.freeze({
  clear:{label:'Clear',wetness:0,rain:0,snow:0},
- overcast:{label:'Overcast',wetness:0,rain:0,snow:0,fog:{near:230,far:760}},
- rain:{label:'Rain',wetness:1,rain:1,snow:0,fog:{near:110,far:560}},
- thunder:{label:'Thunderstorm',wetness:1,rain:1,snow:0,fog:{near:110,far:560}},
- snow:{label:'Snow',wetness:0,rain:1,snow:1,fog:{near:200,far:720}},
+ overcast:{label:'Overcast',wetness:0,rain:0,snow:0,fog:{near:FOG_NEAR-60,far:DRAW_DISTANCE-90}},
+ rain:{label:'Rain',wetness:1,rain:1,snow:0,fog:{near:110,far:DRAW_DISTANCE-150}},
+ thunder:{label:'Thunderstorm',wetness:1,rain:1,snow:0,fog:{near:110,far:DRAW_DISTANCE-150}},
+ snow:{label:'Snow',wetness:0,rain:1,snow:1,fog:{near:160,far:DRAW_DISTANCE-110}},
 });
 export const WEATHER_ORDER=Object.freeze(['clear','overcast','rain','thunder','snow']);
 

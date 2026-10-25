@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {createPersonBatch,advanceGait,JOINT} from './person-model.js';
 import {applyCharacterLook,genericPlayerLook} from './character-looks.js';
 import {createRideVehicle,PLAYER_BIKE,PLAYER_SCOOTER,challengerWaterY} from './player-ride-models.js';
+import {hribBicycle,syncPirateFlag} from './pirate-flag.js';
 import {OFFICER_LOOK} from './roadblock.js';
 import {groundAt} from './terrain.js';
 
@@ -95,15 +96,19 @@ export function createPlayerTravelRenderer(scene){
   const current=new Set(travel.rides);
   for(const [id,m] of models)if(!current.has(m.ride)){m.dispose();models.delete(id);}
   for(const ride of travel.rides)if(!models.has(ride.id)){
-   const model=createRideVehicle(ride.visual,ride.mode),ring=new THREE.Mesh(ringGeometry,ringMaterial);ring.rotation.x=-Math.PI/2;ring.position.y=.02;model.root.add(ring);group.add(model.root);models.set(ride.id,{...model,ring,ride});
+   const visual=hribBicycle(characterId,ride)?{...(ride.visual||{}),flag:'pirate'}:ride.visual;
+   const model=createRideVehicle(visual,ride.mode),ring=new THREE.Mesh(ringGeometry,ringMaterial);ring.rotation.x=-Math.PI/2;ring.position.y=.02;model.root.add(ring);model.ring=ring;model.ride=ride;group.add(model.root);models.set(ride.id,model);
   }
-  for(const {root,ring,motion,ride,lift} of models.values()){
+  for(const model of models.values()){
+   const {root,ring,motion,ride,lift}=model;
+   syncPirateFlag(model,hribBicycle(characterId,ride));
    root.visible=Math.hypot(ride.x-p.x,ride.z-p.z)<220;if(!root.visible)continue;
    const q=travel.riding===ride?p:ride;
    const boat=ride.visual?.kind==='challenger'||ride.mode==='challenger';
    root.position.set(q.x,boat?challengerWaterY(q.x,q.z):lift+groundAt(q.x,q.z),q.z);root.rotation.y=q.heading;
    const f=ride.fallen;if(f)f.elapsed=Math.min(1,(f.elapsed||0)+dt*3);root.rotation.z=f?f.side*(Math.PI/2-.12)*f.elapsed*f.elapsed:0; // tipped onto its side after a crash
    motion?.update(ride.distance||0);
+   model.flag?.update(dt,q.speed||0);
    ring.visible=actorVisible&&travel.mode==='walk'&&travel.riding!==ride&&Math.hypot(ride.x-p.x,ride.z-p.z)<3.2;
   }
   person.begin();hand=null;
