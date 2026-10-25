@@ -52,7 +52,7 @@ import {inHarbour} from './harbour-layout.js';
 import {Cyclists,createCyclistRenderer} from './cyclists.js';
 import {ScooterRiders,createScooterRiderRenderer} from './scooter-riders.js';
 import {createBindAds} from './bind-ads.js';
-import {billboardBuyOffer,billboardFromPointer,createPragueBillboards} from './prague-billboards.js';
+import {billboardBuyOffer,billboardCallToAction,billboardFromPointer,createPragueBillboards,openBillboardLink} from './prague-billboards.js';
 import {createBillboardBuy} from './billboard-buy.js';
 import {fetchLiveCreatives} from './billboard-feed.js';
 import {createLasipalatsiStops} from './lasipalatsi-stop.js';
@@ -372,8 +372,12 @@ function refreshBillboardBuy(now){
  billboardOffer=billboardBuyOffer(car,pragueBoards?.sites,billboardOffer,{dt});
  if(!buyBillboardBtn)return;
  const show=playing&&!!billboardOffer?.show;
- buyBillboardBtn.hidden=!show;
- buyBillboardBtn.dataset.board=show?billboardOffer.id:'';
+ const action=show?(pragueBoards?.actionFor?.(billboardOffer.id)||billboardCallToAction(null)):billboardCallToAction(null);
+ const quiet=!show||action.kind==='shown';
+ buyBillboardBtn.hidden=quiet;
+ buyBillboardBtn.textContent=action.label||buyBillboardBtn.textContent;
+ buyBillboardBtn.dataset.board=quiet?'':billboardOffer.id;
+ buyBillboardBtn.dataset.href=action.kind==='visit'?action.url:'';
 }
 const billboardBuy=createBillboardBuy({
  root:document.querySelector('#app'),
@@ -388,11 +392,19 @@ buyBillboardBtn?.addEventListener('pointerup',event=>{
  const id=buyBillboardBtn.dataset.board;
  if(!id)return;
  event.stopPropagation();
+ if(openBillboardLink(buyBillboardBtn.dataset.href))return;
  openBillboardBuy(id);
 });
+function activateBillboard(id){
+ if(!id||billboardBuy.isOpen())return;
+ const action=pragueBoards?.actionFor?.(id)||billboardCallToAction(null);
+ if(action.kind==='visit'){openBillboardLink(action.url);return;}
+ if(action.kind==='shown')return;
+ openBillboardBuy(id);
+}
 $('world').addEventListener('click',event=>{
  if(!started||mapOpen||police?.busted||billboardBuy.isOpen())return;
- openBillboardBuy(billboardFromPointer(event,camera,pragueBoards?.group,pragueBoards?.sites));
+ activateBillboard(billboardFromPointer(event,camera,pragueBoards?.group,pragueBoards?.sites));
 });
 queueMicrotask(()=>billboardBuy.consumeLocationReturn());
 const marker=new THREE.Mesh(new THREE.RingGeometry(3.3,3.55,48),new THREE.MeshBasicMaterial({color:'#d95e3b',transparent:true,opacity:.5,depthWrite:false}));marker.rotation.x=-Math.PI/2;marker.position.y=.15;scene.add(marker);marker.visible=false;

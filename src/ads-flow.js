@@ -5,7 +5,7 @@ import {ref, uploadBytes, getDownloadURL} from 'firebase/storage';
 import {billboardFirebase} from './firebase.js';
 import {applyAdvertiserAccess, submitAdvertiserAuth} from './advertiser-auth.js';
 import {authFailureMessage, createEmailAccount, signInWithEmail} from './email-auth.js';
-import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH, boardId, checkoutAmount, emptyAccount} from '../firebase/functions/ad-credits.js';
+import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH, boardId, checkoutAmount, emptyAccount, httpUrl} from '../firebase/functions/ad-credits.js';
 import {adsEndpoints} from './billboard-feed.js';
 
 const IMAGE_LIMIT = 2 * 1024 * 1024;
@@ -49,6 +49,9 @@ function checkoutMarkup() {
       <img id="ads-preview" class="ads-preview" alt="" hidden />
       <label>Billboard image
         <input id="ads-file" type="file" accept="image/jpeg,image/png,image/webp" />
+      </label>
+      <label>Link
+        <input id="ads-link" name="link" type="url" inputmode="url" placeholder="https://example.com" autocomplete="url" />
       </label>
       <p id="ads-price" class="board-note"></p>
       <div class="board-actions">
@@ -131,7 +134,17 @@ function bind(root, options) {
       preview.hidden = true;
       preview.removeAttribute('src');
     }
+    const link = q('ads-link');
+    if (link && link !== link.ownerDocument.activeElement) link.value = account.linkUrl || '';
     paintPrice(account);
+  }
+
+  function chosenLink() {
+    const raw = q('ads-link')?.value || '';
+    if (!raw.trim()) return '';
+    const link = httpUrl(raw);
+    if (!link) throw new Error('Use a link that starts with http:// or https://.');
+    return link;
   }
 
   function services() {
@@ -188,13 +201,21 @@ function bind(root, options) {
   async function uploadImage(user, file) {
     if (!IMAGE_TYPES.has(file.type)) throw new Error('Use a jpeg, png, or webp image');
     if (file.size > IMAGE_LIMIT) throw new Error('The image must be under 2 MB');
+    const linkUrl = chosenLink();
     const stored = ref(services().storage, `billboards/${user.uid}/face`);
     await uploadBytes(stored, file, {contentType: file.type});
     const imageUrl = await getDownloadURL(stored);
     if (!imageUrl.startsWith('https://firebasestorage.googleapis.com/')) throw new Error('Unexpected image address');
-    await updateDoc(doc(services().firestore, 'billboardAccounts', user.uid), {imageUrl});
+    await updateDoc(doc(services().firestore, 'billboardAccounts', user.uid), {imageUrl, linkUrl});
     paintAccount(await refreshAccount(user.uid));
     q('ads-status').textContent = 'Image saved. It goes up while credits remain.';
+  }
+
+  async function saveLink(user) {
+    const linkUrl = chosenLink();
+    await updateDoc(doc(services().firestore, 'billboardAccounts', user.uid), {linkUrl});
+    paintAccount(await refreshAccount(user.uid));
+    q('ads-status').textContent = linkUrl ? 'Link saved.' : 'Link removed.';
   }
 
   function sync() {
@@ -264,6 +285,16 @@ function bind(root, options) {
   q('ads-sign-out').addEventListener('click', () => {
     pendingClaim = '';
     signOut(services().auth);
+  });
+  q('ads-link').addEventListener('change', async () => {
+    const user = services().auth.currentUser;
+    if (!user) return;
+    q('ads-status').textContent = '';
+    try {
+      await saveLink(user);
+    } catch (error) {
+      q('ads-status').textContent = error.message;
+    }
   });
   q('ads-file').addEventListener('change', async () => {
     const file = q('ads-file').files?.[0];
