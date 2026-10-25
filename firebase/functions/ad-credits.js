@@ -43,19 +43,19 @@ export function boardId(value) {
   return id;
 }
 
-// Paid boards live on the account. A legacy account has only selectedBoardId.
-// boardIds, once stored, is the whole set: a later selectedBoardId cannot add a free board.
+// Paid boards live on the account. A legacy purchase may only have selectedBoardId.
+// Reading always keeps that id, even when boardIds was stored without it.
 export function ownedBoardIds(account) {
+  const ids = [];
+  const push = (value) => {
+    const id = boardId(value);
+    if (id && !ids.includes(id)) ids.push(id);
+  };
   if (Array.isArray(account?.boardIds)) {
-    const ids = [];
-    for (const value of account.boardIds) {
-      const id = boardId(value);
-      if (id && !ids.includes(id)) ids.push(id);
-    }
-    return ids;
+    for (const value of account.boardIds) push(value);
   }
-  const single = boardId(account?.selectedBoardId);
-  return single ? [single] : [];
+  push(account?.selectedBoardId);
+  return ids;
 }
 
 // A second purchase appends a board. The credit balance stays on this same account.
@@ -67,8 +67,19 @@ export function addOwnedBoard(account, id) {
   return {...account, boardIds, selectedBoardId};
 }
 
+function storedBoardIds(account) {
+  if (!Array.isArray(account?.boardIds)) return [];
+  const ids = [];
+  for (const value of account.boardIds) {
+    const id = boardId(value);
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+// A stored board list is a completed purchase. A lone selectedBoardId counts only after payment.
 function hasPaidBoards(account) {
-  if (Array.isArray(account?.boardIds) && ownedBoardIds(account).length) return true;
+  if (storedBoardIds(account).length) return true;
   return !!(boardId(account?.selectedBoardId) && (account?.feePaid || creditCount(account?.credits) > 0));
 }
 
@@ -122,12 +133,17 @@ export function daysAfter(fromKey, toKey) {
 // One credit is one Prague day with an image on a board. Days with no image,
 // and days after the balance hits zero, are not charged in a lump later.
 export function settleCredits(account, todayKey) {
+  const paid = hasPaidBoards(account);
+  const owned = paid ? ownedBoardIds(account) : storedBoardIds(account);
   const current = {
     ...emptyAccount(),
     ...account,
     credits: Math.max(0, Math.trunc(account?.credits) || 0),
     spent: Math.max(0, Math.trunc(account?.spent) || 0),
+    ...(paid ? {boardIds: owned} : {}),
+    selectedBoardId: boardId(account?.selectedBoardId) || owned[0] || '',
   };
+  // A zero balance pauses new link opens. The saved image stays on the boards they own.
   if (!current.imageUrl || current.credits === 0) {
     return {...current, paused: true};
   }
@@ -160,13 +176,20 @@ function earlierAccount(a, b) {
   return 0;
 }
 
-// A live creative owns every board on its account. Unbought boards stay empty.
-// Two live buyers of the same board keep the earlier account id for the day.
+function displayOrder(a, b) {
+  const aFunded = a?.credits > 0 ? 0 : 1;
+  const bFunded = b?.credits > 0 ? 0 : 1;
+  if (aFunded !== bFunded) return aFunded - bFunded;
+  return earlierAccount(a, b);
+}
+
+// A creative with an image owns every board on its account, even at zero credits.
+// Two buyers of the same board prefer whoever still has credits, then the earlier account id.
 export function assignBoards(boardIds, creatives) {
-  const live = (creatives || []).filter((item) => item?.imageUrl && item.credits > 0 && ownedBoardIds(item).length);
+  const live = (creatives || []).filter((item) => item?.imageUrl && ownedBoardIds(item).length);
   const assigned = new Map();
   for (const id of boardIds) {
-    const claimants = live.filter((item) => ownedBoardIds(item).includes(id)).sort(earlierAccount);
+    const claimants = live.filter((item) => ownedBoardIds(item).includes(id)).sort(displayOrder);
     if (claimants[0]) assigned.set(id, claimants[0]);
   }
   return assigned;

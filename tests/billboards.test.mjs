@@ -106,7 +106,7 @@ test('the Revolut request is 50 € and the first purchase records the fee', () 
   assert.throws(() => grantPurchase(emptyAccount(), {includesFee: false}), /listing fee/);
 });
 
-test('a board returns to the placeholder when credits run out', () => {
+test('a paid board stays on its site when credits run out', () => {
   const sites = [{id: 'board-01'}, {id: 'board-02'}];
   const live = settleCredits({...emptyAccount(), credits: 40, feePaid: true, imageUrl: 'https://example.test/ad.jpg', paused: true, selectedBoardId: 'board-01'}, '2026-10-20');
   assert.equal(live.credits, 39);
@@ -120,7 +120,8 @@ test('a board returns to the placeholder when credits run out', () => {
   assert.equal(gone.paused, true);
   assert.equal(gone.selectedBoardId, 'board-01');
   const empty = facesForDay(sites, [{...buyer, credits: gone.credits}], '2026-11-28');
-  assert.deepEqual(empty.map((face) => face.imageUrl), [null, null]);
+  assert.deepEqual(empty.map((face) => face.imageUrl), [live.imageUrl, null]);
+  assert.deepEqual(gone.boardIds, ['board-01']);
   assert.equal(pragueDayKey(new Date('2026-01-15T23:30:00Z')), '2026-01-16');
 });
 
@@ -370,10 +371,20 @@ test('paid boards share one credit pool and an open costs that owner one credit'
   assert.equal(dry.url, '');
   assert.equal(dry.accounts.find((account) => account.uid === 'ada').credits, 0);
   assert.equal(dry.accounts.find((account) => account.uid === 'bob').credits, 7);
-  const hidden = facesForDay(sites, [dry.accounts.find((account) => account.uid === 'ada'), bob], '2026-10-25');
-  assert.equal(hidden[0].imageUrl, null);
-  assert.equal(hidden[2].imageUrl, null);
-  assert.equal(hidden[1].imageUrl, bob.imageUrl);
+  const stillUp = facesForDay(sites, [dry.accounts.find((account) => account.uid === 'ada'), bob], '2026-10-25');
+  assert.equal(stillUp[0].imageUrl, ada.imageUrl);
+  assert.equal(stillUp[2].imageUrl, ada.imageUrl);
+  assert.equal(stillUp[1].imageUrl, bob.imageUrl);
+  const legacy = facesForDay(sites, [{
+    uid: 'ada',
+    imageUrl: ada.imageUrl,
+    credits: 0,
+    boardIds: [],
+    selectedBoardId: 'praha-1-stare-mesto-01',
+    linkUrl: ada.linkUrl,
+  }], '2026-10-25');
+  assert.equal(legacy[0].imageUrl, ada.imageUrl);
+  assert.equal(legacy[2].imageUrl, null);
   const last = applyBillboardOpen([{...ada, credits: 1, spent: 3}], 'praha-2-vysehrad-01');
   assert.equal(last.ok, true);
   assert.equal(last.accounts[0].credits, 0);

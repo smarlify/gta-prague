@@ -60,11 +60,17 @@ async function settleAccount(ref) {
     const snap = await tx.get(ref);
     const account = snap.exists ? {...emptyAccount(), ...snap.data()} : emptyAccount();
     settled = settleCredits(account, today);
+    const previousIds = Array.isArray(account.boardIds) ? account.boardIds : [];
+    const nextIds = Array.isArray(settled.boardIds) ? settled.boardIds : [];
+    const boardsChanged = previousIds.length !== nextIds.length
+      || previousIds.some((id, index) => id !== nextIds[index]);
     const changed = !snap.exists
       || settled.credits !== account.credits
       || settled.spent !== account.spent
       || settled.paused !== account.paused
-      || settled.lastSettledDay !== account.lastSettledDay;
+      || settled.lastSettledDay !== account.lastSettledDay
+      || boardsChanged
+      || boardId(settled.selectedBoardId) !== boardId(account.selectedBoardId);
     if (changed) tx.set(ref, settled, {merge: true});
   });
   return settled;
@@ -154,7 +160,7 @@ export const listBillboardCreatives = onRequest({region, cors: true}, async (req
     const creatives = [];
     for (const doc of snap.docs) {
       const settled = await settleAccount(doc.ref);
-      if (settled.imageUrl && settled.credits > 0) {
+      if (settled.imageUrl && ownedBoardIds(settled).length) {
         const ids = ownedBoardIds(settled);
         creatives.push({
           uid: doc.id,
