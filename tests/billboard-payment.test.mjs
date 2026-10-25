@@ -54,7 +54,7 @@ test('a confirmed Revolut payment grants 40 credits and the fee once, and a seco
   const added = settlement.apply(claimAsPaidSession(another, {uid: 'ada'}));
   assert.equal(added.credits, 120);
   assert.deepEqual(settlement.account('ada').boardIds, [BOARD, secondBoard]);
-  assert.equal(settlement.account('ada').selectedBoardId, secondBoard);
+  assert.equal(settlement.account('ada').selectedBoardId, BOARD);
 
   const bobClaim = createRevolutCheckout({
     uid: 'bob',
@@ -78,7 +78,7 @@ test('a confirmed Revolut payment grants 40 credits and the fee once, and a seco
   assert.match(handler, /settlePaidSession\(/);
   assert.match(handler, /selectBoardForCheckout\(/);
   assert.match(handler, /openBillboardVisit/);
-  const openHandler = handler.slice(handler.indexOf('export const openBillboardVisit'));
+  const openHandler = handler.slice(handler.indexOf('async function openOwnedBoard'));
   assert.match(openHandler, /chargeLinkOpen\(/);
   assert.doesNotMatch(openHandler, /settleCredits\(/);
   assert.doesNotMatch(handler, /stripe/i);

@@ -60,10 +60,11 @@ export function ownedBoardIds(account) {
 
 export function withOwnedBoards(account) {
   const boardIds = ownedBoardIds(account);
+  // The legacy single id stays on the first board, so a later purchase cannot move the poster off it.
   return {
     ...account,
     boardIds,
-    selectedBoardId: boardId(account?.selectedBoardId) || boardIds[0] || '',
+    selectedBoardId: boardIds[0] || '',
   };
 }
 
@@ -72,8 +73,7 @@ export function addOwnedBoard(account, id) {
   const chosen = boardId(id);
   const boardIds = ownedBoardIds(account);
   if (chosen && !boardIds.includes(chosen)) boardIds.push(chosen);
-  const selectedBoardId = chosen || boardId(account?.selectedBoardId) || boardIds[0] || '';
-  return {...account, boardIds, selectedBoardId};
+  return withOwnedBoards({...account, boardIds});
 }
 
 function storedBoardIds(account) {

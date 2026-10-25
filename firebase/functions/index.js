@@ -153,8 +153,49 @@ export const settleBillboardAccount = onRequest({region, cors: true}, async (req
   }
 });
 
+async function openOwnedBoard(id) {
+  const snap = await accounts().limit(200).get();
+  const loaded = snap.docs.map((doc) => ({uid: doc.id, ...emptyAccount(), ...doc.data()}));
+  const preview = applyBillboardOpen(loaded, id);
+  if (!preview.ok || !preview.uid) return {status: 409, url: ''};
+  const ref = accounts().doc(preview.uid);
+  let url = '';
+  await getFirestore().runTransaction(async (tx) => {
+    url = '';
+    const fresh = await tx.get(ref);
+    const account = {uid: preview.uid, ...emptyAccount(), ...(fresh.exists ? fresh.data() : {})};
+    const owns = ownedBoardIds(account).includes(id);
+    const link = httpUrl(account.linkUrl);
+    const charge = chargeLinkOpen(account);
+    if (!owns || !link || !account.imageUrl || !charge.ok) return;
+    tx.set(ref, {
+      credits: charge.account.credits,
+      spent: charge.account.spent,
+      paused: charge.account.paused,
+      boardIds: charge.account.boardIds,
+      selectedBoardId: charge.account.selectedBoardId,
+    }, {merge: true});
+    url = link;
+  });
+  return url ? {status: 200, url} : {status: 409, url: ''};
+}
+
 export const listBillboardCreatives = onRequest({region, cors: true}, async (req, res) => {
   try {
+    if (req.method === 'POST') {
+      const id = boardId(req.body?.boardId);
+      if (!id) {
+        res.status(400).json({error: 'Missing billboard'});
+        return;
+      }
+      const opened = await openOwnedBoard(id);
+      if (!opened.url) {
+        res.status(opened.status).json({error: 'This billboard link is not open'});
+        return;
+      }
+      res.json({url: opened.url});
+      return;
+    }
     const today = pragueDayKey();
     const snap = await accounts().limit(200).get();
     const creatives = [];
@@ -191,31 +232,12 @@ export const openBillboardVisit = onRequest({region, cors: true, invoker: 'publi
       error.status = 400;
       throw error;
     }
-    const snap = await accounts().limit(200).get();
-    const loaded = snap.docs.map((doc) => ({uid: doc.id, ...emptyAccount(), ...doc.data()}));
-    const preview = applyBillboardOpen(loaded, id);
-    if (!preview.ok || !preview.uid) {
-      res.status(409).json({error: 'This billboard link is not open'});
+    const opened = await openOwnedBoard(id);
+    if (!opened.url) {
+      res.status(opened.status).json({error: 'This billboard link is not open'});
       return;
     }
-    const ref = accounts().doc(preview.uid);
-    let url = '';
-    await getFirestore().runTransaction(async (tx) => {
-      url = '';
-      const fresh = await tx.get(ref);
-      const account = {uid: preview.uid, ...emptyAccount(), ...(fresh.exists ? fresh.data() : {})};
-      const owns = ownedBoardIds(account).includes(id);
-      const link = httpUrl(account.linkUrl);
-      const charge = chargeLinkOpen(account);
-      if (!owns || !link || !account.imageUrl || !charge.ok) return;
-      tx.set(ref, {credits: charge.account.credits, spent: charge.account.spent, paused: charge.account.paused}, {merge: true});
-      url = link;
-    });
-    if (!url) {
-      res.status(409).json({error: 'This billboard link is not open'});
-      return;
-    }
-    res.json({url});
+    res.json({url: opened.url});
   } catch (error) {
     sendError(res, error);
   }
