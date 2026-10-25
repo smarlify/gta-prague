@@ -13,8 +13,8 @@ export const PRESIDENTIAL_ESCORT_ID = 'pavel';
 export const ESCORT_SLOTS = Object.freeze([
   Object.freeze({id: 'bike-left', kind: 'motorbike', lateral: -1.35, behind: 0.85, altitude: 0}),
   Object.freeze({id: 'bike-right', kind: 'motorbike', lateral: 1.35, behind: 1.55, altitude: 0}),
-  // Low enough to sit in the Follow camera, still above the rider and behind him.
-  Object.freeze({id: 'helicopter', kind: 'helicopter', lateral: 4.2, behind: 5.4, altitude: 8.6}),
+  // Above and behind, low enough that the Follow camera still has the fuselage in frame.
+  Object.freeze({id: 'helicopter', kind: 'helicopter', lateral: 3.6, behind: 4.2, altitude: 6.2}),
 ]);
 
 const BIKE_LIFT = 0.12;

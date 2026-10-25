@@ -32,7 +32,7 @@ test('bikes flank behind the leader and the helicopter holds above that trail', 
   assert.ok(rightOf(leader, right) > 1);
   assert.ok(behindOf(leader, heli) > behindOf(leader, right));
   assert.equal(heli.heading, leader.heading);
-  assert.ok(ESCORT_SLOTS[2].altitude > 8);
+  assert.ok(ESCORT_SLOTS[2].altitude > 5);
   const gap = Math.hypot(left.x - right.x, left.z - right.z);
   assert.ok(gap > 2.5 && gap < 6, `bikes stay apart (${gap})`);
 });
