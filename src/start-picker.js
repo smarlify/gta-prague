@@ -110,7 +110,7 @@ export function createStartPicker({doc=document,starts,current,onChange,district
  arrow(prev,-1,step);arrow(next,1,step);
  if(useDistricts){arrow(districtPrev,-1,stepDistrict);arrow(districtNext,1,stepDistrict);}
  let touch=null;
- root.addEventListener('touchstart',e=>{touch=e.touches.length===1&&!e.target.closest('a,summary,.boot-controls')?{x:e.touches[0].clientX,y:e.touches[0].clientY,t:e.timeStamp}:null;},{passive:true});
+ root.addEventListener('touchstart',e=>{touch=e.touches.length===1&&!e.target.closest('a,summary,select,.boot-controls')?{x:e.touches[0].clientX,y:e.touches[0].clientY,t:e.timeStamp}:null;},{passive:true});
  root.addEventListener('touchend',e=>{
   if(!touch)return;const t=e.changedTouches[0];
   const s=swipeStep(t.clientX-touch.x,t.clientY-touch.y,{ms:e.timeStamp-touch.t});touch=null;

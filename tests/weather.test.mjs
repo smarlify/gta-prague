@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {LOOKS,LOOK_ORDER,WEATHERS,WEATHER_ORDER,WEATHER_UNIFORMS,SNOW_DUST,createLook,createRain,createSnow} from '../src/weather.js';
 import {weatherBeds} from '../src/audio.js';
-import {createSky,SUN_OFFSET} from '../src/sky.js';
+import {createSky,SUN_OFFSET,SKY_RADIUS} from '../src/sky.js';
 import {GRADE_DEFAULTS} from '../src/post.js';
 
 const hex=/^#[0-9a-f]{6}$/i;
@@ -17,7 +17,7 @@ test('every look is complete, with valid colours and a sun above the horizon',()
   for(const k of ['sunColor','hemiSky','hemiGround'])assert.match(l[k],hex,`${name}.${k}`);
   for(const k of ['deep','shore','sunColor'])assert.match(l.sea[k],hex,`${name}.sea.${k}`);
   assert.equal(l.fog.color,l.sky.horizon,`${name}: fog colour must equal the horizon so distant buildings melt into the dome`);
-  assert.ok(l.fog.near>0&&l.fog.far>l.fog.near&&l.fog.far<=1000,`${name}: fog inside the sky radius`);
+  assert.ok(l.fog.near>0&&l.fog.far>l.fog.near&&l.fog.far<=SKY_RADIUS,`${name}: fog inside the sky radius`);
   assert.ok(l.sunOffset[1]>0,`${name}: sun above the horizon`);
   assert.ok(l.sunIntensity>=0&&l.sunIntensity<=3&&l.hemiIntensity>0&&l.hemiIntensity<=2);
   assert.ok(l.sky.coverage>=0&&l.sky.coverage<=1&&l.sky.sunDisc>=0&&l.sky.sunDisc<=1);
@@ -33,7 +33,7 @@ test('every look is complete, with valid colours and a sun above the horizon',()
  assert.equal(WEATHERS.rain.wetness,1);assert.equal(WEATHERS.rain.rain,1);assert.equal(WEATHERS.rain.snow,0);
  assert.equal(WEATHERS.snow.wetness,0);assert.equal(WEATHERS.snow.rain,1);assert.equal(WEATHERS.snow.snow,1);
  assert.equal(WEATHERS.thunder.wetness,1);assert.equal(WEATHERS.thunder.rain,1);assert.equal(WEATHERS.thunder.label,'Thunderstorm');
- assert.equal(WEATHERS.clear.wetness,0);assert.equal(WEATHERS.clear.rain,0);assert.equal(WEATHERS.overcast.fog.near,230);
+ assert.equal(WEATHERS.clear.wetness,0);assert.equal(WEATHERS.clear.rain,0);assert.equal(WEATHERS.overcast.fog.near,180);
  assert.equal(LOOKS.whitenight.label,'White night');
 });
 
@@ -43,7 +43,7 @@ test('night is moonlit and still darker than midday',()=>{
  assert.ok(night.sunIntensity<day.sunIntensity&&night.hemiIntensity<day.hemiIntensity&&night.grade.exposure<day.grade.exposure);
  assert.equal(night.hemiSky,'#8eabcc');assert.equal(night.hemiGround,'#3a424c');assert.equal(night.sunColor,'#b7c6de');
  assert.ok(night.grade.vignette>day.grade.vignette&&night.grade.vignette<.4,'night still frames the view without blacking the corners');
- assert.equal(night.fog.near,300);assert.equal(night.fog.far,800);
+ assert.equal(night.fog.near,220);assert.equal(night.fog.far,400);
  assert.ok(night.fog.near>110&&night.fog.near<day.fog.near&&night.fog.far<day.fog.far);
  assert.equal(night.sky.zenith,'#070d18');
  assert.notEqual(night.sky.zenith,LOOKS.golden.sky.zenith);assert.notEqual(night.sky.horizon,LOOKS.golden.sky.horizon);

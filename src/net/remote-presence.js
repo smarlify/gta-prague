@@ -11,6 +11,7 @@ import { ambulanceVehicle, dressPlayerLook, seatedCabDriver } from '../player-tr
 import { slachtaWearsUniform } from '../driver-starts.js';
 import { OFFICER_LOOK, officerLook } from '../roadblock.js';
 import { createRideVehicle, PLAYER_BIKE, PLAYER_SCOOTER, challengerWaterY } from '../player-ride-models.js';
+import { syncPirateFlag } from '../pirate-flag.js';
 import { createPoliceBody, unitNumber, unitVariant, policeAgencyFor } from '../police-model.js';
 import { attachPursuitLights, flashPursuitLights, strobe } from '../police-renderer.js';
 import { createAmbulanceMesh } from '../pavlova-scene.js';
@@ -211,7 +212,11 @@ class RemoteActor {
       if (this.car) this.root.add(this.car);
     } else if (mode === 'bike' || mode === 'scooter' || mode === 'motorbike' || mode === 'challenger') {
       const kind = mode === 'scooter' ? 'scooter' : mode === 'motorbike' ? 'motorbike' : mode === 'challenger' ? 'challenger' : 'bicycle';
-      this.ride = createRideVehicle({ kind, color: mode === 'motorbike' ? '#c5ccd1' : '#6f9cc4' }, mode);
+      this.ride = createRideVehicle({
+        kind,
+        color: mode === 'motorbike' ? '#c5ccd1' : '#6f9cc4',
+        ...(mode === 'bike' && net.character === 'hrib' ? { flag: 'pirate' } : {}),
+      }, mode);
       this.root.add(this.ride.root);
       if (mode !== 'challenger') {
         this.ped = createPedMesh(this.uid, net.character || '');
@@ -331,6 +336,8 @@ class RemoteActor {
       this.ride.root.position.set(0, this.mode === 'challenger' ? 0 : (this.ride.lift || 0.12), 0);
       this.ride.root.rotation.set(0, 0, 0);
       this.ride.motion?.update((this.ride._dist = (this.ride._dist || 0) + Math.abs(speed) * dt));
+      syncPirateFlag(this.ride, this.mode === 'bike' && net.character === 'hrib');
+      this.ride.flag?.update(dt, speed);
       if (this.ped && this.mode !== 'challenger') {
         this.syncLook(net);
         const pose = this.mode === 'scooter' ? 'scooter' : 'cycle';

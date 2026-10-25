@@ -21,6 +21,6 @@ test('the Drive control shows a C badge for the camera key, hidden on phones', a
   assert.doesNotMatch(phone, /#view-btn\{display:\s*none\}/);
   assert.doesNotMatch(hud, /#view-btn\{display:\s*none\}/);
   const bootPhone = boot.slice(boot.indexOf('@media(max-width:700px)'));
-  assert.match(bootPhone, /body \.player-name,body \.topbar kbd,#intro \.boot-controls\{display:none\}/);
+  assert.match(bootPhone, /body \.topbar \.player-name,body \.topbar kbd,#intro \.boot-controls\{display:none\}/);
   assert.doesNotMatch(bootPhone, /#view-btn\{display:\s*none\}/);
 });

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {DRAW_DISTANCE} from './sky.js';
 
 // Distance levels for measured building tiles, with hysteresis so a tile parked on a threshold
 // never flickers between representations:
@@ -6,7 +7,7 @@ import * as THREE from 'three';
 //  far    — one merged measured shell per texture atlas: same walls and roofs, no windows, no shadows
 //  hidden — beyond the fogged distance
 // Authored landmark fronts inside tiles (shell meshes with the 'detail' role) stay visible at every level.
-export const LOD={near:240,far:290,visible:550,detail:180,shadow:130};
+export const LOD={near:240,far:290,visible:DRAW_DISTANCE,detail:180,shadow:130};
 
 export function tileLevel(previous,distance,bands=LOD){
  if(distance>bands.visible)return 'hidden';
@@ -69,7 +70,7 @@ export function freezeMesh(mesh){mesh.updateMatrixWorld(true);mesh.matrixAutoUpd
 // detailShadow: authored canopies render a second time into the shadow map, so only those whose
 // shadow the driving camera can read cast (the band is measured to the whole cell, so trees up to
 // ~120 m away still cast); the Mannerheimintie rows would otherwise double their triangle cost.
-export const TREE_LOD={full:160,medium:450,visible:850,shadow:200,detailShadow:150,detailNear:150,detailFar:180,midNear:430,midFar:470};
+export const TREE_LOD={full:160,medium:450,visible:DRAW_DISTANCE,shadow:200,detailShadow:150,detailNear:150,detailFar:180,midNear:430,midFar:470};
 export function treeLeafDetail(distance,bands=TREE_LOD){return distance<bands.full?2:distance<bands.medium?1:0;}
 export function detailedTreeLevel(previous,distance,bands=TREE_LOD){
  if(distance<bands.detailNear)return 'near';

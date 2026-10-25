@@ -76,6 +76,7 @@ import {installTransit} from './extension-transit.js';
 import {createSea,removeLegacyWater} from './sea.js';
 import {PoliceSimulation} from './police.js';
 import {createPoliceRenderer} from './police-renderer.js';
+import {createPresidentialEscort} from './presidential-escort.js';
 import './police-alert.css';
 import {cutLowerYard} from './port-yard.js';
 import {createRouteCrossingSigns} from './route-crossing-signs.js';
@@ -109,7 +110,7 @@ import {createMarketShopRenderer} from './market-shop-renderer.js';
 import {GullEncounter} from './gull-encounter.js';
 import {createBirdFlightClearance} from './bird-flight-clearance.js';
 import {gameIsStopped,onGameStop,reportGameError} from './game-resilience.js';
-import {createSky} from './sky.js';
+import {createSky,CAMERA_FAR,DRAW_DISTANCE,FOG_NEAR,SURFACE_LOAD_RADIUS} from './sky.js';
 import {createPostPipeline} from './post.js';
 import {attachSnow,createLook,SNOW_DUST,WEATHER_UNIFORMS} from './weather.js';
 import {startPragueForecast} from './live-weather.js';
@@ -179,8 +180,9 @@ const cityAudio=createCityAudio();
 let startPicker=null,previewVersion=0,previewing=false,startAfterPreview=false; // the ‹ › starting-point picker on the welcome card
 onGameStop(()=>{surfaceStreamer?.dispose();extensionStreamer?.dispose();mobileControls?.release();keys.clear();paused=true;peopleInteraction?.dispose();gullEncounter.reset();birds?.clearEncounter();marketShopRenderer?.dispose();audioContext?.suspend().catch(()=>{});});
 const scene=new THREE.Scene();
+const presidentialEscort=createPresidentialEscort(scene);
 const cityModel=new THREE.Group(),aerialGroup=new THREE.Group();scene.add(cityModel,aerialGroup);aerialGroup.visible=false;document.body.classList.add('photographic');
-scene.background=new THREE.Color('#b9cbd4');scene.fog=new THREE.Fog('#b9cbd4',330,850);
+scene.background=new THREE.Color('#b9cbd4');scene.fog=new THREE.Fog('#b9cbd4',FOG_NEAR,DRAW_DISTANCE);
 // Optional fixed frame for video capture: ?frame=1:1 (largest box of that aspect that fits the window)
 // or ?frame=1080x1080 (exact CSS pixels, capped to the window). The game renders only inside the box,
 // centred on black, and the HUD is laid out relative to it, so a "record selected portion" over the
@@ -200,7 +202,7 @@ function layoutFrame(){
  if(captureFrame.fixed){document.body.classList.add('framed');const st=document.body.style;st.left=captureFrame.x+'px';st.top=captureFrame.y+'px';st.width=captureFrame.w+'px';st.height=captureFrame.h+'px';}
 }
 layoutFrame();
-const camera=new THREE.PerspectiveCamera(58,captureFrame.w/captureFrame.h,.25,1500);
+const camera=new THREE.PerspectiveCamera(58,captureFrame.w/captureFrame.h,.25,CAMERA_FAR);
 let inspectionCamera=null;
 const trafficFrustum=new THREE.Frustum(),trafficProjection=new THREE.Matrix4(),trafficSphere=new THREE.Sphere(new THREE.Vector3(),4);
 const trafficInView=a=>{trafficSphere.center.set(a.x,1.5+groundAt(a.x,a.z),a.z);return trafficFrustum.intersectsSphere(trafficSphere);};
@@ -307,7 +309,7 @@ function rememberCharacter(choice){
  chosenCharacter=choice;
  writeStoredPlayerName(choice.name);
  const input=$('player-name');
- if(input&&input.value!==choice.name)input.value=choice.name;
+ if(input&&input.tagName!=='SELECT'&&input.value!==choice.name)input.value=choice.name;
  if(car){
   car.roadster=!!choice.flies;
   if(choice.police)car.visual={type:'police',police:true,livery:'praha',variant:'estate'};
@@ -317,19 +319,24 @@ function rememberCharacter(choice){
  paintCharacterLook(choice);
  chaseHold=!choice.chase;chaseKind=null;
  // Same street still rebuilds when the ride changes. Hřib's bicycle is not the car already waiting.
- if(!started&&data?.landmarks&&startPoint&&city?.id==='prague'){
+ // A pinned ?start= still wins. With no start=, this driver's default place is used,
+ // including after the drive has begun.
+ if(data?.landmarks&&startPoint&&city?.id==='prague'){
   const next=placeForCharacter(choice);
   const heading=startHeading(next.start,choice,car?.heading??0);
   if(next.start&&(characterSwitchRebuilds(previous,choice)||next.start.name!==startPoint.name||Math.abs(heading-(car?.heading??0))>.02)){
    setStart(next.start);
    startPicker?.set(startPoint);
+   // The Vltava start is not a street in the place list, so the picker would
+   // show a nearby district place. Keep the card on the water the car is on.
+   if(startPoint?.water)$('boot-title').textContent=startPoint.name;
   }
   refreshChaseSpawn();
  }
 }
 writeStoredPlayerName(chosenCharacter.name);
 const nameInput=$('player-name');
-if(nameInput)nameInput.value=chosenCharacter.name;
+if(nameInput&&nameInput.tagName!=='SELECT')nameInput.value=chosenCharacter.name;
 // The picker calls onChange before it returns, and that paints this renderer.
 const travelRenderer=createPlayerTravelRenderer(scene);
 bindCharacterPicker({initial:chosenCharacter.id,onChange:rememberCharacter});
@@ -553,10 +560,10 @@ function initSurfaceStreamer(){
  surfaceStreamer.add(surfaceIndex);
 }
 async function ensureCityModel(){
- // Fog ends at 850 m. Load all ground surfaces that can be seen from this start,
+ // Fog ends at DRAW_DISTANCE. Load the ground that can be seen from this start,
  // then keep the same detail streaming ahead as the player travels.
  if(!cityModelPromise)cityModelPromise=(async()=>{
-  initSurfaceStreamer();await surfaceStreamer.ensure(car,{radius:900});
+  initSurfaceStreamer();await surfaceStreamer.ensure(car,{radius:SURFACE_LOAD_RADIUS});
   await createTrees();createFallbackBuildings();
  })();
  return cityModelPromise;
@@ -589,7 +596,7 @@ async function visitStart(destination,button){
  try{
   await extensionStreamer.ensureStart(destination);
   const near=roofIndex.tiles.filter(t=>tileDistance(t,destination)<430).sort((a,b)=>tileDistance(a,destination)-tileDistance(b,destination));
-  await Promise.all([surfaceStreamer.ensure(destination,{radius:900}),pool(near,4,t=>loadRoof(t,destination))]);
+  await Promise.all([surfaceStreamer.ensure(destination,{radius:SURFACE_LOAD_RADIUS}),pool(near,4,t=>loadRoof(t,destination))]);
   // GPU uploads are spread across frames, including while this dialog is open.
   while(uploads.size){if(gameIsStopped())throw Error('The game stopped while loading this place');await new Promise(requestAnimationFrame);}
   if(version!==startVisitVersion||!$('map-dialog').open)return; // Closing the map cancels the jump, while its downloads remain useful.
@@ -699,7 +706,7 @@ async function previewStart(destination){
  try{
   await extensionStreamer.ensureStart(destination);
   const near=roofIndex.tiles.filter(t=>tileDistance(t,destination)<430).sort((a,b)=>tileDistance(a,destination)-tileDistance(b,destination));
-  await Promise.all([surfaceStreamer.ensure(destination,{radius:900}),pool(near,4,t=>loadRoof(t,destination))]);
+  await Promise.all([surfaceStreamer.ensure(destination,{radius:SURFACE_LOAD_RADIUS}),pool(near,4,t=>loadRoof(t,destination))]);
   // Match visitStart: wait for rationed GPU uploads so a bad texture init cannot
   // throw from the rAF loop while the picker still shows "Loading …".
   while(uploads.size){if(gameIsStopped()||version!==previewVersion)return;await new Promise(requestAnimationFrame);}
@@ -782,7 +789,7 @@ function trackGameStart(place=startPoint){
   event_category:'game_interaction'
  });
 }
-function start(){if(!ready)return;if(previewing){startAfterPreview=true;return;}if(startPoint&&characterSwitchRebuilds({ride:occupiedRide(travel)},chosenCharacter))setStart(startPoint);if(chosenCharacter?.chase&&!chaseHold&&!chaseKind&&!new URLSearchParams(location.search).get('start')){const letna=pickStart(data.landmarks,'Letenské náměstí');if(letna)setStart(letna);}chaseHold=true;const first=!started;started=true;paused=false;document.body.classList.add('driving');loadingScreen.enter();carGroup.visible=travel?.mode==='car'||!!travel?.sunkCar;marker.visible=false;if(first)trackGameStart(startPoint);toast(touchScreen?'Slide to steer · Hold Go to move · Menu for the map and settings':'WASD or arrow keys to drive · Space to handbrake');$('world').focus();}
+function start(){if(!ready)return;if(previewing){startAfterPreview=true;return;}if(startPoint&&characterSwitchRebuilds({ride:occupiedRide(travel)},chosenCharacter))setStart(startPoint);if(chosenCharacter?.chase&&!chaseHold&&!chaseKind&&!new URLSearchParams(location.search).get('start')){const letna=pickStart(data.landmarks,'Letenské náměstí');if(letna)setStart(letna);}chaseHold=true;const first=!started;started=true;paused=false;document.body.classList.add('driving');loadingScreen.enter();carGroup.visible=travel?.mode==='car'||!!travel?.sunkCar;marker.visible=false;if(first)trackGameStart(startPoint);toast(touchScreen?'Slide to steer · Hold Go · Brake, then reverse · Pause and Menu are at the top':'WASD or arrow keys to drive · Space to handbrake');$('world').focus();}
 function focusWorldControls(){if(started&&!paused&&!mapOpen&&!police?.busted&&!gameIsStopped())$('world').focus({preventScroll:true});}
 function showDialog(id){if(!ready||police?.busted)return;peopleInteraction?.close();mobileControls?.release();keys.clear();$(id).showModal();mapOpen=true;if(id==='map-dialog')drawCityMap();}
 function closeDialogs(){if($('map-dialog').open)startVisitVersion++;document.querySelectorAll('dialog[open]').forEach(d=>d.close());mapOpen=!!document.querySelector('dialog[open]');mobileControls?.release();keys.clear();focusWorldControls();}
@@ -825,9 +832,11 @@ for(const dialog of document.querySelectorAll('dialog')){
   focusWorldControls();
  });
 }
+function cyclePlayerLights(){if(!(travel?.mode==='car'&&travel.car))return;headlightMode=cycleHeadlights(headlightMode);toast(headlightModeLabel(headlightMode));}
+function togglePlayerSiren(){if(travel?.mode==='car'&&travel.car?.visual?.police)stolenSirenOn=!stolenSirenOn;}
 window.addEventListener('keydown',e=>{
  const pick=startPicker&&pickerStep(e.code,{ready:ready&&!gameIsStopped(),started,blocked:mapOpen||!!police?.busted});
- if(pick){e.preventDefault();if(!e.repeat)startPicker.step(pick);return;} // before the start ←/→ choose the place; afterwards they steer
+ if(pick&&!e.target.closest?.('select')){e.preventDefault();if(!e.repeat)startPicker.step(pick);return;} // before the start ←/→ choose the place; afterwards they steer. A driver select keeps its own arrows.
  if(e.code!=='Escape'&&e.target.closest?.('button,a,summary,input,select,textarea,[contenteditable="true"]'))return;
  if(billboardBuy?.isOpen()&&e.code!=='Escape')return; // Close is a button. Esc still pauses.
  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)&&!mapOpen)e.preventDefault();
@@ -845,11 +854,8 @@ window.addEventListener('keydown',e=>{
  if(e.code==='KeyC'){cycleCamera();return;}
  if(e.code==='KeyT'){look.cycle();toast(look.label);return;}
  if(e.code==='KeyY'){look.cycleWeather();toast(look.weatherLabel);return;}
- if(e.code==='KeyL'){if(travel?.mode==='car'&&travel.car){headlightMode=cycleHeadlights(headlightMode);toast(headlightModeLabel(headlightMode));}return;}
- if(e.code==='KeyH'){
-  if(travel?.mode==='car'&&travel.car?.visual?.police)stolenSirenOn=!stolenSirenOn;
-  return;
- }
+ if(e.code==='KeyL'){cyclePlayerLights();return;}
+ if(e.code==='KeyH'){togglePlayerSiren();return;}
  if(e.code==='Tab'){
   e.preventDefault();
   document.body.classList.toggle('clean-capture');
@@ -889,6 +895,7 @@ mobileControls=createMobileControls({
   daytime:()=>{look.cycle();toast(look.label);},
   weather:()=>{look.cycleWeather();toast(look.weatherLabel);},sound:()=>$('sound-btn').click(),
   help:()=>showDialog('help-dialog'),reset,sources:()=>showDialog('sources-dialog'),
+  lights:cyclePlayerLights,siren:togglePlayerSiren,pause:()=>setPaused(true),
  },
  notify:toast,
 });
@@ -922,7 +929,7 @@ function updateHUD(now){
 function frame(now){
  if(gameIsStopped())return;
  requestAnimationFrame(frame);const frameMs=lastTime?now-lastTime:0;const steps=simulationSteps(lastTime?(now-lastTime)/1000:0),dt=steps.reduce((a,b)=>a+b,0);lastTime=now;
-   mobileControls.update({started,paused,mapOpen,busted:!!police?.busted,mode:travel?.mode||'car',speed:car?.speed||0,roadster:!!car?.roadster,flying:!!car?.flying});
+   mobileControls.update({started,paused,mapOpen,busted:!!police?.busted,mode:travel?.mode||'car',speed:car?.speed||0,roadster:!!car?.roadster,flying:!!car?.flying,police:travel?.mode==='car'&&!!travel.car?.visual?.police,siren:stolenSirenOn,lights:headlightMode});
  if(ready)peopleInteraction.update(dt,car,nearbyPeople(),{enabled:canTalk()});
  if(ready&&marketShop){marketShop.update(paused||mapOpen?0:dt,car,{enabled:canTalk()});for(const m of marketShop.drainMessages())marketUI.say(m);}
  if(ready&&!paused&&!mapOpen&&!police?.busted){
@@ -986,6 +993,7 @@ function frame(now){
    const target=new THREE.Vector3(car.x-Math.sin(cameraHeading)*ahead,0,car.z-Math.cos(cameraHeading)*ahead);
    focus.lerp(target,1-Math.exp(-dt*5));
  }
+ presidentialEscort.update(dt,car,chosenCharacter);
  viewSpan+=(desiredSpan-viewSpan)*(1-Math.exp(-dt*7));resizeCamera();
  const heading=started?cameraHeading:0;
  if(chaseCamera&&started){
@@ -1028,7 +1036,7 @@ function frame(now){
  if(ready){const busted=!!police?.busted,afk=(!!paused||document.hidden)&&!busted;multiplayer?.step(dt,{paused:afk,afk,busted});if(!started)refreshChaseSpawn();}
  if(now-lastUI>140&&ready){updateHUD(now);travelUI.update(travel,{started,paused,mapOpen,busted:police?.busted,hidden:captureMode});peopleUI.update(peopleInteraction?.snapshot(),{hidden:!canTalk()||captureMode||gullEncounter.snapshot().phase==='chase'});refreshMarketUI();refreshBillboardBuy(now);noticeGulls();lastUI=now;}
  uploads.step(); // rationed GPU uploads for streamed tiles
- if(now-lastTile>1200&&ready&&!switchingStart){surfaceStreamer?.update(car,{radius:1000,aheadSeconds:12});extensionStreamer?.update(car);updateTiles().catch(handleTileError);lastTile=now;}
+ if(now-lastTile>1200&&ready&&!switchingStart){surfaceStreamer?.update(car,{radius:SURFACE_LOAD_RADIUS,aheadSeconds:12});extensionStreamer?.update(car);updateTiles().catch(handleTileError);lastTile=now;}
  cityAudio.update(audioContext,{enabled:sound,active:started&&!paused&&!mapOpen,driving:travel?.mode==='car',ride:travel?.mode,rideSpeed:travel?.mode==='motorbike'?travel.actor?.speed||0:0,car,surface:surfaceNow,people:[...(mobility?.people||[]).filter(p=>p.edge),...detailPeople.filter(p=>Number.isFinite(p.x))],trams:tramSim?.trams||[],heading:car?.heading??cameraHeading,throttle:keys.has('KeyW')||keys.has('ArrowUp'),reverse:keys.has('KeyS')||keys.has('ArrowDown'),brake:keys.has('Space'),waterDistance:car&&world?.water?nearestWaterDistance(car.x,car.z,world.water):Infinity,precipitation:look.weather==='rain'||look.weather==='thunder',snow:look.weather==='snow'});
  policeRenderer?.audio(audioContext,sound&&started&&!paused&&!mapOpen&&(!police?.busted||!finale.ended));
  {const drivingStolen=travel?.mode==='car'&&!!travel.car?.visual?.police;if(!drivingStolen)stolenSirenOn=false;
@@ -1099,7 +1107,7 @@ async function boot(){
     if(gameIsStopped())return;
     if(!world){applyExtensions([e],{data,roofIndex,surfaceIndex,mobility:mobilityData});addTransit(e);return;}
     // Finish nearby ground before opening the region. Other tiles continue to stream ahead.
-    surfaceStreamer.add(e.surfaces);await surfaceStreamer.ensure(car,{radius:1000,aheadSeconds:12});
+    surfaceStreamer.add(e.surfaces);await surfaceStreamer.ensure(car,{radius:SURFACE_LOAD_RADIUS,aheadSeconds:12});
     if(gameIsStopped())return;
     let stage=regionStages.get(e.id);
     if(!stage){
@@ -1280,7 +1288,7 @@ async function boot(){
    const helpGrid=document.querySelector('#help-dialog .help-grid');if(helpGrid)$('pause-controls').append(helpGrid.cloneNode(true));
    updateHUD(0);
    // Read-only diagnostics for smoke tests and performance inspection.
-   window.openCityDrive={getState:()=>({ready,started,paused,mapOpen,photoMode,captureMode,frame:{...captureFrame},pixelRatio:renderer.getPixelRatio(),highCamera,chaseCamera,camera:{type:camera.type,height:camera.position.y,heading:cameraHeading,look:cameraLook},surface:surfaceNow,angryDrivers:angryDrivers?.snapshot()||[],rumble:{bob:rumbleNow.bob,roll:rumbleNow.roll,pitch:rumbleNow.pitch,intensity:rumbleNow.intensity,carY:carGroup.position.y,cameraY:cameraRumble[1]},harbour:harbour.group.userData,car:{...car},travel:travel.snapshot(),conversation:peopleInteraction.snapshot(),mobility:mobility.snapshot(),trams:tramSim.snapshot(),cyclists:cyclists.snapshot(),scooters:npcScooters.snapshot(),streaming:{surfaces:surfaceStreamer?.snapshot(),regions:extensionStreamer?.snapshot(),switchingStart},objects:world.objects.snapshot(),loadedRoofTiles:loadedTiles.size,loadedPhotoTiles:photoTiles.size,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,spawn:{...startPoint},counts:{buildings:data.buildings.length,roofs:roofIndex.buildings,trees:data.trees.length,trunks:{...treeTrunks?.stats}}})};
+   window.openCityDrive={getState:()=>({ready,started,paused,mapOpen,photoMode,captureMode,frame:{...captureFrame},pixelRatio:renderer.getPixelRatio(),highCamera,chaseCamera,camera:{type:camera.type,height:camera.position.y,heading:cameraHeading,look:cameraLook},surface:surfaceNow,angryDrivers:angryDrivers?.snapshot()||[],rumble:{bob:rumbleNow.bob,roll:rumbleNow.roll,pitch:rumbleNow.pitch,intensity:rumbleNow.intensity,carY:carGroup.position.y,cameraY:cameraRumble[1]},harbour:harbour.group.userData,car:{...car},escort:presidentialEscort.snapshot(),travel:travel.snapshot(),conversation:peopleInteraction.snapshot(),mobility:mobility.snapshot(),trams:tramSim.snapshot(),cyclists:cyclists.snapshot(),scooters:npcScooters.snapshot(),streaming:{surfaces:surfaceStreamer?.snapshot(),regions:extensionStreamer?.snapshot(),switchingStart},objects:world.objects.snapshot(),loadedRoofTiles:loadedTiles.size,loadedPhotoTiles:photoTiles.size,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,spawn:{...startPoint},counts:{buildings:data.buildings.length,roofs:roofIndex.buildings,trees:data.trees.length,trunks:{...treeTrunks?.stats}}})};
    window.openCityDrive.getLocation=currentLocation;window.helsinkiDrive=window.openCityDrive; // old name kept as an alias
    // Market stalls: state for smoke tests, and a shortcut that puts the walking player at a stall front (scripted demos).
    window.openCityDrive.market={state:()=>marketShop.snapshot(),encounter:()=>gullEncounter.snapshot(),

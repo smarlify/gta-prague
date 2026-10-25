@@ -1,10 +1,13 @@
 /**
- * Name other players see above a car. The typed name wins over the Google
- * profile and is remembered in this browser so the next visit is already filled in.
+ * Name other players see above a car. The live #player-name field wins over the
+ * Google profile and is remembered in this browser.
  *
- * Publish always prefers the live #player-name field, then localStorage, then
- * Google. localStorage can fail (private mode / blocked storage); an in-memory
- * fallback keeps the typed name on the presence row for this tab.
+ * That field is the driver select: its value is the character id, and the
+ * selected option's data-name is the name that gets published. A plain text
+ * field, if one is still passed in, publishes what was typed.
+ *
+ * localStorage can fail (private mode / blocked storage); an in-memory
+ * fallback keeps the name on the presence row for this tab.
  */
 export const PLAYER_NAME_STORAGE_KEY = 'gta-praha-player-name';
 
@@ -84,10 +87,27 @@ export function resolvePresenceName({
   return currentPresenceName(googleName, storage);
 }
 
+function isSelectField(input) {
+  return String(input?.tagName || '').toUpperCase() === 'SELECT';
+}
+
+/** Published name for a driver select: the option's data-name, never the id. */
+function selectedOptionName(input) {
+  const option = input?.selectedOptions?.[0] || input?.options?.[input.selectedIndex];
+  const named = option?.dataset?.name || option?.getAttribute?.('data-name') || '';
+  return cleanPlayerName(named);
+}
+
+function fieldName(input) {
+  if (!input) return '';
+  if (isSelectField(input)) return selectedOptionName(input);
+  return cleanPlayerName(input.value);
+}
+
 /**
- * Wire the name field. Edits are stored immediately and the next presence
- * publish picks them up. A saved name is written into the field on load.
- * `onNameChange` fires after each save so the session can republish immediately.
+ * Wire the name field. A driver select publishes the selected driver's name.
+ * A text field still stores what was typed. `onNameChange` fires after each
+ * save so the session can republish immediately.
  */
 export function bindPlayerNameField(root = document, {
   googleName = () => '',
@@ -96,11 +116,16 @@ export function bindPlayerNameField(root = document, {
   const input = root.getElementById?.('player-name') || root.querySelector?.('#player-name');
 
   const getName = () => resolvePresenceName({
-    inputValue: input?.value || '',
+    inputValue: fieldName(input),
     googleName: googleName(),
   });
 
   const prefill = () => {
+    if (isSelectField(input)) {
+      const named = selectedOptionName(input);
+      if (named) return writeStoredPlayerName(named);
+      return currentPresenceName(googleName());
+    }
     const typing = input && input.ownerDocument?.activeElement === input;
     if (typing) {
       const live = cleanPlayerName(input.value);
@@ -120,7 +145,7 @@ export function bindPlayerNameField(root = document, {
   if (input && !input.dataset.bound) {
     input.dataset.bound = '1';
     const save = () => {
-      const name = writeStoredPlayerName(input.value);
+      const name = writeStoredPlayerName(isSelectField(input) ? selectedOptionName(input) : input.value);
       try { onNameChange?.(name); } catch { /* ignore listener errors */ }
     };
     input.addEventListener('input', save);

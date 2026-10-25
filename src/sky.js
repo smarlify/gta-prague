@@ -22,7 +22,17 @@ export const SKY_PALETTE = Object.freeze({
  cloudShade: '#a8b4c6',
 });
 export const FOG_COLOR = SKY_PALETTE.horizon;
-export const SKY_RADIUS = 1000; // well inside the camera far plane (1500)
+// How far the city is drawn, in metres. Clear-day fog is opaque here and distant
+// tiles, trees and traffic stop. Was 850, with the camera still clipping at 1500:
+// about half, so the block ahead stays sharp and the far city is not submitted.
+export const DRAW_DISTANCE = 450;
+// Fog begins past the car and the street it is on. Was 330.
+export const FOG_NEAR = 240;
+// Hard clip just past full fog, so the horizon is sky rather than shaded ground. Was 1500.
+export const CAMERA_FAR = 560;
+// Ground tiles are a few hundred metres across. Load slightly past the fog so the road does not pop in.
+export const SURFACE_LOAD_RADIUS = DRAW_DISTANCE + 100;
+export const SKY_RADIUS = 480; // inside CAMERA_FAR (was 1000, inside the old 1500 far plane)
 
 // Lights tuned toward the reference photos: bright, slightly warm sun and a bluer sky fill.
 export const LIGHTING = Object.freeze({
@@ -145,7 +155,7 @@ export function createSky({scene, camera} = {}) {
   const fogColor = new THREE.Color(FOG_COLOR);
   scene.background = fogColor.clone();
   if (scene.fog) scene.fog.color.copy(fogColor);
-  else scene.fog = new THREE.Fog(fogColor, 330, 850);
+  else scene.fog = new THREE.Fog(fogColor, FOG_NEAR, DRAW_DISTANCE);
  }
  // Current sun offset (metres, same scale as SUN_OFFSET). Time-of-day presets move it via setSun();
  // main.js keeps the shadow light at target + SUN_OFFSET and the look module re-applies this one after.

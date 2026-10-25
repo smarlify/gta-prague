@@ -5,6 +5,7 @@ import {createKnockables} from './knockables.js';
 import {crossingChains} from './crossing-markings.js';
 import {OPERATORS,createLooseMicromobility} from './parked-micromobility.js';
 import {createParkedCarSource,instancedCarVisibility} from './parked-car-sources.js';
+import {DRAW_DISTANCE} from './sky.js';
 
 // Street-level detail along the demo route: granite kerbstones, asphalt wheel
 // tracks, manhole covers and gutter grates, parked cars, litter bins, e-scooters
@@ -53,7 +54,7 @@ export function kerbStoneMaterial(){
 }
 // segments: [{a:[x,z],b:[x,z],lowered}] in world metres. Returns a group of
 // chunked merged meshes so distant kerbs are frustum-culled instead of drawn.
-export const KERB_VIEW_RANGE=520;
+export const KERB_VIEW_RANGE=DRAW_DISTANCE;
 export function createGraniteKerbs(segments,{chunk=300,range=KERB_VIEW_RANGE}={}){
  const group=new THREE.Group();group.name='Granite kerbstones';
  const material=kerbStoneMaterial(),chunks=new Map();let along=0,previous=null,count=0;

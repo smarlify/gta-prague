@@ -15,5 +15,5 @@ body:not([data-travel=car]) .speedometer .battery-row,body:not([data-travel=car]
  body.mobile-controls-ready:has(#people-interaction:not([hidden]) #people-chat:not([hidden])) #travel-controls{visibility:hidden}
 }
 @media(pointer:coarse) and (max-height:500px){
- body.mobile-controls-ready #travel-controls{left:auto;right:var(--mobile-right,16px);bottom:calc(var(--mobile-bottom,10px) + 108px);transform:none;justify-content:flex-end;max-width:min(210px,calc(100% - 350px))}
+ body.mobile-controls-ready #travel-controls{left:50%;right:auto;top:calc(var(--mobile-top,8px) + 52px);bottom:auto;transform:translateX(-50%);justify-content:center;max-width:min(240px,calc(100% - 180px))}
 }

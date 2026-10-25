@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildPresence, parsePresence } from '../src/net/protocol.js';
 import {
   PLAYER_NAME_STORAGE_KEY,
+  bindPlayerNameField,
   cleanPlayerName,
   currentPresenceName,
   readStoredPlayerName,
@@ -75,4 +76,30 @@ test('live input wins over empty localStorage so remotes never see Driver', () =
     z: 0,
     mode: 'car',
   })).name, 'Dave 2');
+});
+
+test('a driver select publishes the driver name and leaves the selected id alone', () => {
+  const option = { value: 'kraus', textContent: 'BMW X5 — Jan Kraus', dataset: { name: 'Jan Kraus' } };
+  const select = {
+    tagName: 'SELECT',
+    dataset: {},
+    value: 'kraus',
+    selectedOptions: [option],
+    options: [option],
+    selectedIndex: 0,
+    listeners: {},
+    addEventListener(type, fn) { this.listeners[type] = fn; },
+  };
+  const seen = [];
+  const field = bindPlayerNameField({
+    getElementById: (id) => (id === 'player-name' ? select : null),
+  }, {
+    onNameChange: (name) => seen.push(name),
+  });
+  assert.equal(field.getName(), 'Jan Kraus');
+  assert.equal(select.value, 'kraus');
+  select.selectedOptions = [{ value: 'filip', dataset: { name: 'Filip Turek' } }];
+  select.listeners.change();
+  assert.deepEqual(seen, ['Filip Turek']);
+  assert.equal(field.getName(), 'Filip Turek');
 });

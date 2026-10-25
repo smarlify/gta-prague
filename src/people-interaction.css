@@ -19,8 +19,8 @@
  body.mobile-controls-ready .people-chat-options button{min-height:44px;padding:9px 11px;border-color:#30312e26;color:#30312e;font-size:12px;touch-action:manipulation}
 }
 @media(pointer:coarse) and (max-height:500px){
- body.mobile-controls-ready #people-interaction{left:auto;right:var(--mobile-right,16px);bottom:calc(var(--mobile-bottom,10px) + 160px);transform:none}
- body.mobile-controls-ready #people-interaction:has(#people-chat:not([hidden])){bottom:calc(var(--mobile-bottom,10px) + 108px);width:min(280px,calc(100% - 350px));max-width:280px}
+ body.mobile-controls-ready #people-interaction{left:var(--mobile-left,16px);right:auto;top:calc(var(--mobile-top,8px) + 52px);bottom:auto;transform:none;max-width:min(200px,42vw)}
+ body.mobile-controls-ready #people-interaction:has(#people-chat:not([hidden])){top:calc(var(--mobile-top,8px) + 52px);bottom:auto;width:min(240px,46vw);max-width:240px}
  body.mobile-controls-ready #people-chat{max-height:calc(100dvh - var(--mobile-bottom,10px) - 176px);padding:12px}
  body.mobile-controls-ready #people-chat-response{font-size:13px;margin:6px 0 9px}
 }
