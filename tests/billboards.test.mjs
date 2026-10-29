@@ -5,13 +5,16 @@ import {gunzipSync} from 'node:zlib';
 import {SpatialIndex} from '../src/geo.js';
 import {PRAGUE_AREAS} from '../src/area-caption.js';
 import * as THREE from 'three';
-import {BILLBOARD_BUY_REACH, BILLBOARD_BUY_RELEASE, BILLBOARD_BUY_RELEASE_HOLD, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, VISIT_BILLBOARD_LABEL, billboardBuyOffer, billboardCallToAction, billboardFromPointer, billboardPurchaseUrl, billboardTextureSize, nearestBillboard, openBillboardLink, placePragueBillboards} from '../src/prague-billboards.js';
+import {BILLBOARD_BUY_REACH, BILLBOARD_BUY_RELEASE, BILLBOARD_BUY_RELEASE_HOLD, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, VISIT_BILLBOARD_LABEL, billboardBuyOffer, billboardCallToAction, billboardFromPointer, billboardPurchaseUrl, billboardTextureSize, billboardVisitUrl, nearestBillboard, openBillboardLink, placePragueBillboards} from '../src/prague-billboards.js';
 import storedSites from '../src/prague-billboard-sites.json' with {type: 'json'};
 import {
   PACK_CREDITS,
   REVOLUT_CHECKOUT_URL,
+  addOwnedBoard,
+  applyBillboardOpen,
   boardId,
   checkoutMetadata,
+  selectBoardForCheckout,
   PLACEHOLDER_CS,
   PLACEHOLDER_EN,
   checkoutAmount,
@@ -103,7 +106,7 @@ test('the Revolut request is 50 € and the first purchase records the fee', () 
   assert.throws(() => grantPurchase(emptyAccount(), {includesFee: false}), /listing fee/);
 });
 
-test('a board returns to the placeholder when credits run out', () => {
+test('a paid board stays on its site when credits run out', () => {
   const sites = [{id: 'board-01'}, {id: 'board-02'}];
   const live = settleCredits({...emptyAccount(), credits: 40, feePaid: true, imageUrl: 'https://example.test/ad.jpg', paused: true, selectedBoardId: 'board-01'}, '2026-10-20');
   assert.equal(live.credits, 39);
@@ -117,7 +120,8 @@ test('a board returns to the placeholder when credits run out', () => {
   assert.equal(gone.paused, true);
   assert.equal(gone.selectedBoardId, 'board-01');
   const empty = facesForDay(sites, [{...buyer, credits: gone.credits}], '2026-11-28');
-  assert.deepEqual(empty.map((face) => face.imageUrl), [null, null]);
+  assert.deepEqual(empty.map((face) => face.imageUrl), [live.imageUrl, null]);
+  assert.deepEqual(gone.boardIds, ['board-01']);
   assert.equal(pragueDayKey(new Date('2026-01-15T23:30:00Z')), '2026-01-16');
 });
 
@@ -294,7 +298,11 @@ test('a paid board visits its link and an empty board stays for sale', () => {
   const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
   assert.match(html, /Buy this billboard/);
   assert.match(main, /action\.kind==='shown'/);
-  assert.match(main, /openBillboardLink\(buyBillboardBtn\.dataset\.href\)/);
+  assert.match(main, /beginBillboardVisit\(id,href\)/);
+  assert.match(main, /beginBillboardVisit\(id,action\.url\)/);
+  assert.match(main, /requestBillboardOpen\(id\)/);
+  assert.match(main, /openBillboardLink\(url/);
+  assert.match(main, /billboardVisitUrl\(/);
   assert.match(main, /action\.kind==='visit'/);
   assert.match(ads, /id="ads-link"/);
   assert.match(ads, /type="url"/);
@@ -305,4 +313,94 @@ test('a paid board visits its link and an empty board stays for sale', () => {
   assert.match(rules, /hasOnly\(\['imageUrl', 'selectedBoardId', 'linkUrl'\]\)/);
   assert.match(rules, /linkUrlOk\(\)/);
   assert.doesNotMatch(rules, /allow read: if true/);
+});
+
+test('paid boards share one credit pool and an open costs that owner one credit', () => {
+  const sites = [
+    {id: 'praha-1-stare-mesto-01'},
+    {id: 'praha-1-stare-mesto-02'},
+    {id: 'praha-2-vysehrad-01'},
+  ];
+  const pending = selectBoardForCheckout(emptyAccount(), 'praha-1-stare-mesto-01');
+  assert.equal(pending.selectedBoardId, 'praha-1-stare-mesto-01');
+  const held = addOwnedBoard({
+    ...pending,
+    credits: 40,
+    feePaid: true,
+    imageUrl: 'https://example.test/ada.jpg',
+    linkUrl: 'https://smarlify.co/visit',
+  }, 'praha-1-stare-mesto-01');
+  assert.equal(selectBoardForCheckout(held, 'praha-2-vysehrad-01').selectedBoardId, 'praha-1-stare-mesto-01');
+  const both = addOwnedBoard(held, 'praha-2-vysehrad-01');
+  assert.deepEqual(both.boardIds, ['praha-1-stare-mesto-01', 'praha-2-vysehrad-01']);
+  assert.equal(both.credits, 40);
+  const ada = {uid: 'ada', ...both};
+  const bob = {
+    uid: 'bob',
+    imageUrl: 'https://example.test/bob.jpg',
+    credits: 7,
+    spent: 1,
+    selectedBoardId: 'praha-1-stare-mesto-02',
+    linkUrl: 'https://example.test/bob',
+  };
+  const faces = facesForDay(sites, [ada, bob], '2026-10-25');
+  assert.equal(faces[0].imageUrl, ada.imageUrl);
+  assert.equal(faces[0].linkUrl, 'https://smarlify.co/visit');
+  assert.equal(faces[1].imageUrl, bob.imageUrl);
+  assert.equal(faces[1].linkUrl, 'https://example.test/bob');
+  assert.equal(faces[2].imageUrl, ada.imageUrl);
+  assert.equal(faces[2].linkUrl, 'https://smarlify.co/visit');
+
+  const opened = applyBillboardOpen([ada, bob], 'praha-1-stare-mesto-01');
+  assert.equal(opened.ok, true);
+  assert.equal(opened.url, 'https://smarlify.co/visit');
+  assert.equal(opened.uid, 'ada');
+  assert.equal(opened.accounts.find((account) => account.uid === 'ada').credits, 39);
+  assert.equal(opened.accounts.find((account) => account.uid === 'ada').spent, 1);
+  assert.equal(opened.accounts.find((account) => account.uid === 'bob').credits, 7);
+  assert.equal(opened.accounts.find((account) => account.uid === 'bob').spent, 1);
+
+  const second = applyBillboardOpen(opened.accounts, 'praha-2-vysehrad-01');
+  assert.equal(second.ok, true);
+  assert.equal(second.url, 'https://smarlify.co/visit');
+  assert.equal(second.accounts.find((account) => account.uid === 'ada').credits, 38);
+  assert.equal(second.accounts.find((account) => account.uid === 'bob').credits, 7);
+
+  const dry = applyBillboardOpen([{...ada, credits: 0, spent: 40}, bob], 'praha-1-stare-mesto-01');
+  assert.equal(dry.ok, false);
+  assert.equal(dry.url, '');
+  assert.equal(dry.accounts.find((account) => account.uid === 'ada').credits, 0);
+  assert.equal(dry.accounts.find((account) => account.uid === 'bob').credits, 7);
+  const stillUp = facesForDay(sites, [dry.accounts.find((account) => account.uid === 'ada'), bob], '2026-10-25');
+  assert.equal(stillUp[0].imageUrl, ada.imageUrl);
+  assert.equal(stillUp[2].imageUrl, ada.imageUrl);
+  assert.equal(stillUp[1].imageUrl, bob.imageUrl);
+  const legacy = facesForDay(sites, [{
+    uid: 'ada',
+    imageUrl: ada.imageUrl,
+    credits: 0,
+    boardIds: [],
+    selectedBoardId: 'praha-1-stare-mesto-01',
+    linkUrl: ada.linkUrl,
+  }], '2026-10-25');
+  assert.equal(legacy[0].imageUrl, ada.imageUrl);
+  assert.equal(legacy[2].imageUrl, null);
+  const last = applyBillboardOpen([{...ada, credits: 1, spent: 3}], 'praha-2-vysehrad-01');
+  assert.equal(last.ok, true);
+  assert.equal(last.accounts[0].credits, 0);
+  assert.equal(last.accounts[0].paused, true);
+  assert.equal(last.accounts[0].spent, 4);
+  const none = applyBillboardOpen(last.accounts, 'praha-1-stare-mesto-01');
+  assert.equal(none.ok, false);
+  assert.equal(none.accounts[0].credits, 0);
+  assert.equal(none.accounts[0].spent, 4);
+
+  const quiet = applyBillboardOpen([{...ada, linkUrl: ''}, bob], 'praha-2-vysehrad-01');
+  assert.equal(quiet.ok, false);
+  assert.equal(quiet.accounts.find((account) => account.uid === 'ada').credits, 40);
+
+  assert.equal(billboardVisitUrl({charged: 'https://smarlify.co/visit', status: 200, localHref: 'https://example.test/stale'}), 'https://smarlify.co/visit');
+  assert.equal(billboardVisitUrl({charged: '', status: 409, localHref: 'https://smarlify.co/visit'}), '');
+  assert.equal(billboardVisitUrl({charged: '', status: 404, localHref: 'https://smarlify.co/visit'}), 'https://smarlify.co/visit');
+  assert.equal(billboardVisitUrl({charged: '', status: 0, localHref: 'javascript:alert(1)'}), '');
 });

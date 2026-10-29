@@ -1,4 +1,4 @@
-import {PACK_CREDITS, REVOLUT_CHECKOUT_URL, REVOLUT_PAYMENT_ID, boardId, checkoutMetadata, emptyAccount, grantPurchase} from './ad-credits.js';
+import {PACK_CREDITS, REVOLUT_CHECKOUT_URL, REVOLUT_PAYMENT_ID, addOwnedBoard, boardId, checkoutMetadata, emptyAccount, grantPurchase} from './ad-credits.js';
 
 // The first checkout that still says the fee is due records it. A repeat of that
 // metadata after the fee is already recorded still adds the credit pack.
@@ -28,8 +28,8 @@ export function settlePaidSession(account, session, {alreadyRecorded = false} = 
   const includesFee = session.metadata.includesFee === '1';
   const next = grantPaid(current, includesFee);
   const chosen = boardId(session.metadata?.boardId);
-  if (chosen) next.selectedBoardId = chosen;
-  return {applied: true, account: next, credits: next.credits, record: true, uid};
+  const withBoard = chosen ? addOwnedBoard(next, chosen) : next;
+  return {applied: true, account: withBoard, credits: withBoard.credits, record: true, uid};
 }
 
 // Revolut's payment request does not call this server. The signed-in advertiser

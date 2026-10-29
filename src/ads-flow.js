@@ -5,7 +5,7 @@ import {ref, uploadBytes, getDownloadURL} from 'firebase/storage';
 import {billboardFirebase} from './firebase.js';
 import {applyAdvertiserAccess, submitAdvertiserAuth} from './advertiser-auth.js';
 import {authFailureMessage, createEmailAccount, signInWithEmail} from './email-auth.js';
-import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH, boardId, checkoutAmount, emptyAccount, httpUrl} from '../firebase/functions/ad-credits.js';
+import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH, boardId, checkoutAmount, emptyAccount, httpUrl, selectBoardForCheckout} from '../firebase/functions/ad-credits.js';
 import {adsEndpoints} from './billboard-feed.js';
 
 const IMAGE_LIMIT = 2 * 1024 * 1024;
@@ -176,7 +176,11 @@ function bind(root, options) {
   async function saveSelectedBoard(uid) {
     const selectedBoardId = chosenBoard();
     if (!selectedBoardId) return;
-    await updateDoc(doc(services().firestore, 'billboardAccounts', uid), {selectedBoardId});
+    const snap = await getDoc(doc(services().firestore, 'billboardAccounts', uid));
+    const account = snap.exists() ? snap.data() : emptyAccount();
+    const selected = selectBoardForCheckout(account, selectedBoardId);
+    if (boardId(selected.selectedBoardId) === boardId(account.selectedBoardId)) return;
+    await updateDoc(doc(services().firestore, 'billboardAccounts', uid), {selectedBoardId: selected.selectedBoardId});
   }
 
   async function refreshAccount(uid) {

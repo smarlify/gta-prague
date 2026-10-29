@@ -30,6 +30,7 @@ test('a confirmed Revolut payment grants 40 credits and the fee once, and a seco
   assert.equal(settlement.account('ada').credits, 40);
   assert.equal(settlement.account('ada').feePaid, true);
   assert.equal(settlement.account('ada').selectedBoardId, BOARD);
+  assert.deepEqual(settlement.account('ada').boardIds, [BOARD]);
 
   const topUp = createRevolutCheckout({
     uid: 'ada',
@@ -41,16 +42,45 @@ test('a confirmed Revolut payment grants 40 credits and the fee once, and a seco
   const topped = settlement.apply(claimAsPaidSession(topUp, {uid: 'ada'}));
   assert.equal(topped.credits, 80);
   assert.equal(settlement.account('ada').feePaid, true);
+  assert.deepEqual(settlement.account('ada').boardIds, [BOARD]);
+
+  const secondBoard = 'praha-2-vysehrad-01';
+  const another = createRevolutCheckout({
+    uid: 'ada',
+    amount: checkoutAmount({feePaid: true}),
+    boardId: secondBoard,
+    claimId: 'claim-3',
+  });
+  const added = settlement.apply(claimAsPaidSession(another, {uid: 'ada'}));
+  assert.equal(added.credits, 120);
+  assert.deepEqual(settlement.account('ada').boardIds, [BOARD, secondBoard]);
+  assert.equal(settlement.account('ada').selectedBoardId, BOARD);
+
+  const bobClaim = createRevolutCheckout({
+    uid: 'bob',
+    amount: checkoutAmount({feePaid: false}),
+    boardId: secondBoard,
+    claimId: 'bob-1',
+  });
+  settlement.apply(claimAsPaidSession(bobClaim, {uid: 'bob'}));
+  assert.equal(settlement.account('bob').credits, 40);
+  assert.deepEqual(settlement.account('bob').boardIds, [secondBoard]);
+  assert.equal(settlement.account('ada').credits, 120);
 
   assert.throws(() => claimAsPaidSession(claim, {uid: 'bob'}), /another account/);
   settlement.apply({...session, id: 'unpaid', payment_status: 'unpaid'});
-  assert.equal(settlement.account('ada').credits, 80);
+  assert.equal(settlement.account('ada').credits, 120);
 
   const handler = readFileSync(new URL('../firebase/functions/index.js', import.meta.url), 'utf8');
   const payment = readFileSync(new URL('../firebase/functions/billboard-payment.js', import.meta.url), 'utf8');
   assert.match(handler, /createRevolutCheckout\(/);
   assert.match(handler, /claimAsPaidSession\(/);
   assert.match(handler, /settlePaidSession\(/);
+  assert.match(handler, /selectBoardForCheckout\(/);
+  assert.match(handler, /openBillboardVisit/);
+  const openHandler = handler.slice(handler.indexOf('async function openOwnedBoard'));
+  assert.match(openHandler, /chargeLinkOpen\(/);
+  assert.doesNotMatch(openHandler, /settleCredits\(/);
   assert.doesNotMatch(handler, /stripe/i);
   assert.doesNotMatch(payment, /stripe/i);
   assert.doesNotMatch(readFileSync(new URL('../firebase/functions/package.json', import.meta.url), 'utf8'), /stripe/i);

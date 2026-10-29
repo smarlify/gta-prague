@@ -43,6 +43,64 @@ export function boardId(value) {
   return id;
 }
 
+// Paid boards live on the account. A legacy purchase may only have selectedBoardId.
+// Reading always keeps that id, even when boardIds was stored without it.
+export function ownedBoardIds(account) {
+  const ids = [];
+  const push = (value) => {
+    const id = boardId(value);
+    if (id && !ids.includes(id)) ids.push(id);
+  };
+  if (Array.isArray(account?.boardIds)) {
+    for (const value of account.boardIds) push(value);
+  }
+  push(account?.selectedBoardId);
+  return ids;
+}
+
+export function withOwnedBoards(account) {
+  const boardIds = ownedBoardIds(account);
+  // The legacy single id stays on the first board, so a later purchase cannot move the poster off it.
+  return {
+    ...account,
+    boardIds,
+    selectedBoardId: boardIds[0] || '',
+  };
+}
+
+// A second purchase appends a board. The credit balance stays on this same account.
+export function addOwnedBoard(account, id) {
+  const chosen = boardId(id);
+  const boardIds = ownedBoardIds(account);
+  if (chosen && !boardIds.includes(chosen)) boardIds.push(chosen);
+  return withOwnedBoards({...account, boardIds});
+}
+
+function storedBoardIds(account) {
+  if (!Array.isArray(account?.boardIds)) return [];
+  const ids = [];
+  for (const value of account.boardIds) {
+    const id = boardId(value);
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+// A stored board list is a completed purchase. A lone selectedBoardId counts only after payment.
+function hasPaidBoards(account) {
+  if (storedBoardIds(account).length) return true;
+  return !!(boardId(account?.selectedBoardId) && (account?.feePaid || creditCount(account?.credits) > 0));
+}
+
+// The first checkout may record a board before any are paid. A later one must not replace paid boards.
+export function selectBoardForCheckout(account, chosen) {
+  const id = boardId(chosen);
+  const current = {...emptyAccount(), ...account};
+  if (!id || hasPaidBoards(current)) return current;
+  if (boardId(current.selectedBoardId) === id) return current;
+  return {...current, selectedBoardId: id};
+}
+
 export function checkoutMetadata(uid, amount, selectedBoardId) {
   return {
     uid,
@@ -84,34 +142,39 @@ export function daysAfter(fromKey, toKey) {
 // One credit is one Prague day with an image on a board. Days with no image,
 // and days after the balance hits zero, are not charged in a lump later.
 export function settleCredits(account, todayKey) {
+  const paid = hasPaidBoards(account);
+  const owned = paid ? ownedBoardIds(account) : storedBoardIds(account);
   const current = {
     ...emptyAccount(),
     ...account,
     credits: Math.max(0, Math.trunc(account?.credits) || 0),
     spent: Math.max(0, Math.trunc(account?.spent) || 0),
+    ...(paid ? {boardIds: owned} : {}),
+    selectedBoardId: boardId(account?.selectedBoardId) || owned[0] || '',
   };
+  // A zero balance pauses new link opens. The saved image stays on the boards they own.
   if (!current.imageUrl || current.credits === 0) {
-    return {...current, paused: true};
+    return withOwnedBoards({...current, paused: true});
   }
   if (current.paused || !current.lastSettledDay) {
-    if (current.lastSettledDay === todayKey) return {...current, paused: false};
-    return {
+    if (current.lastSettledDay === todayKey) return withOwnedBoards({...current, paused: false});
+    return withOwnedBoards({
       ...current,
       credits: current.credits - 1,
       spent: current.spent + 1,
       paused: current.credits - 1 === 0,
       lastSettledDay: todayKey,
-    };
+    });
   }
   const due = daysAfter(current.lastSettledDay, todayKey);
   const spend = Math.min(current.credits, Math.max(0, due));
-  return {
+  return withOwnedBoards({
     ...current,
     credits: current.credits - spend,
     spent: current.spent + spend,
     paused: current.credits - spend === 0,
     lastSettledDay: todayKey,
-  };
+  });
 }
 
 function earlierAccount(a, b) {
@@ -122,16 +185,63 @@ function earlierAccount(a, b) {
   return 0;
 }
 
-// A live creative owns the board it selected. Unbought boards stay empty.
-// Two live buyers of the same board keep the earlier account id for the day.
+function displayOrder(a, b) {
+  const aFunded = a?.credits > 0 ? 0 : 1;
+  const bFunded = b?.credits > 0 ? 0 : 1;
+  if (aFunded !== bFunded) return aFunded - bFunded;
+  return earlierAccount(a, b);
+}
+
+// A creative with an image owns every board on its account, even at zero credits.
+// Two buyers of the same board prefer whoever still has credits, then the earlier account id.
 export function assignBoards(boardIds, creatives) {
-  const live = (creatives || []).filter((item) => item?.imageUrl && item.credits > 0 && boardId(item.selectedBoardId));
+  const live = (creatives || []).filter((item) => item?.imageUrl && ownedBoardIds(item).length);
   const assigned = new Map();
   for (const id of boardIds) {
-    const claimants = live.filter((item) => item.selectedBoardId === id).sort(earlierAccount);
+    const claimants = live.filter((item) => ownedBoardIds(item).includes(id)).sort(displayOrder);
     if (claimants[0]) assigned.set(id, claimants[0]);
   }
   return assigned;
+}
+
+function creditCount(value) {
+  return Math.max(0, Math.trunc(Number(value) || 0));
+}
+
+// One successful open of a board URL. The account balance is shared by every board that person owns.
+// A zero balance does not open and does not go negative. This does not also settle a Prague day.
+export function chargeLinkOpen(account) {
+  const credits = creditCount(account?.credits);
+  const spent = creditCount(account?.spent);
+  const current = {...emptyAccount(), ...account, credits, spent};
+  if (credits < 1) return {ok: false, account: withOwnedBoards(current)};
+  const nextCredits = credits - 1;
+  return {
+    ok: true,
+    account: withOwnedBoards({
+      ...current,
+      credits: nextCredits,
+      spent: spent + 1,
+      paused: nextCredits === 0 ? true : current.paused,
+    }),
+  };
+}
+
+// Charges the person whose ad is on that board. Another buyer's balance is left as it was.
+export function applyBillboardOpen(accounts, siteId) {
+  const list = (accounts || []).map((account) => ({...account}));
+  const id = boardId(siteId);
+  const assigned = assignBoards(id ? [id] : [], list);
+  const creative = id ? assigned.get(id) : undefined;
+  const url = httpUrl(creative?.linkUrl);
+  if (!creative?.uid || !url || !(creative.credits > 0)) return {ok: false, url: '', accounts: list};
+  const index = list.findIndex((account) => account.uid === creative.uid);
+  if (index < 0) return {ok: false, url: '', accounts: list};
+  const charge = chargeLinkOpen(list[index]);
+  if (!charge.ok) return {ok: false, url: '', accounts: list};
+  const next = list.slice();
+  next[index] = charge.account;
+  return {ok: true, url, uid: creative.uid, accounts: next};
 }
 
 export function facesForDay(sites, creatives, dayKey) {
