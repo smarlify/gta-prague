@@ -113,6 +113,32 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
   assert.equal(resolveDriverStart(landmarks, null, storage, 'prague', characterById('zeman'), null).start.water, true);
 });
 
+test('Zeman spawns on the Vltava even when start= names a street', () => {
+  const landmarks = [
+    {name: 'Petřín', heading: 2, x: 2, z: 2},
+    {name: 'Letenské náměstí', heading: -1.3, x: 3, z: 3},
+    {...DIVADLO_BEZ_ZABRADLI},
+  ];
+  const storage = memoryStorage();
+  storage.setItem(startCycleKey('prague'), '0');
+  const street = {name: 'Petřín', heading: 2, x: 2, z: 2};
+  const opened = resolveDriverStart(landmarks, 'Petřín', storage, 'prague', characterById('zeman'), street);
+  assert.equal(opened.start.name, 'Vltava');
+  assert.equal(opened.start.x, VLTAVA_START.x);
+  assert.equal(opened.start.z, VLTAVA_START.z);
+  assert.equal(opened.start.water, true);
+  assert.equal(opened.pinned, false);
+  assert.equal(opened.unpinned, street);
+  assert.equal(storage.getItem(startCycleKey('prague')), '0', 'the river does not take a cycle step');
+  assert.equal(resolveDriverStart(landmarks, 'Petřín', storage, 'prague', characterById('kraus'), null).start.name, 'Petřín');
+  assert.equal(resolveDriverStart(landmarks, 'Petřín', storage, 'prague', characterById('hrib'), null).start.name, 'Petřín');
+  assert.equal(resolveDriverStart(landmarks, 'Petřín', storage, 'prague', characterById('pavel'), null).start.name, 'Petřín');
+  const back = resolveDriverStart(landmarks, null, storage, 'prague', characterById('elon'), opened.unpinned);
+  assert.equal(back.start.name, 'Petřín');
+  assert.equal(back.start.x, street.x);
+  assert.equal(back.start.z, street.z);
+});
+
 test('Pavel mounts the motorbike on Ke Hradu and Zeman mounts the boat on the Vltava', () => {
   const world = {buildings, roads, pavement, water: city.water};
   const castle = new PlayerTravel(makeCar(KE_HRADU.x, KE_HRADU.z, KE_HRADU.heading), world, {ride: characterById('pavel').ride});
