@@ -11,6 +11,8 @@ import {PAINT_FLAKE_UNIFORM,PAINT_FLAKE_SCALE_UNIFORM} from './surface-textures.
 // The starter is the Roadster. The Škoda Scala follows published Scala
 // proportions: 4.362 x 1.793 x 1.471 m, wheelbase 2.649 m. The X5 follows
 // published X5 (G05) proportions: 4.922 x 2.004 x 1.745 m, wheelbase 2.975 m.
+// The RAM follows published crew-cab 1500 proportions: 5.92 x 2.08 x 1.96 m,
+// wheelbase 3.67 m. Tall cab, short bed, chrome crosshair grille, no badge.
 // These player bodies stay out of VEHICLE_TYPES so NPC traffic keeps its existing styles.
 export const PLAYER_CAR_TYPE='roadster';
 export const GWAGEN_PAINT='#111111';
@@ -19,6 +21,8 @@ export const GWAGEN_PAINT='#111111';
 export const SCALA_PAINT='#ee5a1c';
 // Dark metallic finish for the X5. Original mesh, not a manufacturer badge.
 export const X5_PAINT='#16181c';
+// Deep metallic blue for the RAM. Original mesh, not a Dodge badge.
+export const RAM_PAINT='#1a4f96';
 export const VEHICLE_TYPES=['crossover','hatchback','sedan','estate','suv','van','taxi'];
 const specs={
  crossover:{l:4.172,w:1.765,h:1.595,wb:2.56,rf:-.46,rr:1.18,rg:1.76,belt:1.02,r:.335,clad:true,blackRoof:true},
@@ -35,6 +39,8 @@ const specs={
  roadster:{l:4.55,w:1.98,h:1.14,wb:2.825,rf:.2,rr:1.25,rg:1.55,belt:.62,r:.34},
  scala:{l:4.362,w:1.793,h:1.471,wb:2.649,rf:-.42,rr:1.05,rg:1.72,belt:.96,r:.31},
  x5:{l:4.922,w:2.004,h:1.745,wb:2.975,rf:-.62,rr:1.22,rg:1.95,belt:1.12,r:.39,clad:true,rails:true,kidney:true},
+ // Crew cab, short bed. The crosshair is drawn in buildRam; it is not a badge.
+ ram:{l:5.92,w:2.08,h:1.96,wb:3.67,belt:1.30,r:.42},
 };
 // Ano White, the rocket-coating colour shown on the 2026 car. Original mesh,
 // not manufacturer CAD — Tesla does not publish a reusable body model.
@@ -267,6 +273,95 @@ function buildRoadster(detailed){
  if(detailed)body.add(headBeams(s));
  return group;
 }
+// Crew-cab pickup. Long hood, tall four-door cab, short open bed, big arches.
+// The grille is a chrome cross. No ram's head and no badge artwork.
+function buildRam(detailed){
+ const s=specs.ram,L=s.l/2,W=s.w/2,B=s.belt,H=s.h,group=new THREE.Group(),batches=new Map();
+ const mats=createVehicleMaterials();
+ function add(g,mat,x=0,y=0,z=0,rx=0,ry=0,rz=0){g.rotateX(rx);g.rotateY(ry);g.rotateZ(rz);g.translate(x,y,z);if(g.index)g=g.toNonIndexed();g.deleteAttribute('uv');if(!batches.has(mat))batches.set(mat,[]);batches.get(mat).push(g);}
+ function box(w,h,d,mat,x,y,z,rx=0,ry=0,rz=0){add(new RoundedBoxGeometry(w,h,d,detailed?2:1,Math.min(.05,w/4,h/4,d/4)),mat,x,y,z,rx,ry,rz);}
+ function strut(a,b,width,mat){const v=new THREE.Vector3(...b).sub(new THREE.Vector3(...a)),g=new THREE.BoxGeometry(width,v.length(),width);g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),v.clone().normalize()));g.translate(...new THREE.Vector3(...a).addScaledVector(v,.5).toArray());add(g,mat);}
+ const cowl=-1.50,cabRear=1.20,bedY=.90,rail=1.22,bedStart=cabRear-.04,bedEnd=L-.05,bedMid=(bedStart+bedEnd)/2,bedLen=bedEnd-bedStart;
+ add(loft([
+  [-L+.08,W*.90,.48,.76],
+  [-L+.42,W*.94,.42,.96],
+  [-s.wb/2,W*.92,.40,1.14],
+  [cowl,W*.96,.42,B-.02],
+  [.05,W*.94,.42,B],
+  [cabRear,W*.92,.44,B-.02],
+ ],.05),'paint');
+ add(loft([
+  [bedStart,W*.90,.44,.84],
+  [s.wb/2,W*.92,.40,.80],
+  [bedEnd,W*.94,.46,.88],
+  [L-.02,W*.88,.50,.92],
+ ],.04),'paint');
+ add(loft([
+  [-L+.04,W*.64,1.14,1.28],
+  [-2.15,W*.82,1.08,B-.08],
+  [-s.wb/2+.05,W*.86,1.10,B-.02],
+  [cowl+.06,W*.60,1.16,B+.05],
+ ],.04),'paint');
+ add(loft([
+  [cowl+.02,W*.78,B-.01,B+.08],
+  [cowl+.48,W*.74,B,H-.10],
+  [cabRear-.48,W*.74,B,H-.10],
+  [cabRear,W*.68,B+.16,H-.32],
+ ],.04),'glass');
+ box(W*1.38,.06,cabRear-cowl-.55,'paint',0,1.90,(cowl+.55+cabRear)/2);
+ box(.38,.04,1.10,'paint',0,B+.02,-1.95);
+ box(W*1.40,.05,.12,'black',0,B+.02,cowl+.08);
+ for(const side of [-1,1]){
+  strut([side*W*.90,B,cowl],[side*W*.70,H-.14,cowl+.50],.065,'paint');
+  strut([side*W*.74,H-.12,.08],[side*W*.90,B,.08],.05,'black');
+  strut([side*W*.70,H-.14,cabRear-.28],[side*W*.88,B+.02,cabRear],.065,'paint');
+  box(.045,.05,cabRear-cowl-.35,'chrome',side*W*.84,B+.015,(cowl+cabRear)/2);
+  box(.15,.065,.20,'paint',side*(W-.02),B+.07,cowl+.22);
+  box(.10,.045,.012,'glass',side*(W-.015),B+.075,cowl+.33);
+  for(const z of [-.72,.42])box(.038,.032,.11,'chrome',side*(W+.008),B-.015,z);
+  box(.04,.04,1.55,'chrome',side*.46,1.945,.06);
+  box(.10,.045,2.30,'black',side*(W-.06),.40,-.08);
+  for(const z of [-s.wb/2,s.wb/2]){
+   add(new THREE.TorusGeometry(s.r+.06,.085,6,detailed?22:12,Math.PI),'rubber',side*.98,s.r,z,0,Math.PI/2);
+   box(.16,.48,.98,'paint',side*.90,.88,z);
+  }
+  box(.08,rail-bedY,bedLen,'paint',side*.86,(rail+bedY)/2,bedMid);
+  box(.05,.028,bedLen-.1,'chrome',side*.86,rail+.012,bedMid);
+  box(.10,.36,.04,'tail',side*(W-.22),1.04,L-.02);
+  box(.30,.16,.04,'black',side*.90,1.00,-L+.04);
+  box(.24,.12,.028,'head',side*.90,1.02,-L+.012);
+ }
+ box(1.68,.045,bedLen-.16,'black',0,bedY+.03,bedMid);
+ box(W*1.70,.36,.06,'paint',0,(B+bedY)/2-.04,cabRear);
+ box(1.76,.30,.05,'paint',0,(rail+bedY)/2,L-.045);
+ box(W*1.86,.18,.10,'chrome',0,.62,-L+.07);
+ box(W*1.50,.10,.06,'black',0,.50,L-.06);
+ box(.46,.11,.018,'plate',0,.60,-L+.03);
+ box(.46,.11,.018,'plate',0,1.02,L-.01);
+ if(detailed)for(const z of [-L+.03,L-.01]){const y=z<0?.60:1.02;box(.036,.09,.012,'glass',-.18,y,z);for(let i=0;i<7;i++)box(.016,.05,.014,'black',-.12+i*.04,y,z);}
+ for(const y of [1.16,1.08,.94,.86])box(1.14,.012,.02,'chrome',0,y,-L+.02);
+ for(const side of [-1,1])for(const z of [-s.wb/2,s.wb/2]){
+  const pivot=new THREE.Group();pivot.position.set(side*(W-.16),s.r,z);group.add(pivot);const spin=new THREE.Group();pivot.add(spin);
+  const tire=new THREE.Mesh(new THREE.CylinderGeometry(s.r,s.r,.27,detailed?24:12),mats.rubber);tire.rotation.z=Math.PI/2;spin.add(tire);
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(s.r*.6,s.r*.6,.28,detailed?16:10),mats.chrome);hub.rotation.z=Math.PI/2;spin.add(hub);
+  if(detailed)for(let i=0;i<6;i++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.22,.036,s.r*1.12),mats.black);spoke.rotation.x=i*Math.PI/6;spin.add(spoke);}
+  spin.children.forEach(m=>{if(m.isMesh)m.castShadow=true;});
+ }
+ const body=new THREE.Group();body.name='body';group.add(body);
+ for(const [name,gs]of batches){const mesh=new THREE.Mesh(mergeGeometries(gs),mats[name]);mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;body.add(mesh);gs.forEach(g=>g.dispose());}
+ const gz=-L+.01,gy=1.02,gw=1.36,gh=.50;
+ const opening=new THREE.Mesh(new RoundedBoxGeometry(gw,gh,.04,1,.012),mats.black);
+ opening.position.set(0,gy,gz+.012);opening.castShadow=true;body.add(opening);
+ function crosshair(w,h,d,x,y,z){const mesh=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,1,.01),mats.chrome);mesh.position.set(x,y,z);mesh.name='crosshair';mesh.castShadow=true;body.add(mesh);}
+ crosshair(.078,gh,.03,0,gy,gz);
+ crosshair(gw,.062,.03,0,gy,gz-.006);
+ crosshair(gw+.08,.04,.026,0,gy+gh/2,gz);
+ crosshair(gw+.08,.04,.026,0,gy-gh/2,gz);
+ crosshair(.04,gh+.02,.026,-gw/2,gy,gz);
+ crosshair(.04,gh+.02,.026,gw/2,gy,gz);
+ if(detailed)body.add(headBeams(s));
+ return group;
+}
 // Occupied cars only. Clone first so a shared traffic template stays opaque.
 export function revealCabinGlass(model){
  model?.traverse(mesh=>{
@@ -284,11 +379,11 @@ export function revealCabinGlass(model){
 }
 export function createDetailedVehicle(colour=0,detailed=false,type=detailed?PLAYER_CAR_TYPE:'sedan'){
  if(!specs[type])throw Error(`Unknown vehicle type: ${type}`);
- if(!templates.has(type))templates.set(type,type==='roadster'?buildRoadster(false):build(type,false));
- const model=detailed?(type==='roadster'?buildRoadster(true):build(type,true)):templates.get(type).clone(true);
- const finish=type==='gwagen'?GWAGEN_PAINT:type==='roadster'?ROADSTER_PAINT:type==='scala'?SCALA_PAINT:type==='x5'?X5_PAINT:palette[colour%palette.length];
- model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(finish);}});
- model.name=type==='gwagen'?'Mercedes G':type==='roadster'?'Roadster':type==='scala'?'Škoda Scala':type==='x5'?'BMW X5':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
+ if(!templates.has(type))templates.set(type,type==='roadster'?buildRoadster(false):type==='ram'?buildRam(false):build(type,false));
+ const model=detailed?(type==='roadster'?buildRoadster(true):type==='ram'?buildRam(true):build(type,true)):templates.get(type).clone(true);
+ const finish=type==='gwagen'?GWAGEN_PAINT:type==='roadster'?ROADSTER_PAINT:type==='scala'?SCALA_PAINT:type==='x5'?X5_PAINT:type==='ram'?RAM_PAINT:palette[colour%palette.length];
+ model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(finish);if(type==='ram'){m.material.metalness=.5;m.material.roughness=.22;}}});
+ model.name=type==='gwagen'?'Mercedes G':type==='roadster'?'Roadster':type==='scala'?'Škoda Scala':type==='x5'?'BMW X5':type==='ram'?'Dodge RAM':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
  model.userData={type,spec:{...specs[type]},wheels:model.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:specs[type].r})),body:model.getObjectByName('body'),head:detailed?model.getObjectByName('head').material:null,tail:detailed?model.getObjectByName('tail').material:null,beams:detailed?model.getObjectByName('head-beams'):null,nozzleMat:model.getObjectByName('nozzle')?.material||null,wing:model.getObjectByName('wing')||null,fanPivots:model.getObjectByName('fans')?.children||null};
  return model;
 }

@@ -8,14 +8,16 @@ import {characterById, resolveDriver} from '../src/character-select.js';
 import {startCycleKey} from '../src/cities.js';
 import {resolveDriverStart} from '../src/pavlova.js';
 import {PlayerTravel, TRAVEL_MODES, travelCollision} from '../src/player-travel.js';
-import {Vector3} from 'three';
+import {Box3, Vector3} from 'three';
 import {createMotorbike, createChallenger} from '../src/player-ride-models.js';
 import {createVehicle, VEHICLE_TYPES} from '../src/vehicles.js';
+import {GWAGEN_PAINT, RAM_PAINT, ROADSTER_PAINT, SCALA_PAINT, X5_PAINT} from '../src/vehicle-models.js';
 import {
   ARREST_RANGE,
   CHASE_BEHIND,
   DIVADLO_BEZ_ZABRADLI,
   KE_HRADU,
+  POSLANECKA_SNEMOVNA,
   PRAZSKY_HRAD,
   VLTAVA_START,
   chaseBody,
@@ -82,6 +84,20 @@ test('Divadlo Bez zábradlí is on Jungmannova in front of Palác Adria', () => 
   assert.ok(Math.hypot(DIVADLO_BEZ_ZABRADLI.x - px, DIVADLO_BEZ_ZABRADLI.z - pz) < 40, 'on the street in front of the passage');
 });
 
+test('Poslanecká sněmovna is on Sněmovní in front of the Chamber', () => {
+  const authored = def.starts.find((s) => s.name === 'Poslanecká sněmovna');
+  const road = roads.at(POSLANECKA_SNEMOVNA.x, POSLANECKA_SNEMOVNA.z);
+  assert.equal(authored.district, 'Praha 1 - Malá Strana');
+  assert.equal(authored.street, 'Sněmovní');
+  assert.deepEqual(authored.at, [14.4038, 50.0892]);
+  assert.equal(POSLANECKA_SNEMOVNA.name, 'Poslanecká sněmovna');
+  assert.equal(POSLANECKA_SNEMOVNA.street, 'Sněmovní');
+  assert.equal(road?.name, 'Sněmovní');
+  assert.equal(road?.kind, 'Ajorata');
+  assert.equal(buildings.at(POSLANECKA_SNEMOVNA.x, POSLANECKA_SNEMOVNA.z), undefined);
+  assert.ok(carSamples(makeCar(POSLANECKA_SNEMOVNA.x, POSLANECKA_SNEMOVNA.z, POSLANECKA_SNEMOVNA.heading)).every(([x, z]) => roads.at(x, z)?.name === 'Sněmovní'));
+});
+
 test('pinned drivers do not advance the start cycle, and start= still wins', () => {
   const landmarks = [
     {name: 'Národní muzeum', id: 'narodni-muzeum', heading: 1, x: 1, z: 1},
@@ -90,6 +106,7 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
     {...PRAZSKY_HRAD},
     {...KE_HRADU},
     {...DIVADLO_BEZ_ZABRADLI},
+    {...POSLANECKA_SNEMOVNA},
   ];
   const storage = memoryStorage();
   storage.setItem(startCycleKey('prague'), '0');
@@ -99,6 +116,7 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
     slachta: 'Letenské náměstí',
     zeman: 'Vltava',
     kraus: 'Divadlo Bez zábradlí',
+    macinka: 'Poslanecká sněmovna',
   };
   for (const [id, name] of Object.entries(expectName)) {
     const opened = resolveDriverStart(landmarks, null, storage, 'prague', characterById(id), null);
@@ -109,6 +127,7 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
   const pinned = resolveDriverStart(landmarks, 'Petřín', storage, 'prague', characterById('kraus'), null);
   assert.equal(pinned.start.name, 'Petřín');
   assert.equal(pinned.pinned, true);
+  assert.equal(resolveDriverStart(landmarks, 'Petřín', storage, 'prague', characterById('macinka'), null).start.name, 'Petřín');
   assert.equal(storage.getItem(startCycleKey('prague')), '0');
   assert.equal(resolveDriverStart(landmarks, null, storage, 'prague', characterById('zeman'), null).start.water, true);
 });
@@ -291,4 +310,34 @@ test('the X5 is a dark rounded SUV kept out of traffic', () => {
   const paint = Number.parseInt(model.getObjectByName('paint').material.color.getHexString(), 16);
   assert.ok(paint < 0x333333, 'dark paint');
   assert.equal(resolveDriver('?driver=kraus', memoryStorage()).type, 'x5');
+});
+
+test('the RAM is a deep-blue crew cab kept out of traffic', () => {
+  assert.equal(VEHICLE_TYPES.includes('ram'), false);
+  const model = createVehicle(0, true, 'ram');
+  assert.equal(model.name, 'Dodge RAM');
+  assert.equal(model.userData.type, 'ram');
+  assert.equal(model.userData.spec.l, 5.92);
+  assert.equal(model.userData.spec.w, 2.08);
+  assert.equal(model.userData.spec.h, 1.96);
+  assert.equal(model.userData.spec.wb, 3.67);
+  assert.equal(RAM_PAINT, '#1a4f96');
+  for (const other of [GWAGEN_PAINT, X5_PAINT, SCALA_PAINT, ROADSTER_PAINT]) assert.notEqual(RAM_PAINT, other);
+  assert.equal(model.getObjectByName('paint').material.color.getHexString(), '1a4f96');
+  assert.ok(model.getObjectByName('paint').material.metalness >= 0.4, 'metallic blue');
+  const names = [];
+  let crosshair = 0;
+  model.traverse((o) => {
+    names.push(o.name);
+    if (o.name === 'crosshair') crosshair += 1;
+  });
+  assert.ok(crosshair >= 2, 'chrome crosshair grille');
+  assert.equal(names.includes('dodge-badge'), false);
+  assert.equal(names.includes('ram-head'), false);
+  const size = new Box3().setFromObject(model).getSize(new Vector3());
+  assert.ok(size.z > 5.7 && size.z < 6.2, `length ${size.z}`);
+  assert.ok(size.y > 1.8 && size.y < 2.2, `height ${size.y}`);
+  assert.ok(model.userData.spec.h > model.userData.spec.belt);
+  assert.equal(resolveDriver('?driver=macinka', memoryStorage()).type, 'ram');
+  assert.equal(resolveDriver('?driver=petr', memoryStorage()).id, 'pavel');
 });

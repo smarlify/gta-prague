@@ -16,6 +16,7 @@ const HEAD_LOCAL=1.2;
 // Model belt and roof (metres in the car frame). Same figures as the meshes.
 const CABIN={
  gwagen:{belt:1.3,roof:1.9},
+ ram:{belt:1.3,roof:1.9},
  roadster:{belt:.62,roof:1.04},
  scala:{belt:.96,roof:1.4},
  x5:{belt:1.12,roof:1.68},

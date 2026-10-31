@@ -121,6 +121,16 @@ const LIKENESS = {
     glasses: 'frame',
     shirt: '#243044',
   },
+  macinka: {
+    seed: 88,
+    height: 1.78,
+    body: 1,
+    hair: '#3b2a20',
+    hairStyle: 'short',
+    glasses: null,
+    shirt: '#d9d7d0',
+    jacket: '#1a2744',
+  },
 };
 
 /** Grey hair, glasses, and a dark jacket on the reclined Challenger figure. */
