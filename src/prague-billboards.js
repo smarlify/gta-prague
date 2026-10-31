@@ -3,6 +3,8 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {SpatialIndex} from './geo.js';
 import {solidBox} from './world-objects.js';
 import {PRAGUE_AREAS} from './area-caption.js';
+import {groundAt, waterAt} from './terrain.js';
+import {bridgeDeckHeight, isBridgeSurface} from './passage.js';
 import {boardId, httpUrl, paintPlaceholder, facesForDay, pragueDayKey} from '../firebase/functions/ad-credits.js';
 import storedSites from './prague-billboard-sites.json' with {type: 'json'};
 
@@ -315,6 +317,71 @@ export function placePragueBillboards(data, {count = BOARDS_PER_DISTRICT, step =
   return picked;
 }
 
+// Pavement, roads, buildings, and water from the city pack. Null keeps a flat city on groundAt alone.
+export function billboardIndexes(city) {
+  if (!city) return null;
+  return {
+    pavement: new SpatialIndex(city.pavement || []),
+    roads: new SpatialIndex(city.roads || []),
+    buildings: new SpatialIndex(city.buildings || []),
+    water: new SpatialIndex(city.water || []),
+  };
+}
+
+function inWater(x, z, indexes) {
+  return !!(indexes?.water?.at(x, z) || waterAt(x, z) !== null);
+}
+
+// Hillside ground, or the bridge deck when the point is on a bridge pavement.
+// The deck is the street; the river bed under it is not.
+export function billboardStreetHeight(x, z, indexes = null) {
+  const ground = groundAt(x, z);
+  const surface = indexes?.pavement?.at(x, z) || indexes?.roads?.at(x, z);
+  if (!surface || !isBridgeSurface(surface)) return ground;
+  const deck = bridgeDeckHeight(groundAt, x, z, {
+    dry: (px, pz) => !inWater(px, pz, indexes),
+    inChannel: (px, pz) => inWater(px, pz, indexes),
+  });
+  return Math.max(ground, deck);
+}
+
+function panelSamples(site) {
+  const yaw = Number(site?.yaw) || 0;
+  const fx = Math.sin(yaw);
+  const fz = Math.cos(yaw);
+  const ax = Math.cos(yaw);
+  const az = -Math.sin(yaw);
+  const points = [[site.x, site.z]];
+  for (const face of [0.12, -0.12]) {
+    for (let along = -BOARD_WIDTH / 2; along <= BOARD_WIDTH / 2 + 1e-6; along += 0.4) {
+      points.push([site.x + fx * face + ax * along, site.z + fz * face + az * along]);
+    }
+  }
+  const alongPost = BOARD_WIDTH * 0.38;
+  for (const side of [1, -1]) points.push([site.x + ax * alongPost * side, site.z + az * alongPost * side]);
+  return points;
+}
+
+// Posts stand on the highest street under the panel, so the face clears a slope and a bridge deck.
+export function billboardSeat(site, indexes = null) {
+  let high = -Infinity;
+  for (const [x, z] of panelSamples(site)) high = Math.max(high, billboardStreetHeight(x, z, indexes));
+  return Number.isFinite(high) ? high : 0;
+}
+
+export function billboardPanelBottom(site, indexes = null) {
+  return billboardSeat(site, indexes) + BOARD_BOTTOM;
+}
+
+// 'building' or 'water' when the panel or a post is inside that footprint. Empty when it is clear.
+export function billboardPanelBlocked(site, indexes) {
+  for (const [x, z] of panelSamples(site)) {
+    if (indexes?.buildings?.at(x, z)) return 'building';
+    if (inWater(x, z, indexes)) return 'water';
+  }
+  return '';
+}
+
 function placeholderTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
@@ -326,7 +393,7 @@ function placeholderTexture() {
   return texture;
 }
 
-function boardFrame(site) {
+function boardFrame(site, y0) {
   const frames = [];
   const box = (w, h, d, x, y, z) => {
     const geometry = new THREE.BoxGeometry(w, h, d);
@@ -334,13 +401,13 @@ function boardFrame(site) {
     geometry.translate(x, y, z);
     frames.push(geometry);
   };
-  const centerY = BOARD_BOTTOM + BOARD_HEIGHT / 2;
+  const centerY = y0 + BOARD_BOTTOM + BOARD_HEIGHT / 2;
   box(BOARD_WIDTH + 0.18, BOARD_HEIGHT + 0.18, 0.16, site.x, centerY, site.z);
   const along = BOARD_WIDTH * 0.38;
   for (const side of [1, -1]) {
     const x = site.x + Math.cos(site.yaw) * along * side;
     const z = site.z - Math.sin(site.yaw) * along * side;
-    box(0.22, BOARD_BOTTOM, 0.22, x, BOARD_BOTTOM / 2, z);
+    box(0.22, BOARD_BOTTOM, 0.22, x, y0 + BOARD_BOTTOM / 2, z);
   }
   return frames;
 }
@@ -355,7 +422,8 @@ function supportObstacles(site) {
 }
 
 // Stored sites stay put between visits. Helsinki's Bind boards are a different module.
-export function createPragueBillboards(sites = storedSites) {
+export function createPragueBillboards(sites = storedSites, city = null) {
+  const indexes = billboardIndexes(city);
   const group = new THREE.Group();
   group.name = 'Prague billboards';
   const placeholder = placeholderTexture();
@@ -364,7 +432,8 @@ export function createPragueBillboards(sites = storedSites) {
   const obstacles = [];
   const faces = new Map();
   for (const site of sites) {
-    frames.push(...boardFrame(site));
+    const y0 = billboardSeat(site, indexes);
+    frames.push(...boardFrame(site, y0));
     obstacles.push(...supportObstacles(site));
     const materials = [];
     for (const back of [0, Math.PI]) {
@@ -372,7 +441,7 @@ export function createPragueBillboards(sites = storedSites) {
       const geometry = new THREE.PlaneGeometry(BOARD_WIDTH, BOARD_HEIGHT);
       geometry.rotateY(yaw);
       // The frame is a thin box on the site. The poster has to sit on the outside, or the metal hides the words.
-      geometry.translate(site.x + Math.sin(yaw) * 0.12, BOARD_BOTTOM + BOARD_HEIGHT / 2, site.z + Math.cos(yaw) * 0.12);
+      geometry.translate(site.x + Math.sin(yaw) * 0.12, y0 + BOARD_BOTTOM + BOARD_HEIGHT / 2, site.z + Math.cos(yaw) * 0.12);
       const material = new THREE.MeshBasicMaterial({map: placeholder, toneMapped: false, side: THREE.FrontSide});
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = site.id;
