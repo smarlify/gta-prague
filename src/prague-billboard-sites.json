@@ -30,7 +30,7 @@
   {
     "id": "praha-1-stare-mesto-05",
     "district": "Praha 1 - Staré Město",
-    "x": 832,
+    "x": 834,
     "z": 144,
     "yaw": 0
   },
@@ -72,9 +72,9 @@
   {
     "id": "praha-1-josefov-01",
     "district": "Praha 1 - Josefov",
-    "x": -656,
-    "z": -368,
-    "yaw": 0
+    "x": -658,
+    "z": -374,
+    "yaw": 5.4978
   },
   {
     "id": "praha-1-josefov-02",
@@ -94,7 +94,7 @@
     "id": "praha-1-josefov-04",
     "district": "Praha 1 - Josefov",
     "x": -480,
-    "z": -32,
+    "z": -34,
     "yaw": 2.3562
   },
   {
@@ -373,9 +373,9 @@
   {
     "id": "praha-2-vinohrady-04",
     "district": "Praha 2 - Vinohrady",
-    "x": 1264,
-    "z": 1040,
-    "yaw": 2.3562
+    "x": 1268,
+    "z": 1026,
+    "yaw": 0
   },
   {
     "id": "praha-2-vinohrady-05",
@@ -576,7 +576,7 @@
   {
     "id": "praha-7-letna-03",
     "district": "Praha 7 - Letná",
-    "x": 352,
+    "x": 354,
     "z": -1616,
     "yaw": 0
   },
