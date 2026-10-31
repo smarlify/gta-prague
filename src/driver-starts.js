@@ -41,6 +41,19 @@ export const VLTAVA_START = Object.freeze({
   water: true,
 });
 
+// Sněmovní in front of the Chamber (Thunovský palác, Sněmovní 4,
+// about 50.0892 N, 14.4038 E). Snapped onto the carriageway, facing
+// along the street. Not inside the palace.
+export const POSLANECKA_SNEMOVNA = Object.freeze({
+  name: 'Poslanecká sněmovna',
+  id: 'poslanecka-snemovna',
+  district: 'Praha 1 - Malá Strana',
+  street: 'Sněmovní',
+  x: -1248.8,
+  z: -192.6,
+  heading: -3.133,
+});
+
 // Jungmannova in front of Palác Adria (pasáž Adria), east of Národní divadlo.
 // Snapped onto the carriageway, facing along the street. Not inside the palace.
 export const DIVADLO_BEZ_ZABRADLI = Object.freeze({

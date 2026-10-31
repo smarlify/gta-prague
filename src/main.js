@@ -13,7 +13,7 @@ import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,visitScene} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {bindCharacterPicker,characterSwitchRebuilds,occupiedRide,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
-import {DIVADLO_BEZ_ZABRADLI,KE_HRADU,PRAZSKY_HRAD,chaseBody,chasePlacement,slachtaArrest,slachtaWearsUniform} from './driver-starts.js';
+import {DIVADLO_BEZ_ZABRADLI,KE_HRADU,POSLANECKA_SNEMOVNA,PRAZSKY_HRAD,VLTAVA_START,chaseBody,chasePlacement,slachtaArrest,slachtaWearsUniform} from './driver-starts.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
@@ -319,7 +319,7 @@ function rememberCharacter(choice){
  paintCharacterLook(choice);
  chaseHold=!choice.chase;chaseKind=null;
  // Same street still rebuilds when the ride changes. Hřib's bicycle is not the car already waiting.
- // A pinned ?start= still wins. With no start=, this driver's default place is used,
+ // A pinned ?start= still wins for a street driver. Zeman's boat stays on the Vltava,
  // including after the drive has begun.
  if(data?.landmarks&&startPoint&&city?.id==='prague'){
   const next=placeForCharacter(choice);
@@ -638,7 +638,7 @@ async function visitStart(destination,button){
   while(uploads.size){if(gameIsStopped())throw Error('The game stopped while loading this place');await new Promise(requestAnimationFrame);}
   if(version!==startVisitVersion||!$('map-dialog').open)return; // Closing the map cancels the jump, while its downloads remain useful.
   closeDialogs();setStart(destination);history.replaceState(null,'',startUrl(location,city,destination));
-  if(!started)start();else{trackGameStart(destination);toast(`Starting at ${destination.name}.`);}
+  if(!started)start();else{trackGameStart(startPoint);toast(`Starting at ${startPoint.name}.`);}
  }catch(error){console.error(error);toast(`Could not load ${destination.name}. Choose it again to retry.`,{important:true});}
  finally{switchingStart=false;button.textContent=label;button.removeAttribute('aria-busy');for(const b of buttons)b.disabled=false;}
 }
@@ -737,6 +737,11 @@ function buyAtStall(id){if(!canTalk()||!marketShop?.open)return;const r=marketSh
 // Welcome-card picker: load the picked start the way the map dialog does, then move the preview there.
 // Only the latest pick applies; earlier downloads stay useful as cache.
 async function previewStart(destination){
+ // The place list has no river row. Arrowing a street must not beach the boat.
+ if(city?.id==='prague'&&chosenCharacter?.water){
+  if(startPoint){startPicker?.set(startPoint);if(startPoint.water)$('boot-title').textContent=startPoint.name;}
+  return;
+ }
  if(!ready||started||switchingStart)return;
  chaseHold=true;
  const version=++previewVersion;previewing=true;startPicker.busy(true);
@@ -786,7 +791,7 @@ function paintCharacterLook(choice){
  if(choice.police)playerCars.setLook('police','');
  else if(!choice.ride)playerCars.setLook(choice.type,'');
 }
-function setStart(l){mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,startHeading(l,chosenCharacter,l.name==='Senate Square'?0:-Math.PI/2+.17));car.roadster=!!chosenCharacter.flies;if(chosenCharacter.police)car.visual={type:'police',police:true,livery:'praha',variant:'estate'};else if(!chosenCharacter.ride)car.visual={type:chosenCharacter.type};car.distance=distance;const ride=chosenCharacter.ride||null;if(travel)travel.reset(car,world,{ride});else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles,ride});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);paintCharacterLook(chosenCharacter);focus.set(travel.actor.x,0,travel.actor.z);cameraHeading=travel.actor.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
+function setStart(l){if(city?.id==='prague'&&chosenCharacter?.water)l={...VLTAVA_START};mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,startHeading(l,chosenCharacter,l.name==='Senate Square'?0:-Math.PI/2+.17));car.roadster=!!chosenCharacter.flies;if(chosenCharacter.police)car.visual={type:'police',police:true,livery:'praha',variant:'estate'};else if(!chosenCharacter.ride)car.visual={type:chosenCharacter.type};car.distance=distance;const ride=chosenCharacter.ride||null;if(travel)travel.reset(car,world,{ride});else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles,ride});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);paintCharacterLook(chosenCharacter);focus.set(travel.actor.x,0,travel.actor.z);cameraHeading=travel.actor.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
 function nudgeStart(spot){
  if(!car||!spot)return;
  car.x=spot.x;car.z=spot.z;car.heading=spot.heading;
@@ -1136,6 +1141,7 @@ async function boot(){
    if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Pražský hrad'))data.landmarks.push({...PRAZSKY_HRAD});
    if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Ke Hradu'))data.landmarks.push({...KE_HRADU});
    if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Divadlo Bez zábradlí'))data.landmarks.push({...DIVADLO_BEZ_ZABRADLI});
+   if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Poslanecká sněmovna'))data.landmarks.push({...POSLANECKA_SNEMOVNA});
    areaLabel=areaCaption(city.id==='prague'?[...PRAGUE_AREAS,...data.landmarks]:helsinki?[...HELSINKI_AREAS,...extensions.flatMap(e=>e.starts||[])]:data.landmarks,city.name);
    const requestedStart=new URLSearchParams(location.search).get('start'),chosen=placeForCharacter(),firstStart=chosen.start||pickStart(data.landmarks,city.defaultStart)||(helsinki?HARBOUR_START:data.landmarks[0]);
    treeTrunks=createTreeTrunks({lanes:mobilityData.roads.edges});
@@ -1258,11 +1264,13 @@ async function boot(){
    world.collisionBuildings=world.cameraBuildings;
    world.objects=new WorldObjects([...streetObstacles,...ads.obstacles,...breakableSigns.bodies]);
    cityModel.traverse(object=>{if(object.worldObjects)world.objects.add(object.worldObjects);});
-   // ?start=<name> pins that place. With no start param, Elon and Dave take the
+   // ?start=<name> pins that place for a street driver. With no start param, Elon and Dave take the
    // next named place and leave it off the query so the following visit advances.
    // Filip does not take that step: he opens at the museum until a start= is set.
+   // Zeman ignores the street either way: the boat opens on the Vltava.
+   // Leave that street in the URL so the next driver still opens there.
    setStart(firstStart);
-   if(requestedStart){try{history.replaceState(null,'',startUrl(location,city,firstStart));}catch(e){console.warn('Could not update the start URL:',e);}}
+   if(requestedStart&&!(city.id==='prague'&&chosenCharacter?.water)){try{history.replaceState(null,'',startUrl(location,city,firstStart));}catch(e){console.warn('Could not update the start URL:',e);}}
    progress(58,'Preparing the driving map');await new Promise(r=>setTimeout(r,30));drawMapBase();
    progress(68,'Loading buildings and textures');focus.set(car.x,0,car.z);await Promise.all([ensureCityModel(),updateTiles()]);
    progress(88,'Loading traffic and pedestrians');mobility=helsinki?new Mobility(correctHarbourLanes(mobilityData),world,{stationCars:16,corridorCars:HARBOUR_CORRIDOR_CARS,corridor:harbourCorridor(world.roads)}):new Mobility(mobilityData,world);mobility.reset(car);angryDrivers=createAngryDrivers({vehicleOf:a=>streetLife?.traffic?.vehicleOf(a)});scene.add(angryDrivers.group);mobility.onCrash=a=>angryDrivers.trigger(a,mobility.time);streetLife=createStreetLife(scene,mobility,{paintColors:city.id==='prague'?SKODA_PAINT:null});streetLife.update(0,car,vehicleLampsOn(look.name,look.weather));world.objects.add(breakableSigns.bodies);

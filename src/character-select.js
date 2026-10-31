@@ -80,6 +80,14 @@ export const CHARACTERS = Object.freeze([
     flies: false,
     pavlova: false,
   }),
+  Object.freeze({
+    id: 'macinka',
+    label: 'Dodge RAM — Petr Macinka',
+    name: 'Petr Macinka',
+    type: 'ram',
+    flies: false,
+    pavlova: false,
+  }),
 ]);
 
 export const DEFAULT_CHARACTER_ID = 'elon';
@@ -93,7 +101,7 @@ export function characterById(id) {
   return CHARACTERS.find((choice) => choice.id === id) || CHARACTERS.find((choice) => choice.id === DEFAULT_CHARACTER_ID);
 }
 
-/** The listed choice `step` places away. -1 from Filip is Jan Kraus, and +1 from Jan Kraus is Filip. */
+/** The listed choice `step` places away. -1 from Filip is Petr Macinka, and +1 from Petr Macinka is Filip. */
 export function cycleCharacter(id, step) {
   const choices = listedCharacters();
   const index = choices.findIndex((choice) => choice.id === id);
@@ -162,6 +170,8 @@ const DRIVER_QUERY = {
   kraus: 'kraus',
   jan: 'kraus',
   'jan-kraus': 'kraus',
+  macinka: 'macinka',
+  'petr-macinka': 'macinka',
 };
 
 /** The listed character named by ?driver=, or null when the param is missing, unknown, or hidden. */

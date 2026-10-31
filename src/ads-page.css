@@ -159,3 +159,35 @@ body.ads-standalone .ads-page {
     padding: 1.15rem 1rem 1.3rem;
   }
 }
+.ads-push {
+  position: fixed;
+  z-index: 300;
+  top: max(18px, env(safe-area-inset-top));
+  left: 50%;
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 32px));
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: #b71c1c;
+  color: #fff;
+  font: 600 16px/1.45 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(120, 16, 12, 0.38);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -16px);
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms;
+}
+.ads-push.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ads-push {
+    transition: none;
+  }
+}
