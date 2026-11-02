@@ -117,7 +117,7 @@ function createCarMesh(vehicle) {
     model.name = 'Remote player car';
     return model;
   }
-  const type = vehicle?.type && ['crossover', 'hatchback', 'sedan', 'estate', 'suv', 'van', 'taxi', 'offroad', 'gwagen', 'roadster', 'scala', 'x5'].includes(vehicle.type)
+  const type = vehicle?.type && ['crossover', 'hatchback', 'sedan', 'estate', 'suv', 'van', 'taxi', 'offroad', 'gwagen', 'roadster', 'scala', 'x5', 'ram'].includes(vehicle.type)
     ? vehicle.type
     : 'roadster';
   const model = createVehicle(0, false, type);

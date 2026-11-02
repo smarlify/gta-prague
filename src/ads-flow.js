@@ -9,7 +9,29 @@ import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH, boardId, checkoutAmount, emptyAcc
 import {adsEndpoints} from './billboard-feed.js';
 
 const IMAGE_LIMIT = 2 * 1024 * 1024;
+const IMAGE_TOO_LARGE = 'The image must be under 2 MB';
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+let imageErrorTimer = 0;
+
+function showImageTooLarge(doc) {
+  const body = doc?.body;
+  if (!body) return;
+  let notice = doc.getElementById('ads-image-error');
+  if (!notice) {
+    notice = doc.createElement('p');
+    notice.id = 'ads-image-error';
+    notice.className = 'ads-push';
+    notice.setAttribute('role', 'alert');
+    body.append(notice);
+  }
+  notice.textContent = IMAGE_TOO_LARGE;
+  notice.classList.remove('visible');
+  void notice.offsetWidth;
+  notice.classList.add('visible');
+  clearTimeout(imageErrorTimer);
+  imageErrorTimer = setTimeout(() => notice.classList.remove('visible'), 4500);
+}
+
 const PAGE_LINK = '<p id="ads-page-fallback" class="board-note"><a id="ads-page-link" href="/advertise" target="_blank" rel="noopener noreferrer">Open the advertiser page</a></p>';
 
 function checkoutMarkup() {
@@ -204,7 +226,12 @@ function bind(root, options) {
 
   async function uploadImage(user, file) {
     if (!IMAGE_TYPES.has(file.type)) throw new Error('Use a jpeg, png, or webp image');
-    if (file.size > IMAGE_LIMIT) throw new Error('The image must be under 2 MB');
+    if (file.size > IMAGE_LIMIT) {
+      const input = q('ads-file');
+      if (input) input.value = '';
+      showImageTooLarge(root.ownerDocument);
+      return;
+    }
     const linkUrl = chosenLink();
     const stored = ref(services().storage, `billboards/${user.uid}/face`);
     await uploadBytes(stored, file, {contentType: file.type});
@@ -301,13 +328,25 @@ function bind(root, options) {
     }
   });
   q('ads-file').addEventListener('change', async () => {
-    const file = q('ads-file').files?.[0];
+    const input = q('ads-file');
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > IMAGE_LIMIT) {
+      input.value = '';
+      q('ads-status').textContent = '';
+      showImageTooLarge(root.ownerDocument);
+      return;
+    }
     const user = services().auth.currentUser;
-    if (!file || !user) return;
+    if (!user) return;
     q('ads-status').textContent = '';
     try {
       await uploadImage(user, file);
     } catch (error) {
+      if (error.message === IMAGE_TOO_LARGE) {
+        showImageTooLarge(root.ownerDocument);
+        return;
+      }
       q('ads-status').textContent = error.message;
     }
   });

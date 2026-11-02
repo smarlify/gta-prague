@@ -36,6 +36,7 @@ const look = personLook(2026, {height: 1.75, coat: 0, skirt: false, phoneWalk: f
 const gait = {gaitWalk: 0, gaitRun: 0, gaitPhase: 0, gaitClock: 0};
 const WINDOWS = {
   gwagen: [1.3, 1.9],
+  ram: [1.3, 1.9],
   roadster: [0.62, 1.04],
   scala: [0.96, 1.4],
   x5: [1.12, 1.68],
@@ -72,7 +73,7 @@ test('a seated driver keeps both arms down, and hail is not that pose', () => {
 });
 
 test('every player car shows a seated driver, and the ambulance cab stays empty', () => {
-  for (const [type, police] of [['gwagen', false], ['roadster', false], ['scala', false], ['x5', false], ['police', true]]) {
+  for (const [type, police] of [['gwagen', false], ['ram', false], ['roadster', false], ['scala', false], ['x5', false], ['police', true]]) {
     const appearance = travelActorAppearance(
       {mode: 'car', car: {visual: {type, police}}},
       {x: 2, z: 3, heading: 1.2, speed: 9},
@@ -100,7 +101,7 @@ test('every player car shows a seated driver, and the ambulance cab stays empty'
   const renderer = createPlayerTravelRenderer(new Group());
   const heads = () => renderer.group.getObjectByName('Person heads').count;
   const jackets = () => renderer.group.getObjectByName('Police patrol jackets').count;
-  for (const type of ['gwagen', 'roadster', 'scala', 'x5']) {
+  for (const type of ['gwagen', 'ram', 'roadster', 'scala', 'x5']) {
     renderer.update(carTravel({type}), 1 / 60, {uniform: false});
     assert.equal(heads(), 1, `${type} driver is drawn`);
     assert.equal(jackets(), 0, `${type} stays civilian`);
@@ -148,11 +149,16 @@ test('remote drivers sit the same way, and a remote ambulance cab stays empty', 
   const base = {x: 12, z: -4, heading: 0.6, speed: 5, police: [], officers: [], arrest: null, siren: false, ambulances: []};
   remotes.update([
     {...base, uid: 'filip', name: 'Filip Turek', mode: 'car', vehicle: {type: 'gwagen', colour: '#111111'}},
+    {...base, uid: 'macinka', name: 'Petr Macinka', mode: 'car', x: 20, vehicle: {type: 'ram', colour: '#1a4f96'}},
   ], 1 / 30);
   const filip = scene.getObjectByName('remote-player-filip');
   assert.equal(filip.getObjectByName('Person heads').count, 1);
   assert.equal(filip.getObjectByName('Police patrol jackets').count, 0);
   assert.equal(filip.getObjectByName('glass').material.transparent, true);
+  const macinka = scene.getObjectByName('remote-player-macinka');
+  const ram = macinka.getObjectByName('Dodge RAM') || macinka.children.find((node) => node.userData?.type === 'ram');
+  assert.equal(ram?.userData?.type, 'ram');
+  assert.equal(ram?.userData?.spec?.l, 5.92);
 
   remotes.update([
     {...base, uid: 'slachta', name: 'Robert Šlachta', mode: 'car', vehicle: {type: 'police', police: true, livery: 'praha', variant: 'estate'}},

@@ -97,6 +97,15 @@ test('each listed driver has one build, hair, glasses, and jacket', () => {
   assert.equal(kraus.glasses, 'frame');
   assert.equal(kraus.shirt, '#243044');
 
+  const macinka = characterLook('macinka');
+  assert.equal(macinka.height, 1.78);
+  assert.equal(macinka.body, 1);
+  assert.equal(macinka.hair, '#3b2a20');
+  assert.equal(macinka.hairStyle, 'short');
+  assert.equal(macinka.glasses, null);
+  assert.equal(macinka.beard, false);
+  assert.equal(macinka.jacket, '#1a2744');
+
   assert.ok(gearCount('filip') >= 3, 'sunglasses are thin pieces on the head');
   assert.equal(gearCount('elon'), 0, 'Elon has no glasses and no beard');
   assert.ok(gearCount('hrib') >= 5);
@@ -260,7 +269,7 @@ test('Šlachta keeps the police uniform on, with his build and dark hair underne
 });
 
 test('a seated driver still uses drive, and an ambulance cab stays empty', () => {
-  for (const type of ['gwagen', 'roadster', 'scala', 'x5', 'police']) {
+  for (const type of ['gwagen', 'ram', 'roadster', 'scala', 'x5', 'police']) {
     const seat = seatedCabDriver({type, police: type === 'police'});
     assert.equal(seat.pose, SEATED_DRIVE_POSE);
     assert.equal(seat.pose, 'drive');

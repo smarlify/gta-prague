@@ -43,21 +43,25 @@ export function startHeading(start,driver,fallback=0){
  return start?.heading??fallback;
 }
 
-// A start= URL still pins that place for every driver.
+// A start= URL still pins that place for every driver except Zeman.
+// His boat is only in the Vltava, including when a street is named.
 // With no start=: Filip opens at the museum, Hřib at Letenské náměstí, Pavel on
-// Ke Hradu, Šlachta at Letná until a chase spot exists, Zeman on the
-// Vltava, and Kraus at Divadlo Bez zábradlí. None of those take a cycle step.
+// Ke Hradu, Šlachta at Letná until a chase spot exists, Kraus at
+// Divadlo Bez zábradlí, and Macinka at Poslanecká sněmovna. None of those take
+// a cycle step. Zeman never does.
 // `unpinned` is the place already chosen for this visit; switching back to
 // Elon or Dave reuses it.
-const PINNED_START={hrib:'Letenské náměstí',pavel:'Ke Hradu',slachta:'Letenské náměstí',kraus:'Divadlo Bez zábradlí'};
+const PINNED_START={hrib:'Letenské náměstí',pavel:'Ke Hradu',slachta:'Letenské náměstí',kraus:'Divadlo Bez zábradlí',macinka:'Poslanecká sněmovna'};
 export function resolveDriverStart(landmarks,request,storage,cityId='prague',driver=null,unpinned=null){
  const filip=!!driver?.pavlova&&cityId==='prague';
  const prague=!request&&cityId==='prague';
+ // The Challenger stays in the river every time he is placed. A street request
+ // stays on the URL for the next driver; it is not used here.
+ if(cityId==='prague'&&driver?.water)return {start:{...VLTAVA_START},pinned:false,unpinned};
  if(!request&&filip){
   const museum=pickStart(landmarks,'Národní muzeum');
   if(museum)return {start:{...museum,heading:MUSEUM_HEADING},pinned:false,unpinned};
  }
- if(prague&&driver?.water)return {start:{...VLTAVA_START},pinned:false,unpinned};
  const pinnedName=prague?PINNED_START[driver?.id]:null;
  if(pinnedName){
   const place=pickStart(landmarks,pinnedName);

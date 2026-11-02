@@ -48,9 +48,10 @@ test('the cast keeps Miloš Zeman on the welcome card with the other drivers', (
     'Police car — Robert Šlachta',
     'Challenger — Miloš Zeman',
     'BMW X5 — Jan Kraus',
+    'Dodge RAM — Petr Macinka',
   ]);
   assert.deepEqual(CHARACTERS.map((choice) => choice.name), [
-    'Filip Turek', 'Elon Musk', 'Dave N.', 'Zdeněk Hřib', 'Petr Pavel', 'Robert Šlachta', 'Miloš Zeman', 'Jan Kraus',
+    'Filip Turek', 'Elon Musk', 'Dave N.', 'Zdeněk Hřib', 'Petr Pavel', 'Robert Šlachta', 'Miloš Zeman', 'Jan Kraus', 'Petr Macinka',
   ]);
   assert.deepEqual(listedCharacters().map((choice) => choice.label), [
     'Mercedes G — Filip Turek',
@@ -61,6 +62,7 @@ test('the cast keeps Miloš Zeman on the welcome card with the other drivers', (
     'Police car — Robert Šlachta',
     'Challenger — Miloš Zeman',
     'BMW X5 — Jan Kraus',
+    'Dodge RAM — Petr Macinka',
   ]);
   assert.equal(listedCharacters().some((choice) => choice.name === 'Miloš Zeman'), true);
   assert.equal(DEFAULT_CHARACTER_ID, 'elon');
@@ -104,6 +106,10 @@ test('?driver= pins Elon, Turek, Dave, or Zdeněk and an unknown value stays on 
   assert.equal(driverFromSearch('?driver=petr').name, 'Petr Pavel');
   assert.equal(driverFromSearch('?driver=Petr').type, 'motorbike');
   assert.equal(driverFromSearch('?driver=petr-pavel').ride, 'motorbike');
+  assert.equal(driverFromSearch('?driver=macinka').name, 'Petr Macinka');
+  assert.equal(driverFromSearch('?driver=petr-macinka').id, 'macinka');
+  assert.equal(driverFromSearch('?driver=petr-macinka').type, 'ram');
+  assert.equal(driverFromSearch('?driver=petr-macinka').label, 'Dodge RAM — Petr Macinka');
   assert.equal(driverFromSearch('?driver=milos').id, 'zeman');
   assert.equal(driverFromSearch('?driver=Miloš').name, 'Miloš Zeman');
   assert.equal(driverFromSearch('?driver=milos-zeman').ride, 'challenger');
@@ -122,8 +128,8 @@ test('?driver= pins Elon, Turek, Dave, or Zdeněk and an unknown value stays on 
   assert.equal(resolveDriver('', memoryStorage(), () => 3).id, 'hrib');
   assert.deepEqual([0, 0.25, 0.5, 0.75].map((n) => resolveDriver('', memoryStorage(), () => n).id), ['filip', 'dave', 'pavel', 'zeman']);
   assert.equal(resolveDriver('', saved, () => 0.75).id, 'zeman');
-  const rolled = [0, 1, 2, 3, 4, 5, 6, 7].map((n) => resolveDriver('', memoryStorage(), () => n / 8).id);
-  assert.deepEqual(rolled, ['filip', 'elon', 'dave', 'hrib', 'pavel', 'slachta', 'zeman', 'kraus']);
+  const rolled = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => resolveDriver('', memoryStorage(), () => n / 9).id);
+  assert.deepEqual(rolled, ['filip', 'elon', 'dave', 'hrib', 'pavel', 'slachta', 'zeman', 'kraus', 'macinka']);
   assert.equal(saved.getItem('gta-praha-character'), 'dave', 'a roll does not write the chosen id');
   assert.equal(resolveDriver('?driver=nobody', saved).id, 'elon');
   assert.equal(resolveDriver('?driver=', memoryStorage()).id, 'elon');
@@ -215,8 +221,10 @@ test('car arrows wrap Filip, Elon, Dave, and Zdeněk, and a click does not keep 
   assert.equal(cycleCharacter('slachta', 1).id, 'zeman');
   assert.equal(cycleCharacter('zeman', 1).id, 'kraus');
   assert.equal(cycleCharacter('kraus', -1).id, 'zeman');
-  assert.equal(cycleCharacter('kraus', 1).label, 'Mercedes G — Filip Turek');
-  assert.equal(cycleCharacter('filip', -1).name, 'Jan Kraus');
+  assert.equal(cycleCharacter('kraus', 1).label, 'Dodge RAM — Petr Macinka');
+  assert.equal(cycleCharacter('macinka', 1).label, 'Mercedes G — Filip Turek');
+  assert.equal(cycleCharacter('macinka', -1).id, 'kraus');
+  assert.equal(cycleCharacter('filip', -1).name, 'Petr Macinka');
   const seen = [];
   let cursor = 'filip';
   for (let n = 0; n < listedCharacters().length; n += 1) {

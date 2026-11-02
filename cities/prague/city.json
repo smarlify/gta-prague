@@ -152,6 +152,13 @@
    "name": "Florenc",
    "district": "Praha 8 - Karlín",
    "at": [14.4395, 50.0905]
+  },
+  {
+   "name": "Poslanecká sněmovna",
+   "district": "Praha 1 - Malá Strana",
+   "street": "Sněmovní",
+   "at": [14.4038, 50.0892],
+   "heading": -3.133
   }
  ],
  "source": {
