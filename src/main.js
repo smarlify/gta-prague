@@ -1239,7 +1239,7 @@ async function boot(){
    progress(30,`Loading ${city.name} streets`);
    const scenery=helsinki?await buildHelsinkiScenery():genericScenery();
    if(city.id==='prague'){
-    pragueBoards=createPragueBillboards();
+    pragueBoards=createPragueBillboards(undefined,data);
     cityModel.add(pragueBoards.group);
     scenery.ads=pragueBoards;
     scenery.streetObstacles.push(...pragueBoards.obstacles);

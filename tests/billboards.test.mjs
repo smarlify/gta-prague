@@ -5,8 +5,9 @@ import {gunzipSync} from 'node:zlib';
 import {SpatialIndex} from '../src/geo.js';
 import {PRAGUE_AREAS} from '../src/area-caption.js';
 import * as THREE from 'three';
-import {BILLBOARD_BUY_REACH, BILLBOARD_BUY_RELEASE, BILLBOARD_BUY_RELEASE_HOLD, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, VISIT_BILLBOARD_LABEL, billboardBuyOffer, billboardCallToAction, billboardFromPointer, billboardPurchaseUrl, billboardTextureSize, billboardVisitUrl, nearestBillboard, openBillboardLink, placePragueBillboards} from '../src/prague-billboards.js';
+import {BILLBOARD_BUY_REACH, BILLBOARD_BUY_RELEASE, BILLBOARD_BUY_RELEASE_HOLD, BOARDS_PER_DISTRICT, BUY_BILLBOARD_LABEL, VISIT_BILLBOARD_LABEL, billboardBuyOffer, billboardCallToAction, billboardFromPointer, billboardIndexes, billboardPanelBlocked, billboardPanelBottom, billboardPurchaseUrl, billboardStreetHeight, billboardTextureSize, billboardVisitUrl, nearestBillboard, openBillboardLink, placePragueBillboards} from '../src/prague-billboards.js';
 import storedSites from '../src/prague-billboard-sites.json' with {type: 'json'};
+import {decodeTerrain, groundAt, setTerrain} from '../src/terrain.js';
 import {
   PACK_CREDITS,
   REVOLUT_CHECKOUT_URL,
@@ -75,11 +76,19 @@ test('stored Prague boards are on the pavement and not inside a building', () =>
   const buildings = new SpatialIndex(data.buildings);
   const pavement = new SpatialIndex(data.pavement);
   const roads = new SpatialIndex(data.roads.filter((road) => (road.kind || '').startsWith('Ajorata') && !(road.kind || '').includes('Tunel')));
+  setTerrain(decodeTerrain(gunzipSync(readFileSync('public/cities/prague/terrain.pack'))));
+  const indexes = billboardIndexes(data);
   for (const site of storedSites) {
     assert.equal(buildings.at(site.x, site.z), undefined, site.id);
     assert.ok(pavement.at(site.x, site.z), site.id);
     assert.equal(roads.at(site.x, site.z), undefined, site.id);
+    assert.equal(billboardPanelBlocked(site, indexes), '', site.id);
+    const bottom = billboardPanelBottom(site, indexes);
+    assert.ok(bottom > groundAt(site.x, site.z), `${site.id} face is under the ground`);
+    assert.ok(bottom > billboardStreetHeight(site.x, site.z, indexes), `${site.id} face is under the street`);
+    assert.ok(bottom >= groundAt(site.x, site.z) + 2.5 - 1e-6, `${site.id} panel is not seated on the ground`);
   }
+  assert.match(readFileSync(new URL('../src/prague-billboards.js', import.meta.url), 'utf8'), /const y0 = billboardSeat\(site, indexes\)/);
   for (const start of data.landmarks) {
     const nearest = Math.min(...storedSites.map((site) => Math.hypot(site.x - start.x, site.z - start.z)));
     assert.ok(nearest < 200, `${start.name} is ${Math.round(nearest)} m from the nearest board`);
