@@ -14,6 +14,8 @@ body.booting :is(.topbar,.location-tag,.dashboard,.right-tools,.landmark-label,#
  padding:var(--pad) var(--pad) var(--s-24);background:#f8f5eef7;color:var(--ink);border:1px solid #fffc;border-radius:12px;box-shadow:0 8px 32px #25241f20;transform:none;transition:opacity .25s,visibility .25s;z-index:40;scrollbar-width:thin;
  font-family:var(--ui);font-size:var(--t-14);line-height:20px;
 }
+/* Loading stays bottom-left. The ready welcome card stays the centered panel above. */
+#intro.boot-screen:not(.ready){left:38px;right:auto;margin-inline:0}
 #intro.boot-screen.gone{opacity:0;visibility:hidden;pointer-events:none}
 #intro.boot-screen p{margin:0}
 
@@ -111,6 +113,7 @@ body.game-failed #intro{z-index:1000;pointer-events:auto}
 /* Phones (portrait) */
 @media(max-width:700px){
  #intro.boot-screen{--pad:20px;bottom:max(12px,env(safe-area-inset-bottom));width:min(440px,calc(100% - 32px));max-width:440px;max-height:calc(100dvh - 24px - env(safe-area-inset-bottom));padding-bottom:var(--s-16)}
+ #intro.boot-screen:not(.ready){left:max(12px,env(safe-area-inset-left));right:auto;margin-inline:0;width:min(440px,calc(100% - 24px - env(safe-area-inset-left)))}
  #character-picker .start-district,#intro .start-picker,#character-picker select.start-district{min-width:0}
  /* Letter hints stay off a phone. The top-bar driver field moves into the touch menu; the welcome picker stays. */
  body .topbar .player-name,body .topbar kbd,#intro .boot-controls{display:none}

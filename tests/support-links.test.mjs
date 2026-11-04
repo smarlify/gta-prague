@@ -9,6 +9,7 @@ test('welcome, pause, and about show coffee and Playful without naming Lasse', a
   const welcome = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const about = await readFile(new URL('../public/about/index.html', import.meta.url), 'utf8');
   const boot = await readFile(new URL('../src/loading-screen.css', import.meta.url), 'utf8');
+  const hud = await readFile(new URL('../src/style.css', import.meta.url), 'utf8');
 
   for (const html of [welcome, about]) {
     assert.match(html, /Buy Me a Coffee/);
@@ -27,6 +28,12 @@ test('welcome, pause, and about show coffee and Playful without naming Lasse', a
   assert.doesNotMatch(phone, /#intro\.boot-screen\{[^}]*width:auto/);
   assert.match(boot, /#intro\.boot-screen\{[^}]*top:auto;bottom:38px;width:min\(440px,calc\(100% - 32px\)\)/);
   assert.match(boot, /#intro\.boot-screen\{[^}]*margin-inline:auto/);
+  assert.match(boot, /#intro\.boot-screen:not\(\.ready\)\{[^}]*left:38px;right:auto;margin-inline:0/);
+  assert.match(phone, /#intro\.boot-screen:not\(\.ready\)\{[^}]*left:max\(12px,env\(safe-area-inset-left\)\);right:auto;margin-inline:0/);
+  const pause = hud.match(/#pause-overlay\{[^}]*\}/)[0];
+  assert.match(pause, /overflow-y:auto/);
+  assert.match(pause, /justify-content:flex-start/);
+  assert.doesNotMatch(pause, /justify-content:center/);
 
   assert.match(welcome, /class="coffee-btn" href="https:\/\/buymeacoffee\.com\/smarlify"/);
   assert.match(welcome, /id="pause-overlay"[\s\S]*Gaming Hub \(Playful\)/);
