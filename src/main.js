@@ -13,10 +13,10 @@ import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,visitScene} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {bindCharacterPicker,characterSwitchRebuilds,occupiedRide,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
-import {DIVADLO_BEZ_ZABRADLI,KE_HRADU,POSLANECKA_SNEMOVNA,PRAZSKY_HRAD,VLTAVA_START,chaseBody,chasePlacement,slachtaArrest,slachtaWearsUniform} from './driver-starts.js';
+import {CHASE_JOIN_SPEED,CHASE_LEAD_SPEED,CHASE_UNIT_SPEED,DIVADLO_BEZ_ZABRADLI,KE_HRADU,POSLANECKA_SNEMOVNA,PRAZSKY_HRAD,VLTAVA_START,slachtaArrest,slachtaChaseLayout,slachtaWearsUniform} from './driver-starts.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
-import {makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
+import {carSamples,makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
 import {roadsterStep,carIsAirborne,ROADSTER_AIR_MAX} from './roadster-flight.js';
 import {animateVehicle,cycleHeadlights,headlightModeLabel,playerHeadlightsOn,streetLampsOn,vehicleLampsOn} from './vehicles.js';
 import {Mobility} from './mobility.js';
@@ -169,7 +169,7 @@ const roadRumble=createRumbleState();let cameraRumble=[0,0,0],surfaceNow={surfac
 let treeTrunks=null,cityModelPromise,surfaceStreamer=null,extensionStreamer=null,switchingStart=false,startVisitVersion=0,places=[],speciesTrees=null;const placeHidden=new Set();
 let birds=null,birdColonies=[],crowd=null,waterfowl=null; // gulls, pigeons, crows and sparrows from the city's map data (birds.js)
 let pragueBoards=null;
-let pavlova={phase:'idle'},ambulance=null,unpinnedStart=null,chaseHold=false,chaseKind=null,peerArrestUntil=0;
+let pavlova={phase:'idle'},ambulance=null,unpinnedStart=null,chaseHold=false,chaseKind=null,chaseLead=null,peerArrestUntil=0;
 let cyclists,cyclistRenderer,npcScooters,npcScooterRenderer,buses,police,policeRenderer,roadblock; // shared riders and police in every city
 let multiplayer=null; // Temp default: auto-join demo (anonymous ok); HUD toggles leave/rejoin
 let stolenSirenOn=false;const stolenSiren=createSiren();
@@ -791,27 +791,81 @@ function paintCharacterLook(choice){
  if(choice.police)playerCars.setLook('police','');
  else if(!choice.ride)playerCars.setLook(choice.type,'');
 }
-function setStart(l){if(city?.id==='prague'&&chosenCharacter?.water)l={...VLTAVA_START};mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,startHeading(l,chosenCharacter,l.name==='Senate Square'?0:-Math.PI/2+.17));car.roadster=!!chosenCharacter.flies;if(chosenCharacter.police)car.visual={type:'police',police:true,livery:'praha',variant:'estate'};else if(!chosenCharacter.ride)car.visual={type:chosenCharacter.type};car.distance=distance;const ride=chosenCharacter.ride||null;if(travel)travel.reset(car,world,{ride});else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles,ride});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);paintCharacterLook(chosenCharacter);focus.set(travel.actor.x,0,travel.actor.z);cameraHeading=travel.actor.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();}
+function setStart(l){if(city?.id==='prague'&&chosenCharacter?.water)l={...VLTAVA_START};clearChaseLead();mobileControls?.release();peopleInteraction?.reset(world);marketShop?.reset();gullEncounter.reset();birds?.clearEncounter();cameraTransition=null;impacts.reset();crowd?.reset();finale.reset();stolenSirenOn=false;startPoint=l;car=makeCar(l.x,l.z,startHeading(l,chosenCharacter,l.name==='Senate Square'?0:-Math.PI/2+.17));car.roadster=!!chosenCharacter.flies;if(chosenCharacter.police)car.visual={type:'police',police:true,livery:'praha',variant:'estate'};else if(!chosenCharacter.ride)car.visual={type:chosenCharacter.type};car.distance=distance;const ride=chosenCharacter.ride||null;if(travel)travel.reset(car,world,{ride});else travel=new PlayerTravel(car,world,{cars:()=>[...staticCars,...trafficCars,...policeCarSources()],rides:()=>[...(knockables?.rideSources||[]),...(cyclists?.rideSources||[]),...(npcScooters?.rideSources||[])],obstacles:travelObstacles,ride});peopleInteraction??=new PeopleInteraction(world,{context:()=>({cityName:city.name,landmarks:data?.landmarks||[]}),voiceEnabled:sound});playerCars.sync(travel);paintCharacterLook(chosenCharacter);focus.set(travel.actor.x,0,travel.actor.z);cameraHeading=travel.actor.heading;tramSim?.reset(car);buses?.reset(car,tramSim?.obstacles);if(mobility){mobility.externalBodies=transitBodies();mobility.reset(car);}npcScooters?.reset(car);roadblock?.reset();police?.reset();marketLife?.reset();universityLife?.reset();terminalLife?.reset();$('district-label').textContent=String(l.district||l.name||'').toUpperCase();carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;if(ready)updateTiles().catch(handleTileError);drawMinimap();if(chosenCharacter?.chase&&!new URLSearchParams(location.search).get('start')&&(l?.chase||!chaseHold))plantSlachtaChase({force:!!l?.chase});}
 function nudgeStart(spot){
  if(!car||!spot)return;
  car.x=spot.x;car.z=spot.z;car.heading=spot.heading;
  if(travel?.actor){travel.actor.x=spot.x;travel.actor.z=spot.z;travel.actor.heading=spot.heading;}
- startPoint={...startPoint,x:spot.x,z:spot.z,heading:spot.heading};
+ startPoint={...startPoint,x:spot.x,z:spot.z,heading:spot.heading,chase:!!spot.chase};
  focus.set(car.x,0,car.z);cameraHeading=car.heading;
  carGroup.position.set(car.x,.1+groundAt(car.x,car.z),car.z);carGroup.rotation.y=car.heading;
 }
+function clearChaseLead(){
+ const lead=chaseLead;chaseLead=null;if(!lead)return;
+ delete lead.chaseLead;delete lead.chaseHold;
+ if(Number.isFinite(lead.cruiseWas))lead.cruise=lead.cruiseWas;
+ delete lead.cruiseWas;
+}
+function liveChasePlayers(){
+ try{return (multiplayer?.livePlayers?.()||[]).filter(body=>Number.isFinite(body?.x)&&Number.isFinite(body?.z));}
+ catch{return [];}
+}
+function plantSlachtaChase({force=false}={}){
+ if(!chosenCharacter?.chase||!police||!mobility?.roads||!car)return false;
+ if(!force&&chaseHold)return false;
+ if(new URLSearchParams(location.search).get('start'))return false;
+ const players=liveChasePlayers();
+ const fits=(x,z,heading)=>!world?.roads||carSamples(makeCar(x,z,heading)).every(([px,pz])=>world.roads.at(px,pz)&&!world.buildings?.at(px,pz));
+ const layout=slachtaChaseLayout({origin:{x:car.x,z:car.z},players,graph:mobility.roads,fits});
+ if(!layout)return false;
+ clearChaseLead();
+ police.beginJoinChase(layout);
+ if(layout.kind==='traffic'){
+  const actor=mobility.cars.find(car=>!car.playerTaken)||mobility.cars[0];
+  if(actor){
+   actor.cruiseWas=actor.cruise;
+   actor.cruise=Math.max(actor.cruise||0,layout.quarry.speed||CHASE_LEAD_SPEED);
+   actor.chaseLead=true;
+   actor.chaseHold=!started;
+   actor.edge=layout.quarry.edge;actor.s=layout.quarry.s;
+   actor.x=layout.quarry.x;actor.z=layout.quarry.z;actor.heading=layout.quarry.heading;
+   actor.speed=started?actor.cruise:0;
+   actor.plan=[];actor.waiting=0;actor.stuck=0;actor.offset=undefined;
+   delete actor.knocked;delete actor.playerTaken;
+   chaseLead=actor;police.joinChase.actor=actor;
+  }
+ }
+ if(!started)for(const unit of police.units)if(unit.joinChase)unit.speed=0;
+ const spot={...layout.spawn,chase:true};
+ nudgeStart(spot);
+ if(started){car.speed=CHASE_JOIN_SPEED;if(travel?.actor)travel.actor.speed=CHASE_JOIN_SPEED;}
+ stolenSirenOn=true;
+ chaseKind=layout.kind;
+ const road=world?.roads?.at?.(spot.x,spot.z);
+ if(road?.name)startPoint={...startPoint,street:road.name};
+ return true;
+}
+function releaseSlachtaChase(){
+ if(chaseLead){chaseLead.chaseHold=false;chaseLead.speed=chaseLead.cruise||CHASE_LEAD_SPEED;}
+ for(const unit of police?.units||[])if(unit.joinChase)unit.speed=Math.max(unit.speed||0,CHASE_UNIT_SPEED);
+ if(car)car.speed=Math.max(car.speed||0,CHASE_JOIN_SPEED);
+ if(travel?.actor)travel.actor.speed=Math.max(travel.actor.speed||0,CHASE_JOIN_SPEED);
+}
+function syncSlachtaQuarry(){
+ const chase=police?.joinChase;if(!chase?.active)return;
+ if(chase.kind==='player'){
+  const players=liveChasePlayers();
+  const body=players.find(player=>player.uid&&player.uid===chase.uid)||players[0];
+  if(body)police.syncJoinQuarry(body);
+ }else if(chase.actor||chaseLead)police.syncJoinQuarry(chase.actor||chaseLead);
+}
 function refreshChaseSpawn(){
- if(started||chaseHold||!chosenCharacter?.chase||!car||!data?.roads||!world?.buildings)return;
+ if(started||chaseHold||!chosenCharacter?.chase||!car||!mobility?.roads||!police)return;
  if(new URLSearchParams(location.search).get('start'))return;
- // No remote and no traffic yet: stay on Letenské náměstí. A bad presence list must not stop the card.
- let players=[];
- try{players=multiplayer?.livePlayers?.()||[];}catch{players=[];}
- const target=chaseBody(car,{players,traffic:trafficCars});
- if(!target)return;
- if(target.kind==='player'?chaseKind==='player':chaseKind)return;
- const spot=chasePlacement(target.body,data.roads,world.buildings);
- if(!spot)return;
- nudgeStart(spot);chaseKind=target.kind;
+ // A player who appears on the card replaces the staged car. A bad presence list stays on the staged chase.
+ const live=liveChasePlayers().length>0;
+ if(chaseKind==='player'||(chaseKind&&!live))return;
+ plantSlachtaChase();
 }
 function applyPeerArrest(){
  if(police?.busted||Date.now()<peerArrestUntil)return;
@@ -831,7 +885,7 @@ function trackGameStart(place=startPoint){
   event_category:'game_interaction'
  });
 }
-function start(){if(!ready)return;if(previewing){startAfterPreview=true;return;}if(startPoint&&characterSwitchRebuilds({ride:occupiedRide(travel)},chosenCharacter))setStart(startPoint);if(chosenCharacter?.chase&&!chaseHold&&!chaseKind&&!new URLSearchParams(location.search).get('start')){const letna=pickStart(data.landmarks,'Letenské náměstí');if(letna)setStart(letna);}chaseHold=true;const first=!started;started=true;paused=false;document.body.classList.add('driving');loadingScreen.enter();carGroup.visible=travel?.mode==='car'||!!travel?.sunkCar;marker.visible=false;if(first)trackGameStart(startPoint);toast(touchScreen?'Slide to steer · Hold Go · Brake, then reverse · Pause and Menu are at the top':'WASD or arrow keys to drive · Space to handbrake');$('world').focus();}
+function start(){if(!ready)return;if(previewing){startAfterPreview=true;return;}if(startPoint&&characterSwitchRebuilds({ride:occupiedRide(travel)},chosenCharacter))setStart(startPoint);if(chosenCharacter?.chase&&!chaseHold&&!new URLSearchParams(location.search).get('start')){if(!chaseKind)plantSlachtaChase();releaseSlachtaChase();}chaseHold=true;const first=!started;started=true;paused=false;document.body.classList.add('driving');loadingScreen.enter();carGroup.visible=travel?.mode==='car'||!!travel?.sunkCar;marker.visible=false;if(first)trackGameStart(startPoint);toast(touchScreen?'Slide to steer · Hold Go · Brake, then reverse · Pause and Menu are at the top':'WASD or arrow keys to drive · Space to handbrake');$('world').focus();}
 function focusWorldControls(){if(started&&!paused&&!mapOpen&&!police?.busted&&!gameIsStopped())$('world').focus({preventScroll:true});}
 function showDialog(id){if(!ready||police?.busted)return;peopleInteraction?.close();mobileControls?.release();keys.clear();$(id).showModal();mapOpen=true;if(id==='map-dialog')drawCityMap();}
 function closeDialogs(){if($('map-dialog').open)startVisitVersion++;document.querySelectorAll('dialog[open]').forEach(d=>d.close());mapOpen=!!document.querySelector('dialog[open]');mobileControls?.release();keys.clear();focusWorldControls();}
@@ -1005,7 +1059,7 @@ function frame(now){
    mobility.externalObstacles=[...impacts.obstacles(),...tramSim.obstacles,...(buses?.obstacles||[]),...police.obstacles,...parked];mobility.externalBodies=transitBodies();
    mobility.step(step,car);angryDrivers.update(step,mobility.time,car);cyclists.step(step,car);marketLife.update(step,car);universityLife.update(step,car);terminalLife.update(step,car);
    npcScooters.step(step,car,{people:[...mobility.people,...detailPeople],vehicles:[...mobility.cars,...tramSim.obstacles,...(buses?.obstacles||[]),...police.obstacles,...parked],impacts});
-   if(started)police.step(step,car,[...mobility.cars,...mobility.people,...detailPeople,...tramSim.obstacles,...(buses?.obstacles||[])]);
+   if(started){syncSlachtaQuarry();police.step(step,car,[...mobility.cars,...mobility.people,...detailPeople,...tramSim.obstacles,...(buses?.obstacles||[])]);}
    finale.step(step,car,{police,tramSim,knockables,started:started&&driving});
    roadblock?.step(step,car,before,{started:started&&driving,knockables,onBurst:()=>finale.offence('roadblock','Drove into a police roadblock')});
    if(police.busted){setBusted(true);break;}

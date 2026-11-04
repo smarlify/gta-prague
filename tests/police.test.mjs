@@ -4,6 +4,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {PoliceSimulation,sweptContact,wantedLevel,incidentHeat,escapeTime,closingSpeed,CRASH_MIN_SPEED,RECKLESS,INCIDENT_WINDOW,CONTACT_COOLDOWN,recklessDriving,TRAFFIC_HEAT_CAP,isLethalPedestrian} from '../src/police.js';
 import {prepareGraph} from '../src/mobility.js';
+import {slachtaChaseLayout} from '../src/driver-starts.js';
 import {correctHarbourLanes,vehicleFitsRoad} from '../src/road-safety.js';
 import {SpatialIndex} from '../src/geo.js';
 import {HARBOUR_START} from '../src/demo-route.js';
@@ -164,6 +165,28 @@ test('dangerous turns use actual yaw rate and pavement driving uses mapped groun
  assert.equal(recklessDriving(from,from,dt,{roads:{at:()=>false}}),false);
  assert.equal(recklessDriving(from,from,0,world),false);
  const wrapped={...from,heading:Math.PI-.001};assert.equal(recklessDriving(wrapped,{...wrapped,heading:-Math.PI+.001},dt,world),false);
+});
+test('a join chase follows the quarry without wanted heat or arresting the officer',()=>{
+ const straight=prepareGraph({nodes:[[0,160],[0,-160]],edges:[{from:0,to:1,lane:0,points:[[0,160],[0,-160]]}]});
+ const layout=slachtaChaseLayout({origin:{x:0,z:20},players:[],graph:straight});
+ const chase=new PoliceSimulation(straight,world);
+ assert.equal(chase.beginJoinChase(layout),true);
+ assert.equal(chase.level,0);
+ const before=chase.units.filter(u=>u.joinChase).map(u=>u.s);
+ const officer={x:layout.spawn.x,z:layout.spawn.z,heading:layout.spawn.heading,speed:10};
+ for(let i=0;i<45;i++)chase.step(1/30,officer,[]);
+ assert.equal(chase.level,0);
+ assert.equal(chase.busted,false);
+ const after=chase.units.filter(u=>u.joinChase);
+ assert.equal(after.length,2);
+ assert.ok(after.every((unit,i)=>unit.s>before[i]+1),`patrols moved toward the quarry (${before} -> ${after.map(u=>u.s)})`);
+ chase.report('pedestrian','bystander');
+ chase.dispatch=1e9;
+ const parked=after[0];
+ parked.edge=null;parked.x=officer.x;parked.z=officer.z;
+ for(let i=0;i<90;i++)chase.step(1/30,{...officer,speed:0},[]);
+ assert.equal(chase.busted,false,'a patrol already in the chase does not bust Šlachta');
+ assert.ok(chase.level>0);
 });
 test('the repeat bonus expires and a fresh pursuit starts without old incident history',()=>{
  const quick=new PoliceSimulation(graph(),world),spaced=new PoliceSimulation(graph(),world);
