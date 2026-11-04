@@ -17,6 +17,8 @@ test('welcome, pause, and about show coffee and Playful without naming Lasse', a
     assert.match(html, new RegExp(`href="${PLAYFUL}" target="_blank" rel="noopener noreferrer"`));
     assert.doesNotMatch(html, /lasse/i);
     assert.doesNotMatch(html, /Text Dave/);
+    assert.doesNotMatch(html, /GTA Prague co-authored/);
+    assert.match(html, /An open-source project: co-authored by <a [^>]*>Dave Nekovář<\/a>(?!\.)/);
   }
 
   const phone = boot.slice(boot.indexOf('@media(max-width:700px)'), boot.indexOf('@media(pointer:coarse)'));
