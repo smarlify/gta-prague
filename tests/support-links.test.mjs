@@ -23,13 +23,14 @@ test('welcome, pause, and about show coffee and Playful without naming Lasse', a
   }
 
   const phone = boot.slice(boot.indexOf('@media(max-width:700px)'), boot.indexOf('@media(pointer:coarse)'));
-  assert.match(phone, /#intro\.boot-screen\{[^}]*width:min\(440px,calc\(100% - 32px\)\)/);
+  assert.match(phone, /#intro\.boot-screen\{[^}]*width:min\(440px,calc\(100% - 24px - env\(safe-area-inset-left\)\)\)/);
   assert.match(phone, /#intro\.boot-screen\{[^}]*max-width:440px/);
   assert.doesNotMatch(phone, /#intro\.boot-screen\{[^}]*width:auto/);
-  assert.match(boot, /#intro\.boot-screen\{[^}]*top:auto;bottom:38px;width:min\(440px,calc\(100% - 32px\)\)/);
-  assert.match(boot, /#intro\.boot-screen\{[^}]*margin-inline:auto/);
-  assert.match(boot, /#intro\.boot-screen:not\(\.ready\)\{[^}]*left:38px;right:auto;margin-inline:0/);
-  assert.match(phone, /#intro\.boot-screen:not\(\.ready\)\{[^}]*left:max\(12px,env\(safe-area-inset-left\)\);right:auto;margin-inline:0/);
+  assert.doesNotMatch(phone, /#intro\.boot-screen\{[^}]*margin-inline:auto/);
+  assert.match(phone, /#intro\.boot-screen\{[^}]*left:max\(12px,env\(safe-area-inset-left\)\);right:auto;margin-inline:0/);
+  assert.match(boot, /#intro\.boot-screen\{[^}]*left:38px;right:auto;top:auto;bottom:38px;width:min\(440px,calc\(100% - 32px\)\);max-width:440px;margin-inline:0/);
+  assert.doesNotMatch(boot, /#intro\.boot-screen\{[^}]*margin-inline:auto/);
+  assert.match(boot, /#intro\.boot-screen \.boot-links\{[^}]*margin-top:var\(--s-16\)/);
   const pause = hud.match(/#pause-overlay\{[^}]*\}/)[0];
   assert.match(pause, /overflow-y:auto/);
   assert.match(pause, /justify-content:flex-start/);
