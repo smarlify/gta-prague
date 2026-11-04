@@ -1,10 +1,18 @@
-// Pinned starts and the police chase spot for the Prague welcome card.
+// Pinned starts and the police chase Šlachta joins.
 // Distances are world metres. Heading matches the rest of the city: forward is
 // (-sin(heading), -cos(heading)).
+import {routePoint} from './mobility.js';
 import {nearestRoadPoint} from './physics.js';
 
 export const CHASE_BEHIND = 40;
 export const ARREST_RANGE = 8;
+// Column on one carriageway: pursued car, two patrols, then Šlachta.
+// He sits behind the rear patrol, aimed along the road at the pursuit.
+export const CHASE_POLICE_BEHIND = Object.freeze([16, 32]);
+export const CHASE_DRIVER_BEHIND = 48;
+export const CHASE_LEAD_SPEED = 13;
+export const CHASE_UNIT_SPEED = 12;
+export const CHASE_JOIN_SPEED = 10;
 
 // Ke Hradu, the street leading up to the castle. The named surface is the street.
 // Not the Hradčanská tram stop and not the U Prašného mostu point.
@@ -126,6 +134,192 @@ export function chasePlacement(target, roads, buildings) {
     heading: headingToward(spot, target),
     street: spot.name || '',
     chase: true,
+  };
+}
+
+function finitePoint(body) {
+  return !!body && Number.isFinite(body.x) && Number.isFinite(body.z);
+}
+
+/**
+ * The other player Šlachta joins. Nearest live body wins.
+ * Null when nobody else is online, so the chase is staged on the road at the pin.
+ */
+export function chaseQuarry(origin, {players} = {}) {
+  const live = (Array.isArray(players) ? players : []).filter(finitePoint);
+  if (!live.length) return null;
+  if (!origin || !Number.isFinite(origin.x) || !Number.isFinite(origin.z)) return {kind: 'player', body: live[0]};
+  let best = null;
+  let bestD = Infinity;
+  for (const body of live) {
+    const distance = Math.hypot(body.x - origin.x, body.z - origin.z);
+    if (distance < bestD) {
+      best = body;
+      bestD = distance;
+    }
+  }
+  return best ? {kind: 'player', body: best} : null;
+}
+
+function incomingOf(graph) {
+  if (graph.incoming) return graph.incoming;
+  const incoming = Array.from({length: graph.nodes?.length || 0}, () => []);
+  for (const edge of graph.edges || []) incoming[edge.to]?.push(edge);
+  return incoming;
+}
+
+function edgeBefore(incoming, edge) {
+  const list = (incoming[edge.from] || []).filter((candidate) => candidate && candidate !== edge);
+  if (!list.length) return null;
+  const ahead = routePoint(edge, Math.min(edge.length, 1));
+  let best = list[0];
+  let score = -Infinity;
+  for (const candidate of list) {
+    const end = routePoint(candidate, Math.max(0, candidate.length - 0.5));
+    const align = Math.cos((end.heading || 0) - (ahead.heading || 0));
+    if (align > score) {
+      score = align;
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+function seatOnEdge(edge, s, fits) {
+  const lane = Number.isFinite(edge.lane) ? edge.lane : 0;
+  const offsets = [];
+  for (const offset of [lane, 0, lane * 0.5, -lane]) {
+    if (!offsets.some((have) => Math.abs(have - offset) < 0.05)) offsets.push(offset);
+  }
+  let fallback = null;
+  for (const offset of offsets) {
+    const p = routePoint(edge, s, offset);
+    const spot = {edge, s, x: p.x, z: p.z, heading: p.heading, offset};
+    if (!fallback) fallback = spot;
+    if (!fits || fits(spot.x, spot.z, spot.heading)) return spot;
+  }
+  return fallback;
+}
+
+/** A point `metres` back along the route, still on the carriageway. */
+export function behindOnRoute(graph, spot, metres, incoming = incomingOf(graph), fits = null) {
+  if (!graph || !spot?.edge || !Number.isFinite(spot.s) || !(metres >= 0)) return null;
+  let edge = spot.edge;
+  let s = Math.max(0, Math.min(spot.s, edge.length || 0));
+  let left = metres;
+  for (let hop = 0; hop < 16 && left > 0.05; hop++) {
+    if (s >= left) return seatOnEdge(edge, s - left, fits);
+    left -= s;
+    const prev = edgeBefore(incoming, edge);
+    if (!prev) return null;
+    edge = prev;
+    s = edge.length;
+  }
+  return null;
+}
+
+/** Nearest driveable sample on the mobility graph, or null when the road is too far. */
+export function graphSpot(graph, x, z, maxDistance = 90) {
+  if (!graph?.edges?.length || !Number.isFinite(x) || !Number.isFinite(z)) return null;
+  let best = null;
+  let bestD = maxDistance;
+  for (const edge of graph.edges) {
+    if (!(edge.length > 6)) continue;
+    const step = Math.max(6, edge.length / 20);
+    const samples = Math.max(1, Math.ceil(edge.length / step));
+    for (let i = 0; i <= samples; i++) {
+      const at = Math.min(edge.length, i * step);
+      const p = routePoint(edge, at);
+      const distance = Math.hypot(p.x - x, p.z - z);
+      if (distance < bestD) {
+        bestD = distance;
+        best = {edge, s: at, x: p.x, z: p.z, heading: p.heading};
+      }
+    }
+  }
+  return best;
+}
+
+function leadWithRoom(graph, spot, room, incoming, fits) {
+  if (spot.s < room && spot.edge.length >= room + 8 && !behindOnRoute(graph, spot, room, incoming, fits)) {
+    const s = Math.min(spot.edge.length - 4, room);
+    const back = behindOnRoute(graph, {edge: spot.edge, s}, room, incoming, fits);
+    if (back) return seatOnEdge(spot.edge, s, fits);
+  }
+  let edge = spot.edge;
+  let s = spot.s;
+  for (let hop = 0; hop < 24; hop++) {
+    if (behindOnRoute(graph, {edge, s}, room, incoming, fits)) return seatOnEdge(edge, s, fits);
+    if (edge.length >= room && s < room) {
+      s = Math.min(edge.length - 1, room);
+      continue;
+    }
+    const outs = (graph.outgoing?.[edge.to] || []).filter((candidate) => candidate && candidate !== edge);
+    const next = outs.find((candidate) => candidate.to !== edge.from) || outs[0];
+    if (!next) return null;
+    edge = next;
+    s = Math.min(edge.length, Math.max(room, 1));
+  }
+  return null;
+}
+
+function columnFrom(graph, anchor, room, incoming, fits) {
+  const near = graphSpot(graph, anchor.x, anchor.z);
+  if (!near) return null;
+  const lead = leadWithRoom(graph, near, room, incoming, fits);
+  if (!lead) return null;
+  const police = [];
+  for (const metres of CHASE_POLICE_BEHIND) {
+    const spot = behindOnRoute(graph, lead, metres, incoming, fits);
+    if (!spot) return null;
+    police.push({...spot, speed: CHASE_UNIT_SPEED, role: 'chase'});
+  }
+  const driver = behindOnRoute(graph, lead, room, incoming, fits);
+  if (!driver) return null;
+  return {lead, police, driver};
+}
+
+/**
+ * Šlachta's seat in a chase that is already on the road.
+ * A live player is the quarry, and he is placed behind that pursuit.
+ * With nobody online the quarry is a point on the road at `origin`, which the
+ * traffic sim then drives, with two patrols between him and that car.
+ * Null when the graph has no carriageway long enough to hold the column.
+ */
+export function slachtaChaseLayout({origin, players, graph, room = CHASE_DRIVER_BEHIND, fits = null} = {}) {
+  if (!origin || !Number.isFinite(origin.x) || !Number.isFinite(origin.z) || !graph?.edges?.length) return null;
+  const incoming = incomingOf(graph);
+  const quarryBody = chaseQuarry(origin, {players});
+  let column = null;
+  let kind = 'traffic';
+  let uid = '';
+  if (quarryBody) {
+    column = columnFrom(graph, quarryBody.body, room, incoming, fits);
+    if (column) {
+      kind = 'player';
+      uid = quarryBody.body.uid || '';
+    }
+  }
+  if (!column) {
+    column = columnFrom(graph, origin, room, incoming, fits);
+    kind = 'traffic';
+    uid = '';
+  }
+  if (!column) return null;
+  const {lead, police, driver} = column;
+  return {
+    kind,
+    quarry: {...lead, speed: CHASE_LEAD_SPEED, uid},
+    police,
+    spawn: {
+      x: driver.x,
+      z: driver.z,
+      heading: headingToward(driver, lead),
+      street: '',
+      chase: true,
+      edge: driver.edge,
+      s: driver.s,
+    },
   };
 }
 

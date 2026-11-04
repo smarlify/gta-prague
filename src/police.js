@@ -84,7 +84,51 @@ export class PoliceSimulation{
   for(const e of this.graph.edges)this.incoming[e.to].push(e);
   this.costs=[];this.target=null;this.intercept=null;this.predicted=null;this.repath=0;
  }
- reset(){this.time=0;this.heat=0;this.units=[];this.contacts=new Map();this.recentIncidents=[];this.recklessSeconds=0;this.recklessAt=-Infinity;this.blocked=new Map();this.escape=0;this.bust=0;this.contact=0;this.stopped=0;this.backupAt=-Infinity;this.grace=0;this.repath=0;this.dispatch=0;this.costs=[];this.target=null;this.message=null;this.serial=0;this.busted=false;this.lastSeen=null;this.seen=false;this.intercept=null;this.predicted=null;this.pressure=false;this.surgeUntil=-Infinity;this.minUnits=0;this.units=[...(this.parked||[])];}
+ reset(){this.time=0;this.heat=0;this.units=[];this.contacts=new Map();this.recentIncidents=[];this.recklessSeconds=0;this.recklessAt=-Infinity;this.blocked=new Map();this.escape=0;this.bust=0;this.contact=0;this.stopped=0;this.backupAt=-Infinity;this.grace=0;this.repath=0;this.dispatch=0;this.costs=[];this.target=null;this.message=null;this.serial=0;this.busted=false;this.lastSeen=null;this.seen=false;this.intercept=null;this.predicted=null;this.pressure=false;this.surgeUntil=-Infinity;this.minUnits=0;this.joinChase=null;this.units=[...(this.parked||[])];}
+ // Šlachta joins a chase that is already moving. These units follow the quarry
+ // and do not put heat on him or make the arrest.
+ beginJoinChase(layout){
+  if(!layout?.quarry||!layout.police?.length)return false;
+  this.units=this.units.filter(u=>!u.joinChase);
+  this.joinChase={active:true,kind:layout.kind||'traffic',uid:layout.quarry.uid||'',quarry:{x:layout.quarry.x,z:layout.quarry.z,heading:layout.quarry.heading||0,speed:layout.quarry.speed||0,edge:layout.quarry.edge||null,s:layout.quarry.s},repath:0,field:null};
+  for(const spot of layout.police){
+   if(!spot?.edge)continue;
+   this.units.push({id:`police-${this.serial++}`,role:'chase',joinChase:true,edge:spot.edge,s:spot.s,x:spot.x,z:spot.z,heading:spot.heading,speed:spot.speed||0,offset:spot.offset,stuck:0,braking:false});
+  }
+  return this.units.some(u=>u.joinChase);
+ }
+ syncJoinQuarry(body){
+  const quarry=this.joinChase?.quarry;if(!quarry||!body)return;
+  if(Number.isFinite(body.x))quarry.x=body.x;if(Number.isFinite(body.z))quarry.z=body.z;
+  if(Number.isFinite(body.heading))quarry.heading=body.heading;if(Number.isFinite(body.speed))quarry.speed=body.speed;
+  quarry.edge=body.edge||null;if(Number.isFinite(body.s))quarry.s=body.s;
+ }
+ driveJoinChase(dt,traffic=[]){
+  const quarry=this.joinChase?.quarry;if(!quarry||!Number.isFinite(quarry.x)||!Number.isFinite(quarry.z))return;
+  if(this.time>=this.joinChase.repath||!this.joinChase.field?.target){this.joinChase.field=this.field(quarry);this.joinChase.repath=this.time+.75;}
+  const field=this.joinChase.field;if(!field?.target)return;
+  const cruise=Math.max(14,quarry.speed||0),obstacles=[this.player,...traffic,...this.units].filter(a=>a&&Number.isFinite(a.x));
+  for(const unit of this.units){
+   if(!unit.joinChase||unit.playerTaken||!unit.edge)continue;
+   let desired=cornerSpeedLimit(unit.edge,unit.s,cruise,[this.next(unit.edge,field)]);
+   const gap=distance(unit,quarry);if(gap<22)desired=Math.min(desired,Math.max(6,(gap-8)*1.5));
+   for(const a of obstacles){if(a===unit||a.edge===null)continue;const dx=a.x-unit.x,dz=a.z-unit.z,forward=-dx*Math.sin(unit.heading)-dz*Math.cos(unit.heading),side=Math.abs(dx*Math.cos(unit.heading)-dz*Math.sin(unit.heading));if(forward>0&&forward<24&&side<2.3)desired=Math.min(desired,Math.max(0,(forward-6)*1.4));}
+   const previousSpeed=unit.speed;
+   unit.speed+=Math.max(-18*dt,Math.min(8*dt,desired-unit.speed));
+   unit.braking=unit.speed<previousSpeed-.01;
+   let edge=unit.edge,s=unit.s+unit.speed*dt;
+   if(edge===field.target?.edge&&unit.s<=field.target.s&&s>field.target.s)s=field.target.s;
+   if(s>=edge.length){const next=this.next(edge,field);if(next){s-=edge.length;edge=next;}else{unit.speed=0;unit.stuck+=dt;continue;}}
+   let p=routePoint(edge,s,Number.isFinite(unit.offset)?unit.offset:edge.lane);
+   if(!safeVehicleSegment(unit,p,this.world)){const centre=routePoint(edge,s,0);if(safeVehicleSegment(unit,centre,this.world)){p=centre;unit.offset=0;}}
+   if(!edge.roundabout&&obstacles.some(a=>a!==unit&&a.edge!==null&&trafficFootprintsOverlap(p,a))){
+    for(const offset of [edge.lane+2.7,0]){const q=routePoint(edge,s,offset);if(safeVehicleSegment(unit,q,this.world)&&!obstacles.some(a=>a!==unit&&a.edge!==null&&trafficFootprintsOverlap(q,a))){p=q;break;}}
+   }
+   if(!safeVehicleSegment(unit,p,this.world)||obstacles.some(a=>a!==unit&&a.edge!==null&&trafficFootprintsOverlap(p,a))){unit.speed=0;unit.stuck+=dt;continue;}
+   if(!unit.progressPoint||distance(p,unit.progressPoint)>.5){unit.stuck=0;unit.progressPoint={x:p.x,z:p.z};}else if(gap>14)unit.stuck+=dt;
+   Object.assign(unit,p,{edge,s});
+  }
+ }
  get level(){return wantedLevel(this.heat);}
   get obstacles(){return this.units.filter(u=>!u.playerTaken);}
  // Location never starts or ends the stronger response.
@@ -231,6 +275,7 @@ export class PoliceSimulation{
  step(dt,player,traffic=[]){
   this.time+=dt;this.player=player;
   for(const [key,t]of this.contacts)if(this.time-t>10)this.contacts.delete(key);
+  if(this.joinChase?.active&&!this.busted)this.driveJoinChase(dt,traffic);
   if(!this.heat||this.busted)return;
   this.seen=this.units.some(u=>this.canSee(u,player));
   if(!this.lastSeen||this.seen)this.lastSeen={x:player.x,z:player.z,heading:player.heading};
@@ -242,14 +287,14 @@ export class PoliceSimulation{
     this.intercept=this.field(this.predicted);
    }
   }
-  const surge=this.surging,wanted=Math.max(surge?Math.max(this.level,SURGE.minUnits):this.level,this.level?this.minUnits:0),chasing=this.units.filter(u=>!u.parked).length;
+  const surge=this.surging,wanted=Math.max(surge?Math.max(this.level,SURGE.minUnits):this.level,this.level?this.minUnits:0),chasing=this.units.filter(u=>!u.parked&&!u.joinChase).length;
   if(this.level&&chasing<wanted&&this.time>=this.dispatch){this.spawn(player,traffic);this.dispatch=this.time+(surge?SURGE.dispatch:Math.max(1.5,3.4-this.level*.4));}
   // Surge backup: the player has been stopped for a while and nobody is within arrest range yet.
   this.stopped=Math.abs(player.speed)<1?this.stopped+dt:0;
   if(surge&&this.stopped>=SURGE.backupAfter&&this.time-this.backupAt>8&&!this.units.some(u=>distance(u,player)<SURGE.arrestRange&&this.clearSight(u,player)))this.backup(player,traffic);
   const cruise=24+this.level*2.6+(surge?SURGE.cruise:0),accel=8+this.level*.6;
   for(const unit of this.units){
-   if(unit.parked||unit.playerTaken||!unit.edge)continue;
+   if(unit.parked||unit.playerTaken||unit.joinChase||!unit.edge)continue;
    const field=this.fieldFor(unit);
    let desired=cornerSpeedLimit(unit.edge,unit.s,cruise,[this.next(unit.edge,field)]);
    const gap=distance(unit,player);if(gap<18)desired=Math.min(desired,Math.max(0,(gap-5)*1.6));
@@ -276,13 +321,15 @@ export class PoliceSimulation{
    Object.assign(unit,p,{edge,s});
   }
   // Never teleport a visible stuck car. Retire units only well away from player.
-  this.units=this.units.filter(u=>u.parked||distance(u,player)<450&&!(u.stuck>8&&distance(u,player)>85));
+  this.units=this.units.filter(u=>u.parked||u.joinChase||distance(u,player)<450&&!(u.stuck>8&&distance(u,player)>85));
   this.seen=this.units.some(u=>this.canSee(u,player));
   this.escape=!this.seen?this.escape+dt:0;
-  const canArrest=this.units.some(u=>distance(u,player)<(surge?SURGE.arrestRange:10)&&this.clearSight(u,player));
+  const pursuers=this.units.filter(u=>!u.joinChase);
+  const canArrest=pursuers.some(u=>distance(u,player)<(surge?SURGE.arrestRange:10)&&this.clearSight(u,player));
   this.bust=canArrest&&Math.abs(player.speed)<1?this.bust+dt:0;
   // Hands-on arrest: a unit at the car (any side, no line of sight needed) and a stopped or crawling player.
-  const atCar=this.units.some(u=>distance(u,player)<CONTACT_BUST.range);
+  // A patrol already chasing someone else does not bust Šlachta for joining it.
+  const atCar=pursuers.some(u=>distance(u,player)<CONTACT_BUST.range);
   this.contact=atCar&&Math.abs(player.speed)<CONTACT_BUST.speed?this.contact+dt:0;
   if(this.bust>=this.bustTime||this.contact>=CONTACT_BUST.time){this.busted=true;this.heat=0;this.bust=this.bustTime;this.escape=0;player.speed=0;for(const u of this.units)u.speed=0;this.message='Busted — pursuit ended.';}
   else if(this.escape>=escapeTime(this.level)*(surge?SURGE.escapeScale:1)){

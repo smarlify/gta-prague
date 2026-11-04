@@ -12,9 +12,13 @@ import {Box3, Vector3} from 'three';
 import {createMotorbike, createChallenger} from '../src/player-ride-models.js';
 import {createVehicle, VEHICLE_TYPES} from '../src/vehicles.js';
 import {GWAGEN_PAINT, RAM_PAINT, ROADSTER_PAINT, SCALA_PAINT, X5_PAINT} from '../src/vehicle-models.js';
+import {prepareGraph} from '../src/mobility.js';
 import {
   ARREST_RANGE,
   CHASE_BEHIND,
+  CHASE_DRIVER_BEHIND,
+  CHASE_LEAD_SPEED,
+  CHASE_POLICE_BEHIND,
   DIVADLO_BEZ_ZABRADLI,
   KE_HRADU,
   POSLANECKA_SNEMOVNA,
@@ -22,7 +26,9 @@ import {
   VLTAVA_START,
   chaseBody,
   chasePlacement,
+  chaseQuarry,
   slachtaArrest,
+  slachtaChaseLayout,
   slachtaWearsUniform,
 } from '../src/driver-starts.js';
 import {dressPlayerLook} from '../src/player-travel-renderer.js';
@@ -243,6 +249,49 @@ test('Šlachta stays at Letná when no remote and no traffic exist yet', () => {
     null,
   );
   assert.equal(opened.start.name, 'Letenské náměstí');
+  assert.equal(chaseQuarry(origin, {players: []}), null);
+});
+
+test('Šlachta spawns in a chase column, behind the patrols and aimed at the quarry', () => {
+  const graph = prepareGraph({
+    nodes: [[0, 120], [0, -120]],
+    edges: [{from: 0, to: 1, lane: 0, points: [[0, 120], [0, -120]]}],
+  });
+  const alone = slachtaChaseLayout({origin: {x: 0, z: 20}, players: [], graph});
+  assert.equal(alone.kind, 'traffic');
+  assert.equal(alone.police.length, 2);
+  assert.equal(alone.quarry.speed, CHASE_LEAD_SPEED);
+  assert.ok(alone.quarry.edge);
+  const leadGap = (body) => Math.hypot(body.x - alone.quarry.x, body.z - alone.quarry.z);
+  assert.ok(leadGap(alone.police[0]) < leadGap(alone.police[1]));
+  assert.ok(leadGap(alone.police[1]) < leadGap(alone.spawn));
+  assert.ok(leadGap(alone.spawn) > CHASE_POLICE_BEHIND[1]);
+  assert.ok(Math.abs(leadGap(alone.spawn) - CHASE_DRIVER_BEHIND) < 2);
+  const forwardX = -Math.sin(alone.spawn.heading);
+  const forwardZ = -Math.cos(alone.spawn.heading);
+  const aim = forwardX * (alone.quarry.x - alone.spawn.x) + forwardZ * (alone.quarry.z - alone.spawn.z);
+  assert.ok(aim > 0, 'he faces the pursuit');
+  for (const body of [alone.spawn, alone.quarry, ...alone.police]) {
+    assert.ok(Math.abs(body.x) < 3, 'the column stays on the carriageway');
+  }
+  const player = {uid: 'ada', x: 0, z: -80, heading: 0};
+  const joined = slachtaChaseLayout({origin: {x: 0, z: 80}, players: [player], graph});
+  assert.equal(joined.kind, 'player');
+  assert.equal(joined.quarry.uid, 'ada');
+  const nearPlayer = Math.hypot(joined.spawn.x - player.x, joined.spawn.z - player.z);
+  const nearOrigin = Math.hypot(joined.spawn.x - 0, joined.spawn.z - 80);
+  assert.ok(nearPlayer < nearOrigin, 'he joins the other player instead of the empty pin');
+  assert.ok(nearPlayer < 70);
+  const hrib = resolveDriverStart(
+    [{name: 'Letenské náměstí', heading: -1.3, x: 3, z: 3}, {name: 'Ke Hradu', ...KE_HRADU}],
+    null,
+    memoryStorage(),
+    'prague',
+    characterById('hrib'),
+    null,
+  );
+  assert.equal(hrib.start.name, 'Letenské náměstí');
+  assert.equal(hrib.start.x, 3);
 });
 
 test('Šlachta is placed behind a body, and only he arrests with the siren on', () => {
@@ -288,6 +337,32 @@ test('Šlachta is placed behind a body, and only he arrests with the siren on', 
   assert.equal(look.shirt, '#d65f39');
   assert.equal(look.hairStyle, 'short');
   assert.equal(look.uniform, undefined);
+});
+
+test('Šlachta’s Letná chase is on the road behind a moving quarry, with patrols between', () => {
+  const letna = byName('Letenské náměstí');
+  const graph = prepareGraph(JSON.parse(readFileSync('public/cities/prague/mobility.json', 'utf8')).roads);
+  const onRoad = (x, z, heading) => carSamples(makeCar(x, z, heading)).every(([px, pz]) => roads.at(px, pz) && !buildings.at(px, pz));
+  const layout = slachtaChaseLayout({origin: {x: letna.x, z: letna.z}, players: [], graph, fits: onRoad});
+  assert.equal(layout.kind, 'traffic');
+  assert.equal(layout.police.length, 2);
+  assert.ok(layout.quarry.speed > 8);
+  const roadAt = (body) => roads.at(body.x, body.z);
+  for (const body of [layout.spawn, layout.quarry, ...layout.police]) {
+    assert.equal(buildings.at(body.x, body.z), undefined);
+    assert.ok(roadAt(body), 'on a carriageway');
+    assert.ok(Math.hypot(body.x - letna.x, body.z - letna.z) < 80);
+  }
+  assert.ok(carSamples(makeCar(layout.spawn.x, layout.spawn.z, layout.spawn.heading)).every(([x, z]) => roads.at(x, z)));
+  const gap = (body) => Math.hypot(body.x - layout.quarry.x, body.z - layout.quarry.z);
+  assert.ok(gap(layout.police[0]) < gap(layout.spawn));
+  assert.ok(gap(layout.police[1]) < gap(layout.spawn));
+  const forwardX = -Math.sin(layout.spawn.heading);
+  const forwardZ = -Math.cos(layout.spawn.heading);
+  assert.ok(forwardX * (layout.quarry.x - layout.spawn.x) + forwardZ * (layout.quarry.z - layout.spawn.z) > 0);
+  assert.equal(resolveDriverStart([{...letna}, {...KE_HRADU}], null, memoryStorage(), 'prague', characterById('pavel'), null).start.name, 'Ke Hradu');
+  assert.equal(characterById('slachta').type, 'police');
+  assert.equal(characterById('slachta').name, 'Robert Šlachta');
 });
 
 test('the X5 is a dark rounded SUV kept out of traffic', () => {

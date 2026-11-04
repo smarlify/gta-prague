@@ -46,8 +46,8 @@ export function startHeading(start,driver,fallback=0){
 // A start= URL still pins that place for every driver except Zeman.
 // His boat is only in the Vltava, including when a street is named.
 // With no start=: Filip opens at the museum, Hřib at Letenské náměstí, Pavel on
-// Ke Hradu, Šlachta at Letná until a chase spot exists, Kraus at
-// Divadlo Bez zábradlí, and Macinka at Poslanecká sněmovna. None of those take
+// Ke Hradu, Šlachta's pin is Letná and the drive seats him in a chase there,
+// Kraus at Divadlo Bez zábradlí, and Macinka at Poslanecká sněmovna. None of those take
 // a cycle step. Zeman never does.
 // `unpinned` is the place already chosen for this visit; switching back to
 // Elon or Dave reuses it.

@@ -66,3 +66,19 @@ test('a car stranded at a dead end with no way back stays beside the player but 
 });
 
 }
+
+test('a pursued chase car stays put until the drive starts, then keeps moving', () => {
+  const graph = {nodes: [[0, 0], [0, -200]], edges: [{from: 0, to: 1, points: [[0, 0], [0, -200]], lane: 0, signal: -1}]};
+  const roads = {at: () => true};
+  const sim = new Mobility({roads: graph, walks: {nodes: [], edges: []}, signals: []}, {roads, buildings: {at: () => false}}, {cars: 1, people: 0});
+  const lead = sim.cars[0];
+  Object.assign(lead, {edge: sim.roads.edges[0], s: 40, x: 0, z: -40, heading: 0, speed: 0, cruise: 13, chaseLead: true, chaseHold: true});
+  const far = {x: 400, z: 400, heading: 0, speed: 0};
+  for (let i = 0; i < 30; i++) sim.step(1 / 30, far);
+  assert.equal(lead.s, 40);
+  lead.chaseHold = false;
+  lead.speed = lead.cruise;
+  for (let i = 0; i < 30; i++) sim.step(1 / 30, far);
+  assert.ok(lead.s > 48, `the pursued car is moving, s=${lead.s}`);
+  assert.ok(lead.speed > 8);
+});

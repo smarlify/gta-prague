@@ -134,6 +134,6 @@ export function createPoliceRenderer(scene,simulation,{livery='fi',cityId=null}=
   },
   // WebAudio siren; call every frame. `enabled` must reflect the sound toggle.
   // `enabled` must reflect the sound toggle; the arrest cinematic keeps the siren going after heat drops to zero.
-  audio(context,enabled){siren.update(context,enabled&&(simulation.level>0||!!simulation.busted),simulation.units,simulation.player,simulation.time+arrestClock,simulation.surging||simulation.busted?SURGE_SIREN:1);this.sirenLevel=siren.level;},
+  audio(context,enabled){siren.update(context,enabled&&(simulation.level>0||!!simulation.busted||!!simulation.joinChase?.active),simulation.units,simulation.player,simulation.time+arrestClock,simulation.surging||simulation.busted?SURGE_SIREN:1);this.sirenLevel=siren.level;},
  };
 }

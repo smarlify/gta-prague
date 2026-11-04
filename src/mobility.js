@@ -101,6 +101,7 @@ export class Mobility {
    if(remaining<CORNER_BLEND){const next=this.plan(a)[0];if(next)nextDir=edgeStartDirection(next);}
    if(a.s<CORNER_BLEND&&a.prevDir)prevDir=a.prevDir;}
   let p=routePoint(a.edge,a.s,a.edge.lane,nextDir,prevDir);
+  if(a.chaseLead&&!vehicleFitsRoad(p,this.world)){const centre=routePoint(a.edge,a.s,0,nextDir,prevDir);if(vehicleFitsRoad(centre,this.world))p=centre;}
   // Never fall back to the centre line when the right-hand lane is blocked.
   // Spawn/segment clearance rejects that route instead of using opposing space.
   // Move to the outer right-hand lane only when a mapped road surface exists
@@ -323,7 +324,7 @@ export class Mobility {
   const traffic=[player,...this.cars,...this.externalObstacles];for(const p of this.people)if(p.edge?.crossing&&this.world.roads.at(p.x,p.z))traffic.push(p);
   const tramList=this.trams?.trams||[];this.updateParked();
   for(const a of [...this.cars,...this.people]){
-   if(a.playerTaken)continue;
+   if(a.playerTaken||a.chaseHold)continue;
    a.hiddenFor=(this.visibilityTest?this.visibilityTest(a):Math.hypot(a.x-player.x,a.z-player.z)<350)?0:(a.hiddenFor||0)+dt;
    if(a.knockdown){a.speed=0;a.running=false;continue;}
    if(a.walking&&this.time<(a.holdUntil||0)){a.speed=0;a.running=false;continue;}
@@ -376,6 +377,9 @@ export class Mobility {
     }
     if(this.standing?.length)for(const d of [3,6,10,15]){if(a.s+d>a.edge.length)break;const q=routePoint(a.edge,a.s+d,a.offset??a.edge.lane);if(this.standingAt(q)){const v=Math.max(0,(d-3.5)*.85);if(v<desired){desired=v;hold='follow';holdBy=null;}break;}}
     a.hold=hold;a.holdBy=holdBy;a.atSignal=hold==='signal';
+    // The car Šlachta is already chasing keeps moving through lights. It still
+    // waits for a vehicle in front of it.
+    if(a.chaseLead&&a.hold!=='follow'){desired=Math.max(desired,a.cruise||12);a.hold=null;a.holdBy=null;a.atSignal=false;}
    }
    a.speed+=Math.max(-7*dt,Math.min((running?8:a.walking?2:2.2)*dt,desired-a.speed));
    if(!a.walking)a.speed=Math.min(edgeTopSpeed(a.edge,TRAFFIC_MAX_SPEED),a.speed);
