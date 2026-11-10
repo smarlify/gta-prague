@@ -62,6 +62,19 @@ export const POSLANECKA_SNEMOVNA = Object.freeze({
   heading: -3.133,
 });
 
+// nábřeží Edvarda Beneše in front of Úřad vlády (Strakova akademie,
+// about 50.0919 N, 14.4110 E). Snapped onto the carriageway, facing
+// along the quay. Not inside the building.
+export const URAD_VLADY = Object.freeze({
+  name: 'Úřad vlády',
+  id: 'urad-vlady',
+  district: 'Praha 1 - Malá Strana',
+  street: 'nábřeží Edvarda Beneše',
+  x: -736.5,
+  z: -494.0,
+  heading: -0.755,
+});
+
 // Jungmannova in front of Palác Adria (pasáž Adria), east of Národní divadlo.
 // Snapped onto the carriageway, facing along the street. Not inside the palace.
 export const DIVADLO_BEZ_ZABRADLI = Object.freeze({

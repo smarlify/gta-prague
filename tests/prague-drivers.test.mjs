@@ -23,6 +23,7 @@ import {
   KE_HRADU,
   POSLANECKA_SNEMOVNA,
   PRAZSKY_HRAD,
+  URAD_VLADY,
   VLTAVA_START,
   chaseBody,
   chasePlacement,
@@ -104,6 +105,21 @@ test('Poslanecká sněmovna is on Sněmovní in front of the Chamber', () => {
   assert.ok(carSamples(makeCar(POSLANECKA_SNEMOVNA.x, POSLANECKA_SNEMOVNA.z, POSLANECKA_SNEMOVNA.heading)).every(([x, z]) => roads.at(x, z)?.name === 'Sněmovní'));
 });
 
+test('Úřad vlády is on nábřeží Edvarda Beneše in front of the Office of the Government', () => {
+  const authored = def.starts.find((s) => s.name === 'Úřad vlády');
+  const road = roads.at(URAD_VLADY.x, URAD_VLADY.z);
+  assert.equal(authored.district, 'Praha 1 - Malá Strana');
+  assert.equal(authored.street, 'nábřeží Edvarda Beneše');
+  assert.deepEqual(authored.at, [14.41095779, 50.09191076]);
+  assert.equal(URAD_VLADY.name, 'Úřad vlády');
+  assert.equal(URAD_VLADY.street, 'nábřeží Edvarda Beneše');
+  assert.equal(URAD_VLADY.district, 'Praha 1 - Malá Strana');
+  assert.equal(road?.name, 'nábřeží Edvarda Beneše');
+  assert.equal(road?.kind, 'Ajorata');
+  assert.equal(buildings.at(URAD_VLADY.x, URAD_VLADY.z), undefined);
+  assert.ok(carSamples(makeCar(URAD_VLADY.x, URAD_VLADY.z, URAD_VLADY.heading)).every(([x, z]) => roads.at(x, z)?.name === 'nábřeží Edvarda Beneše'));
+});
+
 test('pinned drivers do not advance the start cycle, and start= still wins', () => {
   const landmarks = [
     {name: 'Národní muzeum', id: 'narodni-muzeum', heading: 1, x: 1, z: 1},
@@ -113,6 +129,7 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
     {...KE_HRADU},
     {...DIVADLO_BEZ_ZABRADLI},
     {...POSLANECKA_SNEMOVNA},
+    {...URAD_VLADY},
   ];
   const storage = memoryStorage();
   storage.setItem(startCycleKey('prague'), '0');
@@ -122,7 +139,7 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
     slachta: 'Letenské náměstí',
     zeman: 'Vltava',
     kraus: 'Divadlo Bez zábradlí',
-    macinka: 'Poslanecká sněmovna',
+    macinka: 'Úřad vlády',
   };
   for (const [id, name] of Object.entries(expectName)) {
     const opened = resolveDriverStart(landmarks, null, storage, 'prague', characterById(id), null);
@@ -136,6 +153,12 @@ test('pinned drivers do not advance the start cycle, and start= still wins', () 
   assert.equal(resolveDriverStart(landmarks, 'Petřín', storage, 'prague', characterById('macinka'), null).start.name, 'Petřín');
   assert.equal(storage.getItem(startCycleKey('prague')), '0');
   assert.equal(resolveDriverStart(landmarks, null, storage, 'prague', characterById('zeman'), null).start.water, true);
+  const macinkaDefault = resolveDriverStart(landmarks, null, storage, 'prague', characterById('macinka'), null);
+  assert.equal(macinkaDefault.start.name, 'Úřad vlády');
+  assert.equal(macinkaDefault.start.x, URAD_VLADY.x);
+  assert.equal(macinkaDefault.start.z, URAD_VLADY.z);
+  assert.equal(macinkaDefault.start.street, 'nábřeží Edvarda Beneše');
+  assert.equal(macinkaDefault.start.district, 'Praha 1 - Malá Strana');
 });
 
 test('Zeman spawns on the Vltava even when start= names a street', () => {

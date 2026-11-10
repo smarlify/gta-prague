@@ -13,7 +13,7 @@ import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,visitScene} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {bindCharacterPicker,characterSwitchRebuilds,occupiedRide,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
-import {CHASE_JOIN_SPEED,CHASE_LEAD_SPEED,CHASE_UNIT_SPEED,DIVADLO_BEZ_ZABRADLI,KE_HRADU,POSLANECKA_SNEMOVNA,PRAZSKY_HRAD,VLTAVA_START,slachtaArrest,slachtaChaseLayout,slachtaWearsUniform} from './driver-starts.js';
+import {CHASE_JOIN_SPEED,CHASE_LEAD_SPEED,CHASE_UNIT_SPEED,DIVADLO_BEZ_ZABRADLI,KE_HRADU,POSLANECKA_SNEMOVNA,PRAZSKY_HRAD,URAD_VLADY,VLTAVA_START,slachtaArrest,slachtaChaseLayout,slachtaWearsUniform} from './driver-starts.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
 import {carSamples,makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
@@ -1196,6 +1196,7 @@ async function boot(){
    if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Ke Hradu'))data.landmarks.push({...KE_HRADU});
    if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Divadlo Bez zábradlí'))data.landmarks.push({...DIVADLO_BEZ_ZABRADLI});
    if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Poslanecká sněmovna'))data.landmarks.push({...POSLANECKA_SNEMOVNA});
+   if(city.id==='prague'&&!data.landmarks.some(l=>l.name==='Úřad vlády'))data.landmarks.push({...URAD_VLADY});
    areaLabel=areaCaption(city.id==='prague'?[...PRAGUE_AREAS,...data.landmarks]:helsinki?[...HELSINKI_AREAS,...extensions.flatMap(e=>e.starts||[])]:data.landmarks,city.name);
    const requestedStart=new URLSearchParams(location.search).get('start'),chosen=placeForCharacter(),firstStart=chosen.start||pickStart(data.landmarks,city.defaultStart)||(helsinki?HARBOUR_START:data.landmarks[0]);
    treeTrunks=createTreeTrunks({lanes:mobilityData.roads.edges});

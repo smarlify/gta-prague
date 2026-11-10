@@ -44,13 +44,14 @@ function memoryStorage() {
 
 test('a missing start cycles every named place, and a start URL pins one', () => {
   assert.equal(registry.counts.starts, city.landmarks.length);
-  // Divadlo Bez zábradlí and Poslanecká sněmovna are authored in city.json and
-  // pushed onto the landmark list at boot, the same way Pražský hrad is.
-  // The baked pack stays the cycle.
+  // Divadlo Bez zábradlí, Poslanecká sněmovna, and Úřad vlády are authored in
+  // city.json and pushed onto the landmark list at boot, the same way Pražský
+  // hrad is. The baked pack stays the cycle.
   const authored = def.starts.map(s => s.name);
-  const pushedAtBoot = new Set(['Divadlo Bez zábradlí', 'Poslanecká sněmovna']);
+  const pushedAtBoot = new Set(['Divadlo Bez zábradlí', 'Poslanecká sněmovna', 'Úřad vlády']);
   assert.ok(authored.includes('Divadlo Bez zábradlí'));
   assert.ok(authored.includes('Poslanecká sněmovna'));
+  assert.ok(authored.includes('Úřad vlády'));
   assert.deepEqual(city.landmarks.map(l => l.name), authored.filter(name => !pushedAtBoot.has(name)));
   const names = city.landmarks.map(l => l.name);
   assert.deepEqual(names, [

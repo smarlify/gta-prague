@@ -159,6 +159,13 @@
    "street": "Sněmovní",
    "at": [14.4038, 50.0892],
    "heading": -3.133
+  },
+  {
+   "name": "Úřad vlády",
+   "district": "Praha 1 - Malá Strana",
+   "street": "nábřeží Edvarda Beneše",
+   "at": [14.41095779, 50.09191076],
+   "heading": -0.755
   }
  ],
  "source": {
