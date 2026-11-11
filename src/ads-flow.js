@@ -5,8 +5,26 @@ import {ref, uploadBytes, getDownloadURL} from 'firebase/storage';
 import {billboardFirebase} from './firebase.js';
 import {applyAdvertiserAccess, submitAdvertiserAuth} from './advertiser-auth.js';
 import {authFailureMessage, createEmailAccount, signInWithEmail} from './email-auth.js';
-import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH, boardId, checkoutAmount, emptyAccount, httpUrl, selectBoardForCheckout} from '../firebase/functions/ad-credits.js';
+import {
+  REVOLUT_CHECKOUT_URL,
+  REVOLUT_QR_PATH,
+  boardId,
+  checkoutAmount,
+  emptyAccount,
+  faceForBoard,
+  httpUrl,
+  ownedBoardIds,
+  selectBoardForCheckout,
+} from '../firebase/functions/ad-credits.js';
 import {adsEndpoints} from './billboard-feed.js';
+import pragueSites from './prague-billboard-sites.json';
+
+const SITE_LABEL = new Map(pragueSites.map((site) => [site.id, site.district || site.id]));
+
+function boardLabel(id) {
+  const district = SITE_LABEL.get(id);
+  return district && district !== id ? `${district} · ${id}` : id;
+}
 
 const IMAGE_LIMIT = 2 * 1024 * 1024;
 const IMAGE_TOO_LARGE = 'The image must be under 2 MB';
@@ -68,6 +86,10 @@ function checkoutMarkup() {
         <p><span>Spent</span><strong id="ads-spent">0</strong></p>
         <p><span>Remaining</span><strong id="ads-remaining">0</strong></p>
       </div>
+      <label id="ads-board-pick-wrap" hidden>Your billboard
+        <select id="ads-board-pick"></select>
+      </label>
+      <p id="ads-face-note" class="board-note" hidden>Each owned board can show its own image and link.</p>
       <img id="ads-preview" class="ads-preview" alt="" hidden />
       <label>Billboard image
         <input id="ads-file" type="file" accept="image/jpeg,image/png,image/webp" />
@@ -88,7 +110,7 @@ function markup({showBack, showCheckout}) {
   // The in-game modal keeps the short placeholder. The advertiser page names itself.
   const title = showCheckout ? 'Advertise in GTA Praha' : 'Your ad can be here';
   const lede = showCheckout
-    ? 'Zde může být vaše reklama. Your ad can be here. One landscape image goes on one board.'
+    ? 'Zde může být vaše reklama. Your ad can be here. Each board you own can show a different landscape image.'
     : 'Zde může být vaše reklama. One landscape image goes on one board.';
   return `${kicker}
     <h1 id="billboard-ads-title">${title}</h1>
@@ -132,9 +154,11 @@ function bind(root, options) {
   const chosenBoard = () => boardId(options.getBoardId());
   let pendingClaim = '';
   let authBusy = false;
+  let activeBoardId = '';
+  let latestAccount = emptyAccount();
 
   function paintChosenBoard() {
-    paintBoard(root, chosenBoard());
+    paintBoard(root, chosenBoard() || activeBoardId);
   }
 
   function paintPrice(account) {
@@ -144,21 +168,54 @@ function bind(root, options) {
       : 'The 50 € request adds another 40 credits. One credit keeps the image up for one day in Prague.';
   }
 
+  function resolveActiveBoard(account) {
+    const owned = ownedBoardIds(account);
+    if (!owned.length) return '';
+    const fromUrl = chosenBoard();
+    if (fromUrl && owned.includes(fromUrl)) return fromUrl;
+    if (activeBoardId && owned.includes(activeBoardId)) return activeBoardId;
+    return owned[0];
+  }
+
+  function paintBoardPicker(account) {
+    const wrap = q('ads-board-pick-wrap');
+    const select = q('ads-board-pick');
+    const note = q('ads-face-note');
+    const owned = ownedBoardIds(account);
+    if (!wrap || !select) return;
+    const show = owned.length >= 1;
+    wrap.hidden = !show;
+    if (note) note.hidden = !show;
+    if (!show) {
+      select.innerHTML = '';
+      return;
+    }
+    activeBoardId = resolveActiveBoard(account);
+    select.innerHTML = owned.map((id) => {
+      const selected = id === activeBoardId ? ' selected' : '';
+      return `<option value="${id}"${selected}>${boardLabel(id)}</option>`;
+    }).join('');
+  }
+
   function paintAccount(account) {
+    latestAccount = account;
     q('ads-spent').textContent = String(account.spent || 0);
     q('ads-remaining').textContent = String(account.credits || 0);
+    paintBoardPicker(account);
+    const face = faceForBoard(account, activeBoardId);
     const preview = q('ads-preview');
-    if (account.imageUrl) {
+    if (face.imageUrl) {
       preview.hidden = false;
-      preview.src = account.imageUrl;
+      preview.src = face.imageUrl;
       preview.alt = 'Your billboard image';
     } else {
       preview.hidden = true;
       preview.removeAttribute('src');
     }
     const link = q('ads-link');
-    if (link && link !== link.ownerDocument.activeElement) link.value = account.linkUrl || '';
+    if (link && link !== link.ownerDocument.activeElement) link.value = face.linkUrl || '';
     paintPrice(account);
+    paintChosenBoard();
   }
 
   function chosenLink() {
@@ -232,21 +289,32 @@ function bind(root, options) {
       showImageTooLarge(root.ownerDocument);
       return;
     }
+    const siteId = boardId(activeBoardId) || resolveActiveBoard(latestAccount) || chosenBoard();
+    if (!siteId) throw new Error('Pick a billboard first.');
+    activeBoardId = siteId;
     const linkUrl = chosenLink();
-    const stored = ref(services().storage, `billboards/${user.uid}/face`);
+    const stored = ref(services().storage, `billboards/${user.uid}/${siteId}`);
     await uploadBytes(stored, file, {contentType: file.type});
     const imageUrl = await getDownloadURL(stored);
     if (!imageUrl.startsWith('https://firebasestorage.googleapis.com/')) throw new Error('Unexpected image address');
-    await updateDoc(doc(services().firestore, 'billboardAccounts', user.uid), {imageUrl, linkUrl});
+    await updateDoc(doc(services().firestore, 'billboardAccounts', user.uid), {
+      [`faces.${siteId}`]: {imageUrl, linkUrl},
+    });
     paintAccount(await refreshAccount(user.uid));
-    q('ads-status').textContent = 'Image saved. It goes up while credits remain.';
+    q('ads-status').textContent = 'Image saved for this board. It goes up while credits remain.';
   }
 
   async function saveLink(user) {
+    const siteId = boardId(activeBoardId) || resolveActiveBoard(latestAccount) || chosenBoard();
+    if (!siteId) throw new Error('Pick a billboard first.');
+    activeBoardId = siteId;
     const linkUrl = chosenLink();
-    await updateDoc(doc(services().firestore, 'billboardAccounts', user.uid), {linkUrl});
+    const face = faceForBoard(latestAccount, siteId);
+    await updateDoc(doc(services().firestore, 'billboardAccounts', user.uid), {
+      [`faces.${siteId}`]: {imageUrl: face.imageUrl || '', linkUrl},
+    });
     paintAccount(await refreshAccount(user.uid));
-    q('ads-status').textContent = linkUrl ? 'Link saved.' : 'Link removed.';
+    q('ads-status').textContent = linkUrl ? 'Link saved for this board.' : 'Link removed from this board.';
   }
 
   function sync() {
@@ -312,6 +380,17 @@ function bind(root, options) {
     mode = mode === 'create' ? 'sign-in' : 'create';
     paintMode();
     q('ads-status').textContent = '';
+  });
+  q('ads-board-pick').addEventListener('change', () => {
+    activeBoardId = boardId(q('ads-board-pick').value);
+    q('ads-status').textContent = '';
+    paintAccount(latestAccount);
+    const win = root.ownerDocument?.defaultView;
+    if (win?.history?.replaceState && activeBoardId) {
+      const url = new URL(win.location.href);
+      url.searchParams.set('board', activeBoardId);
+      win.history.replaceState({}, '', url);
+    }
   });
   q('ads-sign-out').addEventListener('click', () => {
     pendingClaim = '';

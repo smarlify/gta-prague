@@ -20,6 +20,7 @@ import {
   PLACEHOLDER_EN,
   checkoutAmount,
   emptyAccount,
+  faceForBoard,
   facesForDay,
   grantPurchase,
   httpUrl,
@@ -315,13 +316,65 @@ test('a paid board visits its link and an empty board stays for sale', () => {
   assert.match(main, /action\.kind==='visit'/);
   assert.match(ads, /id="ads-link"/);
   assert.match(ads, /type="url"/);
-  assert.match(ads, /\{linkUrl\}/);
+  assert.match(ads, /id="ads-board-pick"/);
+  assert.match(ads, /faces\.\$\{siteId\}/);
+  assert.match(ads, /billboards\/\$\{user\.uid\}\/\$\{siteId\}/);
+  assert.doesNotMatch(ads, /billboards\/\$\{user\.uid\}\/face/);
   assert.doesNotMatch(ads.slice(ads.indexOf('async function saveLink'), ads.indexOf('function sync')), /credits/);
   assert.match(rules, /request\.auth\.uid == uid/);
   assert.match(rules, /moneyUnchanged\(\)/);
-  assert.match(rules, /hasOnly\(\['imageUrl', 'selectedBoardId', 'linkUrl'\]\)/);
+  assert.match(rules, /hasOnly\(\['imageUrl', 'selectedBoardId', 'linkUrl', 'faces'\]\)/);
   assert.match(rules, /linkUrlOk\(\)/);
+  assert.match(rules, /facesOk\(\)/);
   assert.doesNotMatch(rules, /allow read: if true/);
+});
+
+test('one account can put a different image on each owned board', () => {
+  const sites = [
+    {id: 'praha-1-stare-mesto-01'},
+    {id: 'praha-1-stare-mesto-02'},
+    {id: 'praha-2-vysehrad-01'},
+  ];
+  const ada = {
+    uid: 'ada',
+    credits: 20,
+    boardIds: ['praha-1-stare-mesto-01', 'praha-2-vysehrad-01'],
+    faces: {
+      'praha-1-stare-mesto-01': {imageUrl: 'https://example.test/a.jpg', linkUrl: 'https://smarlify.co/a'},
+      'praha-2-vysehrad-01': {imageUrl: 'https://example.test/b.jpg', linkUrl: 'https://smarlify.co/b'},
+    },
+  };
+  const faces = facesForDay(sites, [ada], '2026-10-25');
+  assert.equal(faces[0].imageUrl, 'https://example.test/a.jpg');
+  assert.equal(faces[0].linkUrl, 'https://smarlify.co/a');
+  assert.equal(faces[1].imageUrl, null);
+  assert.equal(faces[2].imageUrl, 'https://example.test/b.jpg');
+  assert.equal(faces[2].linkUrl, 'https://smarlify.co/b');
+  assert.equal(faceForBoard(ada, 'praha-1-stare-mesto-01').imageUrl, 'https://example.test/a.jpg');
+  assert.equal(faceForBoard(ada, 'praha-2-vysehrad-01').imageUrl, 'https://example.test/b.jpg');
+
+  const legacy = {
+    uid: 'bob',
+    imageUrl: 'https://example.test/legacy.jpg',
+    linkUrl: 'https://smarlify.co/legacy',
+    credits: 8,
+    boardIds: ['praha-1-stare-mesto-01', 'praha-1-stare-mesto-02'],
+  };
+  const painted = facesForDay(sites, [legacy], '2026-10-25');
+  assert.deepEqual(painted.map((face) => face.imageUrl), [
+    'https://example.test/legacy.jpg',
+    'https://example.test/legacy.jpg',
+    null,
+  ]);
+  assert.equal(painted[0].linkUrl, 'https://smarlify.co/legacy');
+  assert.equal(faceForBoard(legacy, 'praha-1-stare-mesto-02').imageUrl, 'https://example.test/legacy.jpg');
+
+  const ads = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
+  assert.match(ads, /id="ads-board-pick"/);
+  assert.match(ads, /resolveActiveBoard/);
+  assert.match(ads, /Each owned board can show its own/);
+  const storage = readFileSync(new URL('../storage.rules', import.meta.url), 'utf8');
+  assert.match(storage, /match \/billboards\/\{uid\}\/\{file\}/);
 });
 
 test('paid boards share one credit pool and an open costs that owner one credit', () => {

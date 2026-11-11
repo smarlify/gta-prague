@@ -1,6 +1,7 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // One object per board: billboards/{uid}/{boardId}. Legacy uploads used .../face.
     match /billboards/{uid}/{file} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == uid
