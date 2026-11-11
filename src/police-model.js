@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {wheelGeometry} from './car-kit.js';
 import {headBeams} from './vehicle-models.js';
 import {policeLiveryFor,policeAgencyFor} from './czech-fleet.js';
 export {policeLiveryFor,policeAgencyFor};
@@ -237,7 +238,7 @@ export function createPoliceBody(variant='estate',livery='fi'){
    box(.12,.04,.03,'plate',side*W*.55,.66,L+.01);
   }
   box(W*1.86,.2,.17,'black',0,.4,-L+.1);box(W*1.9,.22,.14,'rubber',0,.44,L-.08);box(W*1.3,.09,.12,'chrome',0,.37,L-.09);
-  box(W*1.2,.19,.09,'grey',0,.62,-L+.03);for(let i=0;i<4;i++)box(.02,.17,.1,'chrome',-.33+i*.22,.62,-L+.02);box(W*1.2,.02,.1,'chrome',0,.72,-L+.02);
+  box(W*1.2,.19,.09,'grey',0,.62,-L+.03);for(let i=0;i<9;i++)box(.014,.17,.1,'chrome',-.40+i*.10,.62,-L+.02);box(W*1.2,.02,.1,'chrome',0,.72,-L+.02);box(W*1.08,.02,.1,'chrome',0,.525,-L+.02);for(const side of [-1,1])box(.012,.07,.105,'black',side*W*.58,B-.17,-L+.02,0,side*.14); // ribbed grille, split lamps
   box(W*1.14,.085,.035,'black',0,B-.07,L-.012);
   for(const z of [-L-.006,L+.017]){box(.5,.12,.025,'plate',0,s.plateY,z);box(.045,.11,.029,'glass',-.215,s.plateY,z);}
  }else{
@@ -274,13 +275,12 @@ export function createPoliceBody(variant='estate',livery='fi'){
  const tiles=[];for(const [z,region]of [[bar.z-.152,REGION.barFront],[bar.z+.152,REGION.barRear]]){const g=tileGeometry(.48,.07,region);if(z>bar.z)g.rotateY(Math.PI);g.translate(0,bar.y,z);tiles.push(g.toNonIndexed());}
  for(const side of [-1,1])box(.05,.04,.1,'black',side*(bar.w/2-.12),bar.y-.05,bar.z);
  // Wheels: silver multi-spoke alloys on the estate, plainer steel wheels with small hubcaps on the van.
+ // One mesh per wheel (tyre, rim and spokes share a vertex-coloured finish).
+ mats.wheel=new THREE.MeshStandardMaterial({vertexColors:true,metalness:.45,roughness:.5});mats.wheel.name='wheel';
+ const wheel=wheelGeometry(s.r,s.tyre,van?{detailed:true,spokes:0,rim:.68,rimColor:'#3a4046'}:{detailed:true,spokes:5,rim:.7});
  for(const side of [-1,1])for(const z of s.ax){
   const pivot=new THREE.Group();pivot.position.set(side*(W-.1),s.r,z);group.add(pivot);const spin=new THREE.Group();pivot.add(spin);
-  const tire=new THREE.Mesh(new THREE.CylinderGeometry(s.r,s.r,s.tyre,18),mats.rubber);tire.rotation.z=Math.PI/2;spin.add(tire);
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(s.r*(van?.45:.7),s.r*(van?.45:.7),s.tyre+.01,14),van?mats.grey:mats.chrome);hub.rotation.z=Math.PI/2;spin.add(hub);
-  if(!van)for(let i=0;i<5;i++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(s.tyre+.02,.03,s.r*1.3),mats.black);spoke.rotation.x=i*Math.PI/5;spin.add(spoke);}
-  else{const steel=new THREE.Mesh(new THREE.CylinderGeometry(s.r*.68,s.r*.68,s.tyre+.004,14),mats.black);steel.rotation.z=Math.PI/2;spin.add(steel);}
-  spin.children.forEach(m=>m.castShadow=true);
+  const mesh=new THREE.Mesh(wheel,mats.wheel);mesh.name='wheel';mesh.castShadow=true;spin.add(mesh);
  }
  for(const [name,gs]of batches){
   let merged=mergeGeometries(gs);

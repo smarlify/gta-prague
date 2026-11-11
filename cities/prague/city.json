@@ -166,6 +166,27 @@
    "street": "nábřeží Edvarda Beneše",
    "at": [14.41095779, 50.09191076],
    "heading": -0.755
+  },
+  {
+   "name": "Strakova akademie",
+   "district": "Praha 1 - Malá Strana",
+   "street": "nábřeží Edvarda Beneše",
+   "at": [14.41088669, 50.09186134],
+   "heading": -0.755
+  },
+  {
+   "name": "Velvyslanectví Japonska",
+   "district": "Praha 1 - Malá Strana",
+   "street": "Maltézské náměstí",
+   "at": [14.4057, 50.0863],
+   "heading": -2.815
+  },
+  {
+   "name": "XTV",
+   "district": "Praha 1 - Nové Město",
+   "street": "Wilsonova",
+   "at": [14.4346, 50.0826],
+   "heading": -0.027
   }
  ],
  "source": {

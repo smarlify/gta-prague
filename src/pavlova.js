@@ -2,7 +2,7 @@
 // The driver is not a real person. Coordinates are local metres (x east, z south).
 import {bootStart,pickStart,slug} from './cities.js';
 import {applyCrashImpulse} from './crash-physics.js';
-import {VLTAVA_START} from './driver-starts.js';
+import {waterStart} from './driver-starts.js';
 
 // Southbound corridor from Národní muzeum toward the square. Side streets are the
 // approaches that do not run along this line.
@@ -51,13 +51,13 @@ export function startHeading(start,driver,fallback=0){
 // a cycle step. Zeman never does.
 // `unpinned` is the place already chosen for this visit; switching back to
 // Elon or Dave reuses it.
-const PINNED_START={hrib:'Letenské náměstí',pavel:'Ke Hradu',slachta:'Letenské náměstí',kraus:'Divadlo Bez zábradlí',macinka:'Úřad vlády'};
+const PINNED_START={hrib:'Letenské náměstí',pavel:'Ke Hradu',slachta:'Letenské náměstí',kraus:'Divadlo Bez zábradlí',macinka:'Úřad vlády',vondracek:'Strakova akademie',okamura:'Velvyslanectví Japonska',xaver:'XTV'};
 export function resolveDriverStart(landmarks,request,storage,cityId='prague',driver=null,unpinned=null){
  const filip=!!driver?.pavlova&&cityId==='prague';
  const prague=!request&&cityId==='prague';
  // The Challenger stays in the river every time he is placed. A street request
  // stays on the URL for the next driver; it is not used here.
- if(cityId==='prague'&&driver?.water)return {start:{...VLTAVA_START},pinned:false,unpinned};
+ if(cityId==='prague'&&driver?.water)return {start:{...waterStart(driver)},pinned:false,unpinned};
  if(!request&&filip){
   const museum=pickStart(landmarks,'Národní muzeum');
   if(museum)return {start:{...museum,heading:MUSEUM_HEADING},pinned:false,unpinned};

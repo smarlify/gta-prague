@@ -11,10 +11,15 @@ export const TRAVEL_MODES=Object.freeze({
  motorbike:{label:'Motorbike',speed:18,acceleration:6.5,braking:11,halfWidth:.42,halfLength:1.15},
  scooter:{label:'Scooter',speed:25/3.6,acceleration:2.8,braking:8,halfWidth:.3,halfLength:.62},
  challenger:{label:'Challenger',speed:4.2,acceleration:1.6,braking:3.2,halfWidth:.95,halfLength:1.35},
+ // Bartoš's přívoz: a bigger, heavier boat than the Challenger. Same water rules.
+ ferry:{label:'Přívoz',speed:3.8,acceleration:1.6,braking:2.6,halfWidth:1.2,halfLength:3.1},
 });
+// Boats stay on mapped water, land at a bank and never crash.
+const BOATS=new Set(['challenger','ferry']);
+export const isBoat=mode=>BOATS.has(mode);
 export const CRASH_SPEED=2.2; // m/s: slower bumps just stop the ride
 // Impact kinds (impacts.js HITTER_MASS) of the player's own body, and the speeds below which people simply step aside.
-export const HIT_KIND={walk:'walker',swim:'walker',bike:'bicycle',scooter:'scooter',motorbike:'motorbike',challenger:'walker'},HIT_SPEED={walker:1,bicycle:1.2,scooter:1.2,motorbike:1.4};
+export const HIT_KIND={walk:'walker',swim:'walker',bike:'bicycle',scooter:'scooter',motorbike:'motorbike',challenger:'walker',ferry:'walker'},HIT_SPEED={walker:1,bicycle:1.2,scooter:1.2,motorbike:1.4};
 const onFoot=mode=>mode==='walk'||mode==='swim';
 const inMappedWater=(world,x,z)=>world.water?.some(b=>(!b.bbox||x>=b.bbox[0]&&x<=b.bbox[2]&&z>=b.bbox[1]&&z<=b.bbox[3])&&pointInPolygon(x,z,b.rings));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -28,7 +33,6 @@ export function slopeFactor(mode,grade){
  if(mode==='bike')return g>0?Math.max(.3,1/(1+9*g)):Math.min(1.35,1-4*g);
  if(mode==='scooter')return g>0?Math.max(.45,1/(1+4.5*g)):Math.min(1.15,1-2*g);
  if(mode==='motorbike')return g>0?Math.max(.55,1/(1+3*g)):Math.min(1.12,1-1.2*g);
- if(mode==='challenger')return 1;
  return 1;
 }
 const slope=[0,0];
@@ -50,7 +54,7 @@ export function travelCollision(p,mode,world,obstacles=[],ignore=[],from=null){
  for(const [sx,sz] of [[0,0],[-w,-l],[w,-l],[-w,l],[w,l],[0,-l],[0,l]]){
   const q=offset(p,sx,sz);
   // The Challenger stays in open water and stops at a bank, a road, or a deck.
-  if(mode==='challenger'){
+  if(isBoat(mode)){
    if(!insidePlayable(q.x,q.z,.2))return 'boundary';
    if(!inMappedWater(world,q.x,q.z)||world.roads.at(q.x,q.z)||world.pavement?.at(q.x,q.z))return 'bank';
    continue;
@@ -95,7 +99,7 @@ function shoreLanding(p,world,obstacles){
 }
 function canBoardChallenger(person,boat,world,obstacles,ignore){
  if(travelCollision({x:person.x,z:person.z,heading:person.heading||0},'walk',world,obstacles,ignore))return false;
- if(travelCollision(boat,'challenger',world,obstacles,ignore))return false;
+ if(travelCollision(boat,isBoat(boat.mode)?boat.mode:'challenger',world,obstacles,ignore))return false;
  return !solidBetween(person,boat,world);
 }
 // A dock can surround the front wheel. Roll the ride a short way onto clear
@@ -109,7 +113,7 @@ export function mountPosition(ride,mode,world,obstacles=[],ignore=[]){
  return null;
 }
 export function exitPosition(p,mode,world,obstacles=[]){
- if(mode==='challenger')return shoreLanding(p,world,obstacles);
+ if(isBoat(mode))return shoreLanding(p,world,obstacles);
  const car=mode==='car',side=car?1.7:.9,end=car?3:1.5;
  for(const [x,z] of [[-side,0],[side,0],[-side,1],[side,1],[0,end],[0,-end]]){
   const q=offset(p,x,z);
@@ -146,7 +150,7 @@ export class PlayerTravel{
  reset(car,world,{ride=null}={}){
   for(const source of this.claimedSources||[])source.release?.();
   this.claimedSources=[];this.world=world;this.car=car;this.homeCar=car;car.travelMode='car';car.id='car';this.cars=[car];this.actor=car;this.mode='car';this.rides=starterRides(car,world);this.riding=null;this.transition=null;this.sprint=false;this.sunkCar=null;
-  if(ride==='bike'||ride==='motorbike'||ride==='challenger')this.mountStarterRide(ride);
+  if(ride==='bike'||ride==='motorbike'||isBoat(ride))this.mountStarterRide(ride);
  }
  // The chosen place stays under the rider. The home car waits nearby, so the
  // two do not occupy the same ground. A boat searches out to the bank.
@@ -156,7 +160,7 @@ export class PlayerTravel{
   if(!ride){ride={...makeActor(start,mode),id:mode,mode,parked:true};this.rides.push(ride);}
   if(Math.hypot(ride.x-start.x,ride.z-start.z)>1){this.car.x=ride.x;this.car.z=ride.z;this.car.heading=ride.heading;}
   else{
-   const limit=mode==='challenger'?120:22,step=mode==='challenger'?4:2;
+   const limit=isBoat(mode)?120:22,step=isBoat(mode)?4:2;
    for(let radius=4;radius<=limit&&Math.hypot(this.car.x-start.x,this.car.z-start.z)<1;radius+=step){
     for(let i=0;i<16;i++){
      const angle=i*Math.PI/8,spot={x:start.x+Math.cos(angle)*radius,z:start.z+Math.sin(angle)*radius,heading:start.heading};
@@ -165,7 +169,7 @@ export class PlayerTravel{
     }
    }
   }
-  const visual=mode==='motorbike'?{kind:'motorbike'}:mode==='challenger'?{kind:'challenger'}:{kind:'bicycle'};
+  const visual=mode==='motorbike'?{kind:'motorbike'}:isBoat(mode)?{kind:mode}:{kind:'bicycle'};
   Object.assign(ride,start,{speed:0,steer:0,parked:false,visual});
   this.actor=ride;this.mode=mode;this.riding=ride;
  }
@@ -175,12 +179,12 @@ export class PlayerTravel{
   const sources=[...this.carSources().map(s=>({source:s,mode:'car'})),...this.rideSources().filter(s=>s.mode==='bike'||s.mode==='scooter').map(source=>({source,mode:source.mode}))].filter(({source:s})=>s.actor&&!s.actor.playerTaken&&(s.actor.edge!==null||s.allowStopped)&&gap(this.actor,s.actor)<14),parked=this.parked();
   const entries=[...this.cars.map(actor=>({id:actor.id,mode:'car',actor,label:actor.label||'Car'})),...this.rides.map(actor=>({id:actor.id,mode:actor.mode,actor,label:actor.label||TRAVEL_MODES[actor.mode].label})),...sources.map(({source,mode})=>({id:source.id,mode,actor:source.actor,label:source.label||(mode==='car'?'Car':TRAVEL_MODES[mode].label),source}))];
   return entries.map(r=>{
-   const distance=gap(this.actor,r.actor),near=r.mode==='car'?bodyContains(r.actor,this.actor.x,this.actor.z,1.4):distance<(r.mode==='challenger'?SHORE_REACH:3);
+   const distance=gap(this.actor,r.actor),near=r.mode==='car'?bodyContains(r.actor,this.actor.x,this.actor.z,1.4):distance<(isBoat(r.mode)?SHORE_REACH:3);
    // The target vehicle's own collider is ignored only for reaching it;
    // real buildings and intervening vehicles still prevent entry.
    // The Challenger stays in the water, so the walk up to it crosses the river edge.
    const ignore=r.source?.obstacle?[r.source.obstacle]:[],bodies=[...parked,...obstacles].filter(b=>b!==r.actor),stopped=Math.abs(r.actor.speed||0)<=1.2;
-   const approach=r.mode==='challenger'?canBoardChallenger(this.actor,r.actor,this.world,bodies,ignore):clearTravelPath(this.actor,r.actor,this.world,bodies,ignore);
+   const approach=isBoat(r.mode)?canBoardChallenger(this.actor,r.actor,this.world,bodies,ignore):clearTravelPath(this.actor,r.actor,this.world,bodies,ignore);
    const path=onFoot(this.mode)&&near&&stopped&&r.source?.canClaim?.()!==false&&approach;
    const mount=path&&r.mode!=='car'?mountPosition(r.actor,r.mode,this.world,bodies,ignore):null;
    return {...r,distance,mount,available:!!path&&(r.mode==='car'||!!mount)};
@@ -194,7 +198,7 @@ export class PlayerTravel{
    if(this.mode==='car'&&(this.actor.flying||(this.actor.alt||0)>.4))return {ok:false,message:'Land before getting out.'};
    if(Math.abs(this.actor.speed)>1.2)return {ok:false,message:'Stop before getting off.'};
    const position=exitPosition(this.actor,this.mode,this.world,[...this.parked(),...obstacles]);
-   if(!position)return {ok:false,message:this.mode==='challenger'?'Bring the boat to the shore.':'There is no room to get off here. Move to a clear spot.'};
+   if(!position)return {ok:false,message:isBoat(this.mode)?'Bring the boat to the shore.':'There is no room to get off here. Move to a clear spot.'};
    this.actor.speed=0;this.actor.steer=0;if(this.riding){Object.assign(this.riding,this.actor);this.riding.parked=true;}
    const from={...this.actor};this.actor=makeActor(position,'walk',this.actor.distance);this.mode='walk';this.riding=null;this.startTransition(from);
    return {ok:true,message:'On foot'};
@@ -273,7 +277,7 @@ export class PlayerTravel{
    p.distance+=gap(p,q);Object.assign(p,{x:q.x,z:q.z,heading:q.heading});
   }
   if(this.riding)Object.assign(this.riding,p);
-  if(collision&&!walk&&this.mode!=='challenger'&&Math.abs(before.speed)>=CRASH_SPEED){const v=Math.abs(before.speed);this.crash(v,obstacles);return {collision,moved:gap(before,p),crashed:v};}
+  if(collision&&!walk&&!isBoat(this.mode)&&Math.abs(before.speed)>=CRASH_SPEED){const v=Math.abs(before.speed);this.crash(v,obstacles);return {collision,moved:gap(before,p),crashed:v};}
   return {collision,moved:gap(before,p)};
  }
  snapshot(){const copy=({visual,...actor})=>({...actor});return {mode:this.mode,sprint:this.sprint,actor:copy(this.actor),car:this.car?copy(this.car):null,cars:this.cars.map(copy),rides:this.rides.map(copy),choices:this.choices().map(({id,mode,label,distance,available})=>({id,mode,label,distance,available})),sunk:!!this.sunkCar};}

@@ -5,12 +5,14 @@
  */
 import * as THREE from 'three';
 import { createVehicle, animateVehicle, revealCabinGlass } from '../vehicles.js';
+import { CAR_TYPES } from '../vehicle-models.js';
 import { createPersonBatch, advanceGait } from '../person-model.js';
 import { applyCharacterLook, genericPlayerLook } from '../character-looks.js';
 import { ambulanceVehicle, dressPlayerLook, seatedCabDriver } from '../player-travel-renderer.js';
 import { slachtaWearsUniform } from '../driver-starts.js';
 import { OFFICER_LOOK, officerLook } from '../roadblock.js';
 import { createRideVehicle, PLAYER_BIKE, PLAYER_SCOOTER, challengerWaterY } from '../player-ride-models.js';
+import { isBoat } from '../player-travel.js';
 import { syncPirateFlag } from '../pirate-flag.js';
 import { createPoliceBody, unitNumber, unitVariant, policeAgencyFor } from '../police-model.js';
 import { attachPursuitLights, flashPursuitLights, strobe } from '../police-renderer.js';
@@ -117,7 +119,7 @@ function createCarMesh(vehicle) {
     model.name = 'Remote player car';
     return model;
   }
-  const type = vehicle?.type && ['crossover', 'hatchback', 'sedan', 'estate', 'suv', 'van', 'taxi', 'offroad', 'gwagen', 'roadster', 'scala', 'x5', 'ram'].includes(vehicle.type)
+  const type = vehicle?.type && CAR_TYPES.includes(vehicle.type)
     ? vehicle.type
     : 'roadster';
   const model = createVehicle(0, false, type);
@@ -200,7 +202,7 @@ class RemoteActor {
   }
 
   ensureBody(net) {
-    const rideMode = net.mode === 'bike' || net.mode === 'scooter' || net.mode === 'motorbike' || net.mode === 'challenger';
+    const rideMode = net.mode === 'bike' || net.mode === 'scooter' || net.mode === 'motorbike' || isBoat(net.mode);
     const mode = net.mode === 'car' ? 'car' : rideMode ? net.mode : 'walk';
     const vKey = mode === 'car' ? vehicleKey(net.vehicle) : mode;
     if (this.mode === mode && this.vehicleKey === vKey) return;
@@ -210,15 +212,15 @@ class RemoteActor {
     if (mode === 'car') {
       this.car = createCarMesh(net.vehicle);
       if (this.car) this.root.add(this.car);
-    } else if (mode === 'bike' || mode === 'scooter' || mode === 'motorbike' || mode === 'challenger') {
-      const kind = mode === 'scooter' ? 'scooter' : mode === 'motorbike' ? 'motorbike' : mode === 'challenger' ? 'challenger' : 'bicycle';
+    } else if (mode === 'bike' || mode === 'scooter' || mode === 'motorbike' || isBoat(mode)) {
+      const kind = mode === 'scooter' ? 'scooter' : mode === 'motorbike' ? 'motorbike' : isBoat(mode) ? mode : 'bicycle';
       this.ride = createRideVehicle({
         kind,
         color: mode === 'motorbike' ? '#c5ccd1' : '#6f9cc4',
         ...(mode === 'bike' && net.character === 'hrib' ? { flag: 'pirate' } : {}),
       }, mode);
       this.root.add(this.ride.root);
-      if (mode !== 'challenger') {
+      if (!isBoat(mode)) {
         this.ped = createPedMesh(this.uid, net.character || '');
         this.root.add(this.ped.batch.group);
       }
@@ -320,7 +322,7 @@ class RemoteActor {
     const heading = this.root.rotation.y;
     const speed = this.target.speed;
     groundPose(x, z, heading, 1.4, 0.8, slope);
-    this.root.position.y = this.mode === 'challenger' ? challengerWaterY(x, z) : 0.12 + slope.y;
+    this.root.position.y = isBoat(this.mode) ? challengerWaterY(x, z) : 0.12 + slope.y;
 
     if (this.car) {
       this.car.rotation.set(slope.pitch, 0, slope.roll, 'YXZ');
@@ -333,12 +335,13 @@ class RemoteActor {
       if (this.ped) this.ped.batch.group.visible = false;
     } else if (this.ride) {
       this.ride.root.visible = true;
-      this.ride.root.position.set(0, this.mode === 'challenger' ? 0 : (this.ride.lift || 0.12), 0);
+      this.ride.root.position.set(0, isBoat(this.mode) ? 0 : (this.ride.lift || 0.12), 0);
       this.ride.root.rotation.set(0, 0, 0);
       this.ride.motion?.update((this.ride._dist = (this.ride._dist || 0) + Math.abs(speed) * dt));
       syncPirateFlag(this.ride, this.mode === 'bike' && net.character === 'hrib');
       this.ride.flag?.update(dt, speed);
-      if (this.ped && this.mode !== 'challenger') {
+      this.ride.banner?.update(dt, speed);
+      if (this.ped && !isBoat(this.mode)) {
         this.syncLook(net);
         const pose = this.mode === 'scooter' ? 'scooter' : 'cycle';
         const bike = this.ride.anchors || PLAYER_BIKE;

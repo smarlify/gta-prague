@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {registerEnvMaterial} from './environment.js';
-import {PAINT_FLAKE_UNIFORM,PAINT_FLAKE_SCALE_UNIFORM} from './surface-textures.js';
+import {createVehicleMaterials,loft,headBeams,addWheels} from './car-kit.js';
+import {buildScala,buildGwagen,buildX5,buildTransporter,buildPanamera,buildEs,buildTuktuk} from './cast-cars.js';
+export {createVehicleMaterials,headBeams};
 
 // Original geometry, not manufacturer CAD. Crossover dimensions are based on
 // Toyota Finland MY26 Yaris Cross: 4.172 x 1.765 x 1.595 m, wheelbase 2.560 m.
@@ -23,6 +25,23 @@ export const SCALA_PAINT='#ee5a1c';
 export const X5_PAINT='#16181c';
 // Deep metallic blue for the RAM. Original mesh, not a Dodge badge.
 export const RAM_PAINT='#1a4f96';
+// A plain white works van, GT Silver for the Panamera, a deep red for the Lexus, and a
+// rickshaw blue under the yellow canopy.
+export const TRANSPORTER_PAINT='#eef0ec';
+export const PANAMERA_PAINT='#b4b8bc';
+export const ES_PAINT='#7c2a2e';
+export const TUKTUK_PAINT='#1f6fd0';
+// Every body createDetailedVehicle can build: traffic styles first, then the named drivers' cars.
+export const CAR_TYPES=Object.freeze(['crossover','hatchback','sedan','estate','suv','van','taxi','offroad','gwagen','roadster','scala','x5','ram','transporter','panamera','es','tuktuk']);
+const CAST={
+ gwagen:{build:buildGwagen,paint:GWAGEN_PAINT,name:'Mercedes G'},
+ scala:{build:buildScala,paint:SCALA_PAINT,name:'Škoda Scala'},
+ x5:{build:buildX5,paint:X5_PAINT,name:'BMW X5'},
+ transporter:{build:buildTransporter,paint:TRANSPORTER_PAINT,name:'Volkswagen Transporter',metalness:.05,roughness:.4},
+ panamera:{build:buildPanamera,paint:PANAMERA_PAINT,name:'Porsche Panamera',metalness:.6,roughness:.24},
+ es:{build:buildEs,paint:ES_PAINT,name:'Lexus ES 300h',metalness:.5,roughness:.24},
+ tuktuk:{build:buildTuktuk,paint:TUKTUK_PAINT,name:'Tuktuk',metalness:.1,roughness:.45},
+};
 export const VEHICLE_TYPES=['crossover','hatchback','sedan','estate','suv','van','taxi'];
 const specs={
  crossover:{l:4.172,w:1.765,h:1.595,wb:2.56,rf:-.46,rr:1.18,rg:1.76,belt:1.02,r:.335,clad:true,blackRoof:true},
@@ -33,80 +52,29 @@ const specs={
  van:{l:4.47,w:1.84,h:1.91,wb:2.78,rf:-.80,rr:1.91,rg:2.04,belt:1.07,r:.33,van:true},
  taxi:{l:4.60,w:1.81,h:1.49,wb:2.70,rf:-.46,rr:1.60,rg:2.05,belt:.96,r:.32,rails:true,taxi:true},
  offroad:{l:4.55,w:1.92,h:1.86,wb:2.72,rf:-.7,rr:1.45,rg:2.0,belt:1.15,r:.4,clad:true},
- gwagen:{l:4.825,w:1.931,h:1.969,wb:2.89,gf:-1.02,rf:-.84,rr:1.38,rg:1.55,belt:1.30,r:.40,clad:true,rails:true,boxy:true},
+ // The cabin of a G runs to the tail; the spare wheel hangs behind it.
+ gwagen:{l:4.825,w:1.931,h:1.969,wb:2.89,gf:-1.02,rf:-.84,rr:2.10,rg:2.31,belt:1.30,r:.40,clad:true,rails:true,boxy:true},
  // October 2026 Rocket trim: published wheelbase 2.825 m and width about 2.00 m.
  // Length is not published; 4.55 m is the overhang that fits that wheelbase.
  roadster:{l:4.55,w:1.98,h:1.14,wb:2.825,rf:.2,rr:1.25,rg:1.55,belt:.62,r:.34},
- scala:{l:4.362,w:1.793,h:1.471,wb:2.649,rf:-.42,rr:1.05,rg:1.72,belt:.96,r:.31},
- x5:{l:4.922,w:2.004,h:1.745,wb:2.975,rf:-.62,rr:1.22,rg:1.95,belt:1.12,r:.39,clad:true,rails:true,kidney:true},
+ scala:{l:4.362,w:1.793,h:1.471,wb:2.649,rf:-.42,rr:1.25,rg:1.95,belt:.96,r:.31},
+ x5:{l:4.922,w:2.004,h:1.745,wb:2.975,rf:-.55,rr:1.40,rg:2.12,belt:1.12,r:.39,clad:true,rails:true,kidney:true},
  // Crew cab, short bed. The crosshair is drawn in buildRam; it is not a badge.
  ram:{l:5.92,w:2.08,h:1.96,wb:3.67,belt:1.30,r:.42},
+ // Volkswagen Transporter (T6) panel van: 4.904 x 1.904 x 1.990 m, wheelbase 3.000 m.
+ transporter:{l:4.904,w:1.904,h:1.99,wb:3.0,rf:-.95,rr:2.35,rg:2.43,belt:1.18,r:.34},
+ // Porsche Panamera (971): 5.049 x 1.937 x 1.423 m, wheelbase 2.950 m.
+ panamera:{l:5.049,w:1.937,h:1.423,wb:2.95,rf:-.30,rr:.90,rg:2.05,belt:.93,r:.36},
+ // Lexus ES 300h (XZ10): 4.975 x 1.865 x 1.445 m, wheelbase 2.870 m.
+ es:{l:4.975,w:1.865,h:1.445,wb:2.87,rf:-.38,rr:.92,rg:1.92,belt:.94,r:.34},
+ // Three-wheeled auto rickshaw, about 2.9 x 1.4 x 1.85 m.
+ tuktuk:{l:2.9,w:1.38,h:1.85,wb:2.0,rf:-.75,rr:1.25,rg:1.33,belt:.9,r:.22},
 };
 // Ano White, the rocket-coating colour shown on the 2026 car. Original mesh,
 // not manufacturer CAD — Tesla does not publish a reusable body model.
 export const ROADSTER_PAINT='#f2efe6';
 const palette=['#b8bcb8','#e5e7e1','#284c65','#be3529','#344a3e','#393b41','#a29b8b','#577383','#794537'];
 const templates=new Map();
-// Showroom finishes: clearcoated paint, dark reflective glazing, polished
-// trim and satin rubber. Every reflective material shares the one sky PMREM
-// (see environment.js), so instanced traffic batches reflect the same sky as
-// the player car at no per-frame cost.
-function attachPaintFlake(paint){
- // Vehicle meshes drop UVs on merge; sample flake from object-space XZ/Y instead.
- paint.onBeforeCompile=shader=>{
-  shader.uniforms.uFlake=PAINT_FLAKE_UNIFORM;
-  shader.uniforms.uFlakeScale=PAINT_FLAKE_SCALE_UNIFORM;
-  shader.vertexShader='varying vec3 vPaintPos;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvPaintPos=position;');
-  shader.fragmentShader='varying vec3 vPaintPos;uniform sampler2D uFlake;uniform float uFlakeScale;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-   float flake=texture2D(uFlake,vPaintPos.xz*uFlakeScale+vec2(vPaintPos.y*uFlakeScale*0.37)).r;
-   diffuseColor.rgb*=1.0+(flake-0.5)*0.22;
-  `).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
-   roughnessFactor*=mix(1.0,0.8+flake*0.3,0.55);
-  `).replace('material.clearcoatRoughness = clearcoatRoughness;','material.clearcoatRoughness = clamp(clearcoatRoughness+(flake-0.5)*0.18,0.02,1.0);');
- };
- paint.customProgramCacheKey=()=>'paint-flake';
-}
-export function createVehicleMaterials(){
- const paint=new THREE.MeshPhysicalMaterial({color:'#ffffff',metalness:.32,roughness:.26,clearcoat:1,clearcoatRoughness:.055});
- attachPaintFlake(paint);
- const glass=new THREE.MeshPhysicalMaterial({color:'#101d24',metalness:.62,roughness:.06});
- const rubber=new THREE.MeshStandardMaterial({color:'#1b1e22',metalness:0,roughness:.74});
- const black=new THREE.MeshStandardMaterial({color:'#15191c',metalness:.35,roughness:.42});
- const chrome=new THREE.MeshStandardMaterial({color:'#dfe4e6',metalness:1,roughness:.16});
- // Unlit lens: night exposure and fog must not wash the lamp out. Traffic tints a clone per car.
- const head=new THREE.MeshBasicMaterial({color:'#24282b',toneMapped:false,fog:false});
- const tail=new THREE.MeshStandardMaterial({color:'#ae1522',metalness:.2,roughness:.3,emissive:'#ff2817',emissiveIntensity:.35});
- const plate=new THREE.MeshStandardMaterial({color:'#eff2e8',metalness:0,roughness:.6});
- const mats={paint,glass,rubber,black,chrome,head,tail,plate};
- for(const [name,m] of Object.entries(mats))m.name=name;
- registerEnvMaterial(paint,1);registerEnvMaterial(glass,1.5);registerEnvMaterial(chrome,1.1);registerEnvMaterial(black,.7);registerEnvMaterial(rubber,.35);registerEnvMaterial(tail,.6);
- return mats;
-}
-function loft(sections,chamfer=.10){
- const vertices=[],indices=[],n=8;
- for(const [z,w,lo,hi]of sections){const b=Math.min(chamfer,(hi-lo)*.2);for(const [x,y]of[[-w+b,lo],[w-b,lo],[w,lo+b],[w,hi-b],[w-b,hi],[-w+b,hi],[-w,hi-b],[-w,lo+b]])vertices.push(x,y,z);}
- for(let i=0;i<sections.length-1;i++)for(let j=0;j<n;j++){const a=i*n+j,b=i*n+(j+1)%n;indices.push(a,b,a+n,b,b+n,a+n);}
- for(let j=1;j<n-1;j++){indices.push(0,j+1,j);const k=(sections.length-1)*n;indices.push(k,k+j,k+j+1);}
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return g.toNonIndexed();
-}
-// Dipped beams in the car's own frame. The nose points along -Z. Two spot lights, not cones:
-// the road and the walls ahead are MeshStandardMaterial, so they pick up the pool.
-// Intensity is candela. Decay is inverse-square, and the cone is narrow, so the near
-// road reads clearly and the pool is gone by the end of the range. No shadow map.
-export function headBeams(spec){
- const L=spec.l/2,W=spec.w/2,B=spec.belt;
- const group=new THREE.Group();group.name='head-beams';group.visible=false;
- const distance=40,angle=.28,penumbra=.55,decay=2,intensity=7000,dip=.1,aim=24;
- for(const side of [-1,1]){
-  const x=side*W*(spec.boxy?0.55:0.66),y=spec.boxy?B-.22:B-.11,z=-L+(spec.boxy?-0.01:0.02);
-  const spot=new THREE.SpotLight('#ffe6c2',intensity,distance,angle,penumbra,decay);
-  spot.name='head-beam';spot.castShadow=false;spot.position.set(x,y,z);
-  const target=new THREE.Object3D();target.name='head-beam-target';
-  target.position.set(x,y-Math.sin(dip)*aim,z-Math.cos(dip)*aim);
-  spot.target=target;group.add(spot,target);
- }
- return group;
-}
 function build(type,detailed){
  const s=specs[type],L=s.l/2,W=s.w/2,B=s.belt,H=s.h,group=new THREE.Group(),batches=new Map();
  const mats=createVehicleMaterials();
@@ -174,13 +142,7 @@ function build(type,detailed){
  }
  if(s.van){box(W*1.91,H-B-.075,L-.25,'paint',0,(H+B)/2-.02,(L+.25)/2-.08);box(.024,H-.55,.025,'black',0,(H+.55)/2,L+.018);for(const side of [-1,1])box(.055,.07,.21,'black',side*W,.99,.90);}
  if(s.taxi){box(.46,.18,.18,'plate',0,H+.09,.15);for(let i=0;i<5;i++)box(.037,.075,.19,'black',-.13+i*.065,H+.10,.15);}
- for(const side of [-1,1])for(const z of [-s.wb/2,s.wb/2]){
-  const pivot=new THREE.Group();pivot.position.set(side*(W-.055),s.r,z);group.add(pivot);const spin=new THREE.Group();pivot.add(spin);
-  const tire=new THREE.Mesh(new THREE.CylinderGeometry(s.r,s.r,.205,detailed?32:16),mats.rubber);tire.rotation.z=Math.PI/2;spin.add(tire);
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(s.r*.65,s.r*.65,.214,detailed?24:12),mats.chrome);hub.rotation.z=Math.PI/2;spin.add(hub);
-  if(detailed)for(let i=0;i<5;i++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.22,.034,s.r*1.22),mats.black);spoke.rotation.x=i*Math.PI/5;spin.add(spoke);}
-  spin.children.forEach(m=>m.castShadow=true);
- }
+ addWheels(group,mats,s,{detailed});
  // Body panels hang under one pivot (after the four wheel pivots) so braking
  // dive, acceleration squat and roll can tilt the shell without the wheels.
  const body=new THREE.Group();body.name='body';group.add(body);
@@ -228,6 +190,13 @@ function buildRoadster(detailed){
   for(const z of [-s.wb/2,s.wb/2])add(new THREE.TorusGeometry(s.r+.04,.045,5,detailed?12:8,Math.PI),'paint',side*(W+.02),s.r,z,0,Math.PI/2);
  }
  box(W*1.05,.03,.035,'head',0,.42,-L+.02);
+ for(const side of [-1,1]){
+  // Swept lamp on each wing, door shut line, a scoop ahead of the rear wheel.
+  box(.34,.02,.10,'plate',side*W*.60,.50,-L+.62,0,side*.5);box(.20,.024,.05,'head',side*W*.60,.505,-L+.62,0,side*.5);
+  box(.012,.34,.012,'black',side*(W*.955+.004),.40,-.42);box(.012,.34,.012,'black',side*(W*.94+.004),.40,.52);
+  box(.03,.12,.34,'black',side*(W*.93+.02),.42,.86);
+ }
+ for(const x of [-.36,-.12,.12,.36])box(.02,.10,.22,'black',x,.20,L-.16); // diffuser fins
  box(W*1.62,.04,.025,'tail',0,.50,L+.01);
  box(.42,.07,.018,'plate',0,.34,L+.02);
  for(const x of [-.52,-.18,.18,.52]){
@@ -242,14 +211,9 @@ function buildRoadster(detailed){
   add(new THREE.CylinderGeometry(.055,.07,.08,7),'black',x*(W-.08),.14,z);
   add(new THREE.CylinderGeometry(.028,.036,.05,6),'nozzle',x*(W-.08),.09,z);
  }
- for(const side of [-1,1])for(const z of [-s.wb/2,s.wb/2]){
-  const pivot=new THREE.Group();pivot.position.set(side*(W+.02),s.r,z);group.add(pivot);const spin=new THREE.Group();pivot.add(spin);
-  const tire=new THREE.Mesh(new THREE.CylinderGeometry(s.r,s.r,.24,detailed?16:12),mats.rubber);tire.rotation.z=Math.PI/2;spin.add(tire);
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(s.r*.58,s.r*.58,.25,detailed?12:8),mats.chrome);hub.rotation.z=Math.PI/2;spin.add(hub);
-  if(detailed)for(let i=0;i<5;i++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.016,.028,s.r*1.05),mats.black);spoke.rotation.x=i*Math.PI/5;spin.add(spoke);}
-  const cap=teslaMark();cap.scale(.08,.08,.08);cap.rotateY(side>0?-Math.PI/2:Math.PI/2);cap.translate(side*.13,0,0);const capMesh=new THREE.Mesh(cap,mats.black);capMesh.name='tesla-mark';spin.add(capMesh);
-  spin.children.forEach(m=>{if(m.isMesh)m.castShadow=true;});
- }
+ addWheels(group,mats,s,{detailed,track:W+.02,width:.24,rim:.58});
+ // Hub caps carry the T mark and turn with the wheels.
+ group.children.forEach((pivot,i)=>{const side=i<2?-1:1,cap=teslaMark();cap.scale(.08,.08,.08);cap.rotateY(side>0?-Math.PI/2:Math.PI/2);cap.translate(side*.13,0,0);const capMesh=new THREE.Mesh(cap,mats.black);capMesh.name='tesla-mark';capMesh.castShadow=true;pivot.children[0].add(capMesh);});
  const body=new THREE.Group();body.name='body';group.add(body);
  for(const [name,gs]of batches){const mesh=new THREE.Mesh(mergeGeometries(gs),mats[name]);mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;body.add(mesh);gs.forEach(g=>g.dispose());}
  function badge(x,y,z,scale,rx,ry){const g=teslaMark();g.scale(scale,scale,scale);g.rotateX(rx);g.rotateY(ry);g.translate(x,y,z);const mesh=new THREE.Mesh(g,mats.black);mesh.name='tesla-mark';mesh.castShadow=true;body.add(mesh);}
@@ -279,7 +243,8 @@ function buildRam(detailed){
  const s=specs.ram,L=s.l/2,W=s.w/2,B=s.belt,H=s.h,group=new THREE.Group(),batches=new Map();
  const mats=createVehicleMaterials();
  function add(g,mat,x=0,y=0,z=0,rx=0,ry=0,rz=0){g.rotateX(rx);g.rotateY(ry);g.rotateZ(rz);g.translate(x,y,z);if(g.index)g=g.toNonIndexed();g.deleteAttribute('uv');if(!batches.has(mat))batches.set(mat,[]);batches.get(mat).push(g);}
- function box(w,h,d,mat,x,y,z,rx=0,ry=0,rz=0){add(new RoundedBoxGeometry(w,h,d,detailed?2:1,Math.min(.05,w/4,h/4,d/4)),mat,x,y,z,rx,ry,rz);}
+ // Only the big panels get soft corners; trim and lamps are plain boxes.
+ function box(w,h,d,mat,x,y,z,rx=0,ry=0,rz=0){add(Math.min(w,h,d)<.09?new THREE.BoxGeometry(w,h,d):new RoundedBoxGeometry(w,h,d,1,Math.min(.05,w/4,h/4,d/4)),mat,x,y,z,rx,ry,rz);}
  function strut(a,b,width,mat){const v=new THREE.Vector3(...b).sub(new THREE.Vector3(...a)),g=new THREE.BoxGeometry(width,v.length(),width);g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),v.clone().normalize()));g.translate(...new THREE.Vector3(...a).addScaledVector(v,.5).toArray());add(g,mat);}
  const cowl=-1.50,cabRear=1.20,bedY=.90,rail=1.22,bedStart=cabRear-.04,bedEnd=L-.05,bedMid=(bedStart+bedEnd)/2,bedLen=bedEnd-bedStart;
  add(loft([
@@ -328,25 +293,31 @@ function buildRam(detailed){
   box(.08,rail-bedY,bedLen,'paint',side*.86,(rail+bedY)/2,bedMid);
   box(.05,.028,bedLen-.1,'chrome',side*.86,rail+.012,bedMid);
   box(.10,.36,.04,'tail',side*(W-.22),1.04,L-.02);
-  box(.30,.16,.04,'black',side*.90,1.00,-L+.04);
-  box(.24,.12,.028,'head',side*.90,1.02,-L+.012);
+  // Stacked lamp: pale reflector, lens above, running strip below.
+  box(.30,.24,.04,'black',side*.80,1.00,-L+.03);
+  box(.26,.10,.03,'plate',side*.80,1.055,-L+.005);box(.16,.06,.03,'head',side*.80,1.055,-L-.004);
+  box(.26,.035,.03,'plate',side*.80,.945,-L+.005);
+  // Tow mirror on two arms, a side step under the doors, a cab marker lamp.
+  box(.12,.26,.16,'black',side*(W+.20),B+.20,cowl+.30);box(.09,.20,.012,'glass',side*(W+.20),B+.20,cowl+.385);
+  for(const dy of [.12,.27])box(.20,.025,.03,'black',side*(W+.07),B+dy,cowl+.26);
+  box(.12,.05,cabRear-cowl-.2,'chrome',side*(W+.02),.44,(cowl+cabRear)/2);
+  box(.06,.05,.14,'black',side*(W-.03),B-.20,-1.9);
  }
  box(1.68,.045,bedLen-.16,'black',0,bedY+.03,bedMid);
  box(W*1.70,.36,.06,'paint',0,(B+bedY)/2-.04,cabRear);
  box(1.76,.30,.05,'paint',0,(rail+bedY)/2,L-.045);
+ box(1.36,.20,.03,'paint',0,(rail+bedY)/2,L-.012); // tailgate pressing
+ box(.34,.035,.03,'chrome',0,rail-.05,L-.0); // tailgate handle
+ box(W*1.94,.16,.12,'chrome',0,.60,L-.04);box(.9,.05,.14,'black',0,.69,L-.03); // rear bumper and its step
+ for(const x of [-.5,-.25,0,.25,.5])box(.07,.03,.05,'plate',x,H+.005,cowl+.62); // cab marker lamps
+ for(const side of [-1,1])box(.34,.02,.5,'black',side*.42,1.305,-2.1); // bonnet vents
  box(W*1.86,.18,.10,'chrome',0,.62,-L+.07);
  box(W*1.50,.10,.06,'black',0,.50,L-.06);
  box(.46,.11,.018,'plate',0,.60,-L+.03);
  box(.46,.11,.018,'plate',0,1.02,L-.01);
  if(detailed)for(const z of [-L+.03,L-.01]){const y=z<0?.60:1.02;box(.036,.09,.012,'glass',-.18,y,z);for(let i=0;i<7;i++)box(.016,.05,.014,'black',-.12+i*.04,y,z);}
  for(const y of [1.16,1.08,.94,.86])box(1.14,.012,.02,'chrome',0,y,-L+.02);
- for(const side of [-1,1])for(const z of [-s.wb/2,s.wb/2]){
-  const pivot=new THREE.Group();pivot.position.set(side*(W-.16),s.r,z);group.add(pivot);const spin=new THREE.Group();pivot.add(spin);
-  const tire=new THREE.Mesh(new THREE.CylinderGeometry(s.r,s.r,.27,detailed?24:12),mats.rubber);tire.rotation.z=Math.PI/2;spin.add(tire);
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(s.r*.6,s.r*.6,.28,detailed?16:10),mats.chrome);hub.rotation.z=Math.PI/2;spin.add(hub);
-  if(detailed)for(let i=0;i<6;i++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.22,.036,s.r*1.12),mats.black);spoke.rotation.x=i*Math.PI/6;spin.add(spoke);}
-  spin.children.forEach(m=>{if(m.isMesh)m.castShadow=true;});
- }
+ addWheels(group,mats,s,{detailed,track:W-.16,width:.27,spokes:6,rim:.6});
  const body=new THREE.Group();body.name='body';group.add(body);
  for(const [name,gs]of batches){const mesh=new THREE.Mesh(mergeGeometries(gs),mats[name]);mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;body.add(mesh);gs.forEach(g=>g.dispose());}
  const gz=-L+.01,gy=1.02,gw=1.36,gh=.50;
@@ -377,13 +348,15 @@ export function revealCabinGlass(model){
   mesh.userData.cabinGlass=true;
  });
 }
+const builderFor=type=>CAST[type]?detailed=>CAST[type].build(specs[type],detailed):type==='roadster'?buildRoadster:type==='ram'?buildRam:detailed=>build(type,detailed);
 export function createDetailedVehicle(colour=0,detailed=false,type=detailed?PLAYER_CAR_TYPE:'sedan'){
  if(!specs[type])throw Error(`Unknown vehicle type: ${type}`);
- if(!templates.has(type))templates.set(type,type==='roadster'?buildRoadster(false):type==='ram'?buildRam(false):build(type,false));
- const model=detailed?(type==='roadster'?buildRoadster(true):type==='ram'?buildRam(true):build(type,true)):templates.get(type).clone(true);
- const finish=type==='gwagen'?GWAGEN_PAINT:type==='roadster'?ROADSTER_PAINT:type==='scala'?SCALA_PAINT:type==='x5'?X5_PAINT:type==='ram'?RAM_PAINT:palette[colour%palette.length];
- model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(finish);if(type==='ram'){m.material.metalness=.5;m.material.roughness=.22;}}});
- model.name=type==='gwagen'?'Mercedes G':type==='roadster'?'Roadster':type==='scala'?'Škoda Scala':type==='x5'?'BMW X5':type==='ram'?'Dodge RAM':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
+ const make=builderFor(type),cast=CAST[type];
+ if(!templates.has(type))templates.set(type,make(false));
+ const model=detailed?make(true):templates.get(type).clone(true);
+ const finish=cast?cast.paint:type==='roadster'?ROADSTER_PAINT:type==='ram'?RAM_PAINT:palette[colour%palette.length];
+ model.traverse(m=>{if(m.isMesh&&m.material.name==='paint'){m.material=registerEnvMaterial(m.material.clone());m.material.color.set(finish);if(type==='ram'){m.material.metalness=.5;m.material.roughness=.22;}if(cast?.metalness!==undefined){m.material.metalness=cast.metalness;m.material.roughness=cast.roughness;}}});
+ model.name=cast?cast.name:type==='roadster'?'Roadster':type==='ram'?'Dodge RAM':type==='crossover'?'Yaris Cross-inspired crossover':`${type} vehicle`;
  model.userData={type,spec:{...specs[type]},wheels:model.children.slice(0,4).map((pivot,i)=>({pivot,spin:pivot.children[0],front:i%2===0,radius:specs[type].r})),body:model.getObjectByName('body'),head:detailed?model.getObjectByName('head').material:null,tail:detailed?model.getObjectByName('tail').material:null,beams:detailed?model.getObjectByName('head-beams'):null,nozzleMat:model.getObjectByName('nozzle')?.material||null,wing:model.getObjectByName('wing')||null,fanPivots:model.getObjectByName('fans')?.children||null};
  return model;
 }

@@ -56,7 +56,7 @@ export const AFK_STALE_MS = 60_000;
 export const ONLINE_STALE_MS = 60_000;
 const IMPULSE_TTL_MS = 2500;
 
-export const TRAVEL_MODES_NET = Object.freeze(['car', 'walk', 'bike', 'scooter', 'motorbike', 'challenger']);
+export const TRAVEL_MODES_NET = Object.freeze(['car', 'walk', 'bike', 'scooter', 'motorbike', 'challenger', 'ferry']);
 
 function finiteNumber(value, fallback = 0) {
   const n = Number(value);

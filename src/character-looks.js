@@ -131,6 +131,61 @@ const LIKENESS = {
     shirt: '#d9d7d0',
     jacket: '#1a2744',
   },
+  // Young, slim, dark hair, navy suit over a white shirt.
+  vondracek: {
+    seed: 99,
+    height: 1.82,
+    body: 0.92,
+    hair: '#2a2019',
+    hairStyle: 'short',
+    glasses: null,
+    shirt: '#e6e4de',
+    jacket: '#1b2440',
+  },
+  // On foot: long dark-brown hair and a black hoodie. The dreadlocks are on the ferry figure.
+  bartos: {
+    seed: 110,
+    height: 1.8,
+    body: 0.96,
+    hair: '#4a3626',
+    hairStyle: 'long',
+    glasses: null,
+    shirt: '#1d1e22',
+    beard: true,
+  },
+  // Dark hair, stubble, dark suit and an open-necked white shirt.
+  rajchl: {
+    seed: 121,
+    height: 1.84,
+    body: 1.04,
+    hair: '#1d1a18',
+    hairStyle: 'short',
+    glasses: null,
+    shirt: '#e9e7e2',
+    jacket: '#15171c',
+    beard: true,
+  },
+  // Dark hair, glasses, dark suit.
+  okamura: {
+    seed: 132,
+    height: 1.72,
+    body: 1.02,
+    hair: '#16130f',
+    hairStyle: 'short',
+    glasses: 'frame',
+    shirt: '#dfe3ea',
+    jacket: '#1a2030',
+  },
+  // Shaved head, heavy build, glasses, black shirt.
+  xaver: {
+    seed: 143,
+    height: 1.8,
+    body: 1.2,
+    hair: '#2a2622',
+    hairStyle: 'bald',
+    glasses: 'frame',
+    shirt: '#17181b',
+  },
 };
 
 /** Grey hair, glasses, and a dark jacket on the reclined Challenger figure. */
@@ -139,6 +194,14 @@ export const ZEMAN_BOAT = Object.freeze({
   hair: '#9a958e',
   glasses: '#1a1c20',
   skin: '#e0b090',
+});
+
+/** Dark hoodie and long brown dreadlocks on the figure at the ferry's wheel. */
+export const BARTOS_BOAT = Object.freeze({
+  jacket: '#1d1e22',
+  hair: '#4a3626',
+  trousers: '#2a2f3a',
+  skin: '#e2b592',
 });
 
 /** Standing look for a published character. Zeman and anyone else stay generic. */

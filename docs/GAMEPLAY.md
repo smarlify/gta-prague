@@ -24,7 +24,8 @@ meshes.
 | Pedestrians and life | `src/street-life.js`, `src/person-model.js`, `src/*-life.js`, `src/cyclists.js`, `src/scooter-riders.js` | Shared walking/running poses; pedestrians and scooter riders follow mapped paths |
 | Police and wanted level | `src/police.js`, `src/police-renderer.js`, `src/roadblock.js`, `src/roadblock-planning.js`, `src/finale.js` | Heat → stars → search and roadblock |
 | Objects and collisions | `src/world-objects.js`, `src/knockables.js`, `src/breakable-signs.js`, `src/parked-micromobility.js`, `src/impacts.js` | Solid footprints, breakable bodies, overhead boards and decoration |
-| Look and performance | `src/sky.js`, `src/weather.js`, `src/environment.js`, `src/post.js`, `src/adaptive-quality.js`, `src/tile-lod.js`, `src/tile-streaming.js` | Dynamic resolution; tiles stream by distance and heading |
+| Look and performance | `src/sky.js`, `src/weather.js`, `src/environment.js`, `src/post.js`, `src/adaptive-quality.js`, `src/quality.js`, `src/tile-lod.js`, `src/tile-streaming.js` | Dynamic resolution; a low tier for phones (`?quality=low|high|auto`); tiles stream by distance and heading |
+| Drivers and their vehicles | `src/character-select.js`, `src/driver-starts.js`, `src/character-looks.js`, `src/car-kit.js`, `src/cast-cars.js`, `src/vehicle-models.js`, `src/player-ride-models.js` | One builder per named car, at most one mesh per finish plus the wheels. Preview any of them at `/garage.html?car=<type>` in dev; `node scripts/garage-shots.mjs` and `node scripts/driver-shots.mjs` photograph them |
 | Audio | `src/audio-math.js` (pure, tested), `src/police-siren.js` | Synthesised, no audio files |
 
 ## Shared player gameplay

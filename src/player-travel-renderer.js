@@ -4,6 +4,7 @@ import {applyCharacterLook,genericPlayerLook} from './character-looks.js';
 import {createRideVehicle,PLAYER_BIKE,PLAYER_SCOOTER,challengerWaterY} from './player-ride-models.js';
 import {hribBicycle,syncPirateFlag} from './pirate-flag.js';
 import {OFFICER_LOOK} from './roadblock.js';
+import {isBoat} from './player-travel.js';
 import {groundAt} from './terrain.js';
 
 const UNIFORM_KEYS=Object.keys(OFFICER_LOOK);
@@ -21,6 +22,11 @@ const CABIN={
  scala:{belt:.96,roof:1.4},
  x5:{belt:1.12,roof:1.68},
  police:{belt:.96,roof:1.4},
+ // The van's cab is well ahead of the middle; the tuktuk driver sits on the centre line.
+ transporter:{belt:1.18,roof:1.96,z:-1.0},
+ panamera:{belt:.93,roof:1.39},
+ es:{belt:.94,roof:1.4},
+ tuktuk:{belt:.9,roof:1.76,x:0,z:-.3},
  estate:{belt:.96,roof:1.42},
  sedan:{belt:.92,roof:1.38},
  hatchback:{belt:.9,roof:1.4},
@@ -44,7 +50,7 @@ export function seatedCabDriver(vehicle){
  const cabin=CABIN[type]||CABIN.sedan;
  const glass=Math.max(.12,cabin.roof-cabin.belt);
  const headInCar=Math.min(cabin.roof-.08,cabin.belt+glass*.45);
- return {pose:SEATED_DRIVE_POSE,groundY:CAR_LIFT+headInCar-HEAD_LOCAL,seatY:SEAT_Y,x:SEAT_X,z:SEAT_Z};
+ return {pose:SEATED_DRIVE_POSE,groundY:CAR_LIFT+headInCar-HEAD_LOCAL,seatY:SEAT_Y,x:cabin.x??SEAT_X,z:cabin.z??SEAT_Z};
 }
 
 /** What the travel renderer draws. Null keeps the cab, boat, or hidden ped empty. */
@@ -52,7 +58,7 @@ export function travelActorAppearance(travel,actor,{lift=.12}={}){
  const visual=travel?.car?.visual??travel?.vehicle??null;
  const seat=travel?.mode==='car'?seatedCabDriver(visual):null;
  const driving=!!seat,swimming=travel?.mode==='swim';
- if(travel?.mode==='challenger'||(travel?.mode==='car'&&!seat))return null;
+ if(isBoat(travel?.mode)||(travel?.mode==='car'&&!seat))return null;
  const pose=driving?seat.pose:swimming||travel?.mode==='walk'?'walk':travel?.mode==='scooter'?'scooter':'cycle';
  const h=actor?.heading||0,c=Math.cos(h),s=Math.sin(h);
  return {
@@ -105,11 +111,11 @@ export function createPlayerTravelRenderer(scene){
    syncPirateFlag(model,hribBicycle(characterId,ride));
    root.visible=Math.hypot(ride.x-p.x,ride.z-p.z)<220;if(!root.visible)continue;
    const q=travel.riding===ride?p:ride;
-   const boat=ride.visual?.kind==='challenger'||ride.mode==='challenger';
+   const boat=isBoat(ride.visual?.kind)||isBoat(ride.mode);
    root.position.set(q.x,boat?challengerWaterY(q.x,q.z):lift+groundAt(q.x,q.z),q.z);root.rotation.y=q.heading;
    const f=ride.fallen;if(f)f.elapsed=Math.min(1,(f.elapsed||0)+dt*3);root.rotation.z=f?f.side*(Math.PI/2-.12)*f.elapsed*f.elapsed:0; // tipped onto its side after a crash
    motion?.update(ride.distance||0);
-   model.flag?.update(dt,q.speed||0);
+   model.flag?.update(dt,q.speed||0);model.banner?.update(dt,q.speed||0);
    ring.visible=actorVisible&&travel.mode==='walk'&&travel.riding!==ride&&Math.hypot(ride.x-p.x,ride.z-p.z)<3.2;
   }
   person.begin();hand=null;
@@ -128,9 +134,14 @@ export function createPlayerTravelRenderer(scene){
  }};
 }
 
-export function travelCameraPose(actor,heading,zoom=150,look=0,buildings=null){
- let distance=2.7+Math.max(36,Math.min(240,zoom))/90;
+// The ferry is six metres long with a mast: the camera stands further back and higher, so the
+// helmsman and the flag do not fill the view.
+const FERRY_VIEW={back:6.5,lift:2.4,ahead:6};
+export function travelCameraPose(actor,heading,zoom=150,look=0,buildings=null,mode=null){
+ const view=mode==='ferry'?FERRY_VIEW:null;
+ let distance=2.7+Math.max(36,Math.min(240,zoom))/90+(view?.back||0);
  for(let d=.4;buildings&&d<=distance;d+=.2){if(buildings.at(actor.x+Math.sin(heading)*d,actor.z+Math.cos(heading)*d)){distance=Math.max(.35,d-.3);break;}}
  const y=groundAt(actor.x,actor.z),px=actor.x+Math.sin(heading)*distance,pz=actor.z+Math.cos(heading)*distance;
- return {position:[px,Math.max(y,groundAt(px,pz))+2.5,pz],target:[actor.x-Math.sin(heading+look)*2,y+1.2,actor.z-Math.cos(heading+look)*2]};
+ const ahead=view?.ahead||2;
+ return {position:[px,Math.max(y,groundAt(px,pz))+2.5+(view?.lift||0),pz],target:[actor.x-Math.sin(heading+look)*ahead,y+1.2,actor.z-Math.cos(heading+look)*ahead]};
 }

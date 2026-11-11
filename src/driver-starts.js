@@ -75,6 +75,60 @@ export const URAD_VLADY = Object.freeze({
   heading: -0.755,
 });
 
+// The same quay, one van length behind Macinka's RAM, so both can stand in front of
+// Úřad vlády (Strakova akademie) at once.
+export const STRAKOVA_AKADEMIE = Object.freeze({
+  name: 'Strakova akademie',
+  id: 'strakova-akademie',
+  district: 'Praha 1 - Malá Strana',
+  street: 'nábřeží Edvarda Beneše',
+  x: -741.6,
+  z: -488.5,
+  heading: -0.755,
+});
+
+// Maltézské náměstí in front of the Embassy of Japan (Maltézské náměstí 6,
+// about 50.0863 N, 14.4057 E). Snapped onto the carriageway.
+export const VELVYSLANECTVI_JAPONSKA = Object.freeze({
+  name: 'Velvyslanectví Japonska',
+  id: 'velvyslanectvi-japonska',
+  district: 'Praha 1 - Malá Strana',
+  street: 'Maltézské náměstí',
+  x: -1106.9,
+  z: 128.2,
+  heading: -2.815,
+});
+
+// Wilsonova in front of XTV (Wilsonova 10, beside Praha hlavní nádraží,
+// about 50.0826 N, 14.4346 E). Snapped onto the carriageway.
+export const XTV = Object.freeze({
+  name: 'XTV',
+  id: 'xtv',
+  district: 'Praha 1 - Nové Město',
+  street: 'Wilsonova',
+  x: 948.2,
+  z: 541.6,
+  heading: -0.027,
+});
+
+// Open water between Karlův most and Mánesův most, bow pointing downstream.
+// Bartoš's přívoz starts here; Zeman's Challenger keeps the reach above Karlův most.
+export const VLTAVA_PRIVOZ = Object.freeze({
+  name: 'Vltava – přívoz',
+  id: 'vltava-privoz',
+  district: 'Praha 1',
+  street: '',
+  x: -626.2,
+  z: -59,
+  heading: 0,
+  water: true,
+});
+
+/** Where a water driver is placed: every boat has its own reach of the river. */
+export function waterStart(driver) {
+  return driver?.ride === 'ferry' ? VLTAVA_PRIVOZ : VLTAVA_START;
+}
+
 // Jungmannova in front of Palác Adria (pasáž Adria), east of Národní divadlo.
 // Snapped onto the carriageway, facing along the street. Not inside the palace.
 export const DIVADLO_BEZ_ZABRADLI = Object.freeze({
