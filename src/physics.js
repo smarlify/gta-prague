@@ -51,7 +51,7 @@ export function canExitBuildings(from,to,buildings){
 // asphalt are ignored so open road stays driveable; fence / bridge-fence
 // solids still live in world.objects.
 export function blocksDriveSample(x,z,world){
- if(passageAt(world.roads,x,z))return false;
+ if(passageAt(world.passages||world.roads,x,z))return false;
  const buildings=world.collisionBuildings||world.buildings;
  if(!buildings?.at(x,z))return false;
  if(world.roadClearsBuildings&&world.roads.at(x,z))return false;
@@ -61,7 +61,7 @@ export function blocksDriveSample(x,z,world){
 // Open water stops the car. A bridge deck, its named approach, and the few
 // metres of shoulder beside a featured bridge do not. Driving into the river does.
 export function sampleStopsForWater(x,z,world){
- if(passageAt(world.roads,x,z))return false;
+ if(passageAt(world.passages||world.roads,x,z))return false;
  const surface=world.roads.at(x,z)||world.pavement.at(x,z);
  if(surface&&isBridgeSurface(surface))return false;
  if(surface&&isApproachStreet(surface)&&nearFeaturedDistance(x,z,world.featuredBridges)<=APPROACH_REACH)return false;
