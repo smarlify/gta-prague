@@ -1108,7 +1108,7 @@ function frame(now){
  const wantFov=chaseCamera&&started&&!inspectionCamera?cameraFov:DRIVE_FOV.min;if(camera.fov!==wantFov){camera.fov=wantFov;camera.updateProjectionMatrix();}
  playerCars.setVisible(!inspectionCamera);
   if(city?.id==='prague'&&car&&travel){pavlova=stepPavlova(pavlova,{...car,mode:travel.mode,ram:!!chosenCharacter.pavlova},dt);for(const impulse of pavlova.impulses||[])applyAmbulanceRam(car,impulse);ambulance?.update(pavlova,dt);}
-  travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null,uniform:slachtaWearsUniform({police:!!chosenCharacter?.police,mode:travel?.mode,policeCar:!!travel?.car?.visual?.police})});
+  travelRenderer.update(travel,started&&!paused&&!mapOpen?dt:0,{seatFrame:carGroup,visible:!inspectionCamera,actorVisible:!police?.busted,hold:marketShop?.holdPose()??null,uniform:slachtaWearsUniform({police:!!chosenCharacter?.police,mode:travel?.mode,policeCar:!!travel?.car?.visual?.police})});
   if(ready&&!paused&&!mapOpen&&!police?.busted){
    const birdStep=Math.min(.1,dt); // keep encounter pressure and bird motion on the same clock at low frame rates
    if(started){
