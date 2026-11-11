@@ -1,3 +1,4 @@
+import {QUALITY} from './quality.js';
 export {createDetailedVehicle as createVehicle,VEHICLE_TYPES,PLAYER_CAR_TYPE,revealCabinGlass} from './vehicle-models.js';
 const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
 // Body pitch (nose up positive, car faces -z) and roll from the change in
@@ -39,7 +40,7 @@ export function applyPlayerLamps(model,on){
  const lit=!!on;u.lampsOn=lit;
  const head=u.head?.isMesh?u.head.material:u.head;
  if(head?.color)head.color.set(lit?'#fff4dc':'#24282b');
- if(u.beams)u.beams.visible=lit;
+ if(u.beams)u.beams.visible=lit&&QUALITY.headBeams; // two spot lights re-light every road and wall shader
  if(u.tail){u.tail.toneMapped=!lit;u.tail.fog=!lit;u.tail.emissiveIntensity=lit?Math.max(u.tail.emissiveIntensity||0,.7):0;}
 }
 export function animateVehicle(model,speed,steer,dt,braking=false){

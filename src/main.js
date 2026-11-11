@@ -16,6 +16,7 @@ import {bindCharacterPicker,characterSwitchRebuilds,occupiedRide,playerPageTitle
 import {CHASE_JOIN_SPEED,CHASE_LEAD_SPEED,CHASE_UNIT_SPEED,DIVADLO_BEZ_ZABRADLI,KE_HRADU,POSLANECKA_SNEMOVNA,PRAZSKY_HRAD,URAD_VLADY,VLTAVA_START,slachtaArrest,slachtaChaseLayout,slachtaWearsUniform} from './driver-starts.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
+import {QUALITY,createTierWatch,rememberLowTier} from './quality.js';
 import {carSamples,makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
 import {roadsterStep,carIsAirborne,ROADSTER_AIR_MAX} from './roadster-flight.js';
 import {animateVehicle,cycleHeadlights,headlightModeLabel,playerHeadlightsOn,streetLampsOn,vehicleLampsOn} from './vehicles.js';
@@ -207,8 +208,11 @@ let inspectionCamera=null;
 const trafficFrustum=new THREE.Frustum(),trafficProjection=new THREE.Matrix4(),trafficSphere=new THREE.Sphere(new THREE.Vector3(),4);
 const trafficInView=a=>{trafficSphere.center.set(a.x,1.5+groundAt(a.x,a.z),a.z);return trafficFrustum.intersectsSphere(trafficSphere);};
 const focus=new THREE.Vector3(0,0,85);
-const renderer=new THREE.WebGLRenderer({canvas:$('world'),antialias:true,powerPreference:'high-performance'});
-const maxPixelRatio=Math.min(devicePixelRatio,1.5),resolution=createAdaptiveResolution({max:maxPixelRatio,min:Math.min(maxPixelRatio,.85)});
+// The post chain renders into its own multisampled target, so canvas MSAA would only be paid for twice.
+// The low tier has no post chain and no MSAA at all: fill rate is what phones run out of.
+const renderer=new THREE.WebGLRenderer({canvas:$('world'),antialias:false,powerPreference:'high-performance'});
+const maxPixelRatio=Math.min(devicePixelRatio,QUALITY.maxPixelRatio),minPixelRatio=Math.min(maxPixelRatio,QUALITY.minPixelRatio),resolution=createAdaptiveResolution({max:maxPixelRatio,min:minPixelRatio}),tierWatch=createTierWatch();
+document.body.classList.toggle('low-quality',QUALITY.name==='low');
 renderer.setPixelRatio(maxPixelRatio);
 renderer.setSize(captureFrame.w,captureFrame.h);
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
@@ -217,13 +221,13 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.8
 const hemi=new THREE.HemisphereLight('#e6eef8','#68786f',1.4);scene.add(hemi);
 const sun=new THREE.DirectionalLight('#fff4e2',2.0);sun.position.set(-160,260,-120);sun.castShadow=true;
 // 400 m box, biased ahead of the car: 2048 texels give 20 cm shadows where the camera looks.
-sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-200,right:200,top:200,bottom:-200,near:1,far:750});sun.shadow.bias=-.0002;sun.shadow.normalBias=.3;
+sun.shadow.mapSize.set(QUALITY.shadowMap,QUALITY.shadowMap);Object.assign(sun.shadow.camera,{left:-200,right:200,top:200,bottom:-200,near:1,far:750});sun.shadow.bias=-.0002;sun.shadow.normalBias=.3;
 scene.add(sun,sun.target);
 const sky=createSky({renderer,scene,camera});sky.applyLighting(hemi,sun);
 // One sky PMREM shared by car paint/glass, chrome and tram glazing; rebuilt only when the sky changes.
 const skyEnvironment=createSkyEnvironment(renderer,sky.mesh);
 // Post pipeline (AO, bloom, grade) and the time-of-day/weather looks; `look` is attached to the road surface and sea below.
-let post=null;try{post=createPostPipeline(renderer);}catch(e){console.warn('Post pipeline unavailable, rendering directly:',e);}
+let post=null;if(QUALITY.post)try{post=createPostPipeline(renderer);}catch(e){console.warn('Post pipeline unavailable, rendering directly:',e);}
 let look=null;
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(11000,11000),new THREE.MeshStandardMaterial({color:'#94988b',roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.y=-.5;ground.receiveShadow=true;cityModel.add(ground);
 attachSnow(ground.material,{amount:SNOW_DUST});
@@ -1149,6 +1153,8 @@ function frame(now){
  stationStreetLife?.update(car,ready&&!paused&&!mapOpen?dt:0);
  // Resize before drawing: changing the pixel ratio clears the canvas, which flashed a blank frame when done after.
  if(ready&&resolution.update(frameMs,dt))renderer.setPixelRatio(resolution.scale);
+ // Still slow at the lowest resolution: shed the post chain now and start the next visit on the low tier.
+ if(ready&&!paused&&post&&!post.options.bypass&&tierWatch.update(frameMs,dt,resolution.scale<=minPixelRatio)){post.options.bypass=true;document.body.classList.add('low-quality');rememberLowTier();}
  look.update(dt,now/1000); // blends the active look and re-applies its sun offset after the shadow target above
  cityAudio.clap(audioContext,{enabled:!!(sound&&started&&!paused&&!mapOpen),cues:look.consumeThunder()});
  if(post)post.render(scene,camera);else renderer.render(scene,camera);
@@ -1328,7 +1334,7 @@ async function boot(){
    if(requestedStart&&!(city.id==='prague'&&chosenCharacter?.water)){try{history.replaceState(null,'',startUrl(location,city,firstStart));}catch(e){console.warn('Could not update the start URL:',e);}}
    progress(58,'Preparing the driving map');await new Promise(r=>setTimeout(r,30));drawMapBase();
    progress(68,'Loading buildings and textures');focus.set(car.x,0,car.z);await Promise.all([ensureCityModel(),updateTiles()]);
-   progress(88,'Loading traffic and pedestrians');mobility=helsinki?new Mobility(correctHarbourLanes(mobilityData),world,{stationCars:16,corridorCars:HARBOUR_CORRIDOR_CARS,corridor:harbourCorridor(world.roads)}):new Mobility(mobilityData,world);mobility.reset(car);angryDrivers=createAngryDrivers({vehicleOf:a=>streetLife?.traffic?.vehicleOf(a)});scene.add(angryDrivers.group);mobility.onCrash=a=>angryDrivers.trigger(a,mobility.time);streetLife=createStreetLife(scene,mobility,{paintColors:city.id==='prague'?SKODA_PAINT:null});streetLife.update(0,car,vehicleLampsOn(look.name,look.weather));world.objects.add(breakableSigns.bodies);
+   progress(88,'Loading traffic and pedestrians');mobility=helsinki?new Mobility(correctHarbourLanes(mobilityData),world,{stationCars:16,corridorCars:HARBOUR_CORRIDOR_CARS,corridor:harbourCorridor(world.roads)}):new Mobility(mobilityData,world,{cars:QUALITY.cars,people:QUALITY.people});mobility.reset(car);angryDrivers=createAngryDrivers({vehicleOf:a=>streetLife?.traffic?.vehicleOf(a)});scene.add(angryDrivers.group);mobility.onCrash=a=>angryDrivers.trigger(a,mobility.time);streetLife=createStreetLife(scene,mobility,{paintColors:city.id==='prague'?SKODA_PAINT:null});streetLife.update(0,car,vehicleLampsOn(look.name,look.weather));world.objects.add(breakableSigns.bodies);
    trafficCars=mobility.cars.map(actor=>{const visual=streetLife.traffic.vehicleOf(actor);return {id:`traffic-${actor.id}`,label:visual?.type==='taxi'?'Taxi':'Car',actor,visual:{type:visual?.type||'sedan',paint:visual?.paint.getStyle()},claim(){if(actor.playerTaken||actor.edge===null||Math.abs(actor.speed)>1.2)return false;actor.playerTaken=true;actor.edge=null;actor.speed=0;return true;},release(){delete actor.playerTaken;}};});
    police=new PoliceSimulation(mobility.roads,world);policeRenderer=createPoliceRenderer(scene,police,{livery:policeLiveryFor(city.id),cityId:city.id});police.onIncident=(...incident)=>finale.incident(...incident);roadblock=createRoadblock(scene,{world,police,carModel:carGroup,playerLook:travelRenderer.look,isVisible:trafficInView,obstacles:()=>[...mobility.cars.filter(c=>c.edge),...(tramSim?.bodies||[]),...(buses?.bodies||[]),...travel.parkedBodies(),...police.obstacles],onWarning:message=>toast(message,{important:true}),uniformWord:()=>{const a=policeAgencyFor(city.id,police.level);return city.id==='prague'?a.uniform:a.word;}});
    tramSim=new TramSimulation(tramData,world);tramSim.reset(car);tramRenderer=createTramRenderer(scene,tramSim);tramRenderer.update(car);

@@ -12,15 +12,22 @@ export function createSpeedometer(doc=document){
   if(major){const [x,y]=point(angle,65),label=svgTag('text',{x,y,'text-anchor':'middle','dominant-baseline':'middle'});label.textContent=speed;ticks.append(label);}
  }
  const motion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');let shown=0;
+ // The dial is updated every frame, but most frames show the same numbers: write the DOM only on change.
+ const speedEl=el('speed'),gearEl=el('drive-gear'),batteryValue=el('battery-value'),batteryFill=el('battery-fill'),batteryGauge=el('battery-gauge'),batteryLabel=el('battery-label'),last={};
+ const changed=(key,value)=>{if(last[key]===value)return false;last[key]=value;return true;};
  return {update(car,dt,{mode='car'}={}){
   const target=mode==='car'?displayedSpeedKmh(car.speed):Math.abs(car.speed)*3.6;shown=motion?.matches?target:smoothSpeed(shown,target,dt);
   if(Math.abs(shown-target)<.05)shown=target;
-  el('speed').textContent=String(Math.round(shown));needle.setAttribute('transform',`rotate(${dialAngle(shown)} 120 114)`);
-  arc.setAttribute('stroke-dasharray',`${Math.min(100,shown/120*100)} 100`);
-  el('drive-gear').textContent=mode==='car'?(car.speed<-.2?'R':Math.abs(car.speed)>.2?'D':'P'):mode==='walk'?'W':mode==='bike'?'B':'S';
-  const charge=Math.max(0,Math.min(1,car.battery??1)),percent=charge*100;
-  el('battery-value').textContent=`${percent.toFixed(1)}%`;el('battery-fill').style.width=`${percent}%`;
-  el('battery-gauge').setAttribute('aria-valuenow',percent.toFixed(1));panel.classList.toggle('low-battery',charge<=.2);panel.classList.toggle('empty-battery',charge===0);
-  el('battery-label').textContent=charge===0?'Battery empty':charge<=.2?'Low battery':'Battery';
+  const speedText=String(Math.round(shown)),dial=shown.toFixed(1);
+  if(changed('speed',speedText))speedEl.textContent=speedText;
+  if(changed('dial',dial)){needle.setAttribute('transform',`rotate(${dialAngle(shown)} 120 114)`);arc.setAttribute('stroke-dasharray',`${Math.min(100,shown/120*100)} 100`);}
+  const gear=mode==='car'?(car.speed<-.2?'R':Math.abs(car.speed)>.2?'D':'P'):mode==='walk'?'W':mode==='bike'?'B':'S';
+  if(changed('gear',gear))gearEl.textContent=gear;
+  const charge=Math.max(0,Math.min(1,car.battery??1)),percent=(charge*100).toFixed(1);
+  if(changed('battery',percent)){
+   batteryValue.textContent=`${percent}%`;batteryFill.style.width=`${charge*100}%`;batteryGauge.setAttribute('aria-valuenow',percent);
+   panel.classList.toggle('low-battery',charge<=.2);panel.classList.toggle('empty-battery',charge===0);
+   batteryLabel.textContent=charge===0?'Battery empty':charge<=.2?'Low battery':'Battery';
+  }
  }};
 }

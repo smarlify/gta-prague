@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {QUALITY} from './quality.js';
 
 // Helsinki late-summer sky (reference: Kauppatori / Kanavakatu, August):
 // deep blue zenith, pale milky haze on the horizon, scattered cumulus and faint cirrus,
@@ -25,14 +26,14 @@ export const FOG_COLOR = SKY_PALETTE.horizon;
 // How far the city is drawn, in metres. Clear-day fog is opaque here and distant
 // tiles, trees and traffic stop. Was 850, with the camera still clipping at 1500:
 // about half, so the block ahead stays sharp and the far city is not submitted.
-export const DRAW_DISTANCE = 450;
+export const DRAW_DISTANCE = QUALITY.drawDistance; // 450 on the tuned tier
 // Fog begins past the car and the street it is on. Was 330.
-export const FOG_NEAR = 240;
+export const FOG_NEAR = QUALITY.fogNear; // 240 on the tuned tier
 // Hard clip just past full fog, so the horizon is sky rather than shaded ground. Was 1500.
-export const CAMERA_FAR = 560;
+export const CAMERA_FAR = QUALITY.cameraFar; // 560 on the tuned tier
 // Ground tiles are a few hundred metres across. Load slightly past the fog so the road does not pop in.
 export const SURFACE_LOAD_RADIUS = DRAW_DISTANCE + 100;
-export const SKY_RADIUS = 480; // inside CAMERA_FAR (was 1000, inside the old 1500 far plane)
+export const SKY_RADIUS = CAMERA_FAR - 80; // inside CAMERA_FAR (was 1000, inside the old 1500 far plane)
 
 // Lights tuned toward the reference photos: bright, slightly warm sun and a bluer sky fill.
 export const LIGHTING = Object.freeze({
