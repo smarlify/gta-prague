@@ -64,3 +64,40 @@ export function createPragueBridgeDecks(surfaces,heightAt){
  add(asphalt,'#5c6164','Hlávkův most deck');
  return group;
 }
+
+// One concrete slab under every bridge. Road and footway polygons on a bridge are mapped as
+// separate strips with gaps between them; the river showed through the gaps and a bridge had no
+// body. The slab is a 3 m grid at deck height that also covers a cell beyond each strip, so the
+// strips of one bridge join into a single deck. `decks` is createBridgeDecks (src/prague-ground.js).
+export function createBridgeSlabs(decks,{cell=3,drop=.3,thickness=.9}={}){
+ const group=new THREE.Group();group.name='Bridge slabs';
+ const heights=new Map(),key=(i,j)=>i*65536+j,RING=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+ const node=(i,j)=>{
+  const k=key(i,j);if(heights.has(k))return heights.get(k);
+  const x=i*cell,z=j*cell;let h=decks.heightAt(x,z);
+  if(h===null)for(const [di,dj] of RING){const near=decks.heightAt(x+di*cell,z+dj*cell);if(near!==null&&(h===null||near>h))h=near;}
+  heights.set(k,h);return h;
+ };
+ const top=[],seen=new Set();
+ for(const item of decks.surfaces||[]){
+  const b=item.bbox,i0=Math.floor(b[0]/cell)-1,i1=Math.ceil(b[2]/cell)+1,j0=Math.floor(b[1]/cell)-1,j1=Math.ceil(b[3]/cell)+1;
+  for(let i=i0;i<i1;i++)for(let j=j0;j<j1;j++){
+   const k=key(i,j);if(seen.has(k))continue;seen.add(k);
+   const a=node(i,j),bb=node(i+1,j),c=node(i,j+1),d=node(i+1,j+1);
+   if(a===null||bb===null||c===null||d===null)continue;
+   const x0=i*cell,x1=x0+cell,z0=j*cell,z1=z0+cell;
+   top.push(x0,a-drop,z0, x0,c-drop,z1, x1,bb-drop,z0,  x1,bb-drop,z0, x0,c-drop,z1, x1,d-drop,z1);
+  }
+ }
+ if(!top.length)return group;
+ const build=(lift,color,name)=>{
+  const positions=new Float32Array(top);for(let i=1;i<positions.length;i+=3)positions[i]+=lift;
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(positions,3));g.computeVertexNormals();
+  const mesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color,roughness:.95,metalness:0,side:THREE.DoubleSide}));
+  mesh.name=name;mesh.receiveShadow=true;group.add(mesh);
+ };
+ build(0,'#8c8f8a','Bridge slab');
+ build(-thickness,'#5e615d','Bridge soffit'); // the underside, seen from the river and the banks
+ group.userData={cells:top.length/18};
+ return group;
+}

@@ -1,0 +1,214 @@
+// Prague's ground rules in one place: which mapped roads are tunnels, how high a bridge deck or a
+// passage is, and what the car may drive through. src/main.js and scripts/prague-drive-audit.mjs
+// both build their world here, so the audit measures exactly what the game does.
+import {SpatialIndex} from './geo.js';
+import {groundAt,waterAt,setDriveHeight} from './terrain.js';
+import {setRiverChannel,setDryPassages,setBridgeSpans,pointInRiverChannel,setGroundCeiling} from './terrain-mesh.js';
+import {stripBoredTunnels,isBridgeSurface,isFeaturedBridge,passageDeck} from './passage.js';
+
+// Dry land and river channel as the bridge rules see them.
+export const pragueDry=Object.freeze({
+ dry:(x,z)=>waterAt(x,z)===null&&!pointInRiverChannel(x,z),
+ inChannel:(x,z)=>waterAt(x,z)!==null||pointInRiverChannel(x,z),
+});
+
+/** City and mobility data as the game uses them. */
+export function preparePragueData(data,mobility){
+ const stripped=stripBoredTunnels(data,mobility);
+ return {data:stripped.city,mobility:stripped.mobility};
+}
+
+/** Tell the terrain mesh where the river, the dry passages and the bridge spans are. */
+export function registerPragueChannel(data){
+ setRiverChannel(data.water);setDryPassages(data.roads);
+ setBridgeSpans([...data.roads,...data.pavement].filter(isBridgeSurface));
+ return pragueDry;
+}
+
+// A real bridge: the build marks it with "(Silta)". A street that is only called "… most"
+// (Prašný most) is an ordinary street and keeps the ground under it.
+export const isDeckSurface=item=>/Silta/.test(item?.kind||'');
+
+const DECK_DIRS=Array.from({length:8},(_,i)=>[Math.cos(i*Math.PI/8),Math.sin(i*Math.PI/8)]);
+const DECK_REACH=16,DECK_STEP=1,DECK_CELL=2,UNSET=-99999;
+
+// Deck heights for every bridge in the city.
+//
+// The terrain already carries each road bridge as a smooth ridge from bank to bank, but only along
+// its centre line: towards the edges the ridge falls away to the river. The deck is therefore the
+// ground at the middle of the bridge's cross-section, the same for every point across its width.
+// The cross-section is the shortest chord through the point that stays on bridge polygons, so the
+// carriageway and the footways beside it share one flat deck. A footbridge the terrain never
+// raised gets a straight deck between the ground at its two ends instead.
+//
+// Heights are cached on a 2 m grid per polygon and read back bilinearly, so they are smooth and a
+// lookup costs a few array reads.
+//
+// `under` is an index of ordinary streets. Where a bridge crosses one and stands more than a metre
+// above it, the two cannot both be right, because the game has one height per point: the street
+// keeps its ground and the bridge ramps down to it over the last twelve metres. That only happens
+// to the few cycle and service bridges the terrain bake did not grade-separate.
+// `around` is an index of every other road and pavement: what a bridge lands on at its ends.
+export function createBridgeDecks(surfaces,{height=groundAt,under=null,around=null}={}){
+ const index=new SpatialIndex(surfaces),grids=new Map(),profiles=new Map();
+ const RAMP=12,RAMP_DIRS=Array.from({length:8},(_,i)=>[Math.cos(i*Math.PI/4),Math.sin(i*Math.PI/4)]);
+ function meetStreets(x,z,deck){
+  if(!under)return deck;
+  if(under.at(x,z)){const g=height(x,z);return deck-g>1?g:deck;}
+  for(let r=3;r<=RAMP;r+=3)for(const [dx,dz] of RAMP_DIRS){
+   const qx=x+dx*r,qz=z+dz*r;if(!under.at(qx,qz)||!index.at(qx,qz))continue;
+   const g=height(qx,qz);if(deck-g>1)return deck+(g-deck)*(1-(r-3)/RAMP);
+  }
+  return deck;
+ }
+ const on=(x,z)=>!!index.at(x,z);
+ function centre(x,z){
+  let best=null;
+  for(const [dx,dz] of DECK_DIRS){
+   let a=0,b=0;
+   while(a<DECK_REACH&&on(x+dx*(a+DECK_STEP),z+dz*(a+DECK_STEP)))a+=DECK_STEP;
+   while(b<DECK_REACH&&on(x-dx*(b+DECK_STEP),z-dz*(b+DECK_STEP)))b+=DECK_STEP;
+   if(a>=DECK_REACH&&b>=DECK_REACH)continue; // a plaza-sized deck in this direction: not a cross-section
+   const length=a+b;
+   if(!best||length<best.length)best={length,x:x+dx*(a-b)/2,z:z+dz*(a-b)/2};
+  }
+  return best||{x,z};
+ }
+ // What a polygon adds to the ground under its centre line:
+ //  - a straight deck from end to end, when its middle lies well below both ends (a footbridge the
+ //    terrain never raised);
+ //  - a correction at an end that does not meet the street beyond it. Karlův most is baked as a
+ //    ramp that ends 3.6 m below Křižovnické náměstí; the deck is tilted to arrive level with it.
+ function profileFor(item){
+  if(profiles.has(item))return profiles.get(item);
+  const ring=item.rings[0];let cx=0,cz=0;for(const p of ring){cx+=p[0];cz+=p[1];}cx/=ring.length;cz/=ring.length;
+  let xx=0,xz=0,zz=0;for(const p of ring){const dx=p[0]-cx,dz=p[1]-cz;xx+=dx*dx;xz+=dx*dz;zz+=dz*dz;}
+  const angle=.5*Math.atan2(2*xz,xx-zz),ax=Math.cos(angle),az=Math.sin(angle);
+  let t0=Infinity,t1=-Infinity;for(const p of ring){const t=(p[0]-cx)*ax+(p[1]-cz)*az;if(t<t0)t0=t;if(t>t1)t1=t;}
+  const span=t1-t0,along=(x,z)=>span>0?Math.max(0,Math.min(1,(((x-cx)*ax+(z-cz)*az)-t0)/span)):0;
+  const capPoint=t=>{let sx=0,sz=0,n=0;for(const p of ring){const q=(p[0]-cx)*ax+(p[1]-cz)*az;if(Math.abs(q-t)<3){sx+=p[0];sz+=p[1];n++;}}return n?[sx/n,sz/n]:[cx+ax*t,cz+az*t];};
+  const ends=[[t0,-1],[t1,1]].map(([t,dir])=>{
+   const [px,pz]=capPoint(t),inside=centre(px-ax*dir*2,pz-az*dir*2),deck=height(inside.x,inside.z);
+   // The street the bridge lands on, a few metres beyond its end.
+   let error=0;
+   if(around)for(const reach of [3,5,8]){const qx=px+ax*dir*reach,qz=pz+az*dir*reach;if(on(qx,qz))break;if(around.at(qx,qz)){error=height(qx,qz)-deck;break;}}
+   return {deck,error:Math.abs(error)>.4&&Math.abs(error)<8?error:0};
+  });
+  const mid=centre(cx,cz),sag=Math.min(ends[0].deck,ends[1].deck)-height(mid.x,mid.z),straight=span>8&&sag>1.5;
+  const profile={
+   line:straight?(x,z)=>ends[0].deck+(ends[1].deck-ends[0].deck)*along(x,z):null,
+   correction:ends[0].error||ends[1].error?(x,z)=>ends[0].error+(ends[1].error-ends[0].error)*along(x,z):null,
+  };
+  profiles.set(item,profile);return profile;
+ }
+ function exact(x,z,item){
+  const c=centre(x,z),profile=profileFor(item);
+  let h=height(c.x,c.z);
+  if(profile.line)h=Math.max(h,profile.line(x,z));
+  if(profile.correction)h+=profile.correction(x,z);
+  return h;
+ }
+ function gridFor(item){
+  let grid=grids.get(item);
+  if(!grid){const b=item.bbox,nx=Math.ceil((b[2]-b[0])/DECK_CELL)+1,nz=Math.ceil((b[3]-b[1])/DECK_CELL)+1;grid={x:b[0],z:b[1],nx,nz,values:new Float32Array((nx+1)*(nz+1)).fill(UNSET)};grids.set(item,grid);}
+  return grid;
+ }
+ function node(grid,item,i,j){
+  const k=j*(grid.nx+1)+i;let v=grid.values[k];
+  if(v===UNSET){const x=grid.x+i*DECK_CELL,z=grid.z+j*DECK_CELL;v=grid.values[k]=on(x,z)?meetStreets(x,z,exact(x,z,item)):NaN;}
+  return v;
+ }
+ return {
+  surfaces,
+  on,
+  /** Deck height at x,z, or null off every bridge. */
+  heightAt(x,z){
+   const item=index.at(x,z);if(!item)return null;
+   const grid=gridFor(item),u=(x-grid.x)/DECK_CELL,v=(z-grid.z)/DECK_CELL,i=Math.max(0,Math.min(grid.nx-1,Math.floor(u))),j=Math.max(0,Math.min(grid.nz-1,Math.floor(v))),a=u-i,b=v-j;
+   let sum=0,weight=0;
+   for(const [di,dj,w] of [[0,0,(1-a)*(1-b)],[1,0,a*(1-b)],[0,1,(1-a)*b],[1,1,a*b]]){const h=node(grid,item,i+di,j+dj);if(!Number.isNaN(h)&&w>0){sum+=h*w;weight+=w;}}
+   return weight>.2?sum/weight:meetStreets(x,z,exact(x,z,item));
+  },
+ };
+}
+
+// Where traffic lanes and footpaths run, as a set of thin strips. A building footprint never
+// blocks inside one. Mapped footprints overlap the street they stand on, close a passage a metre
+// before its mouth, or cover an arcade the footpath uses; the lane says the way is open.
+export function createCorridors(graphs,cell=24){
+ const cells=new Map(),key=(i,j)=>i*8192+j;
+ for(const {edges,half} of graphs)for(const edge of edges||[])for(let i=1;i<edge.points.length;i++){
+  const a=edge.points[i-1],b=edge.points[i],segment=[a[0],a[1],b[0],b[1],half];
+  const i0=Math.floor((Math.min(a[0],b[0])-half)/cell),i1=Math.floor((Math.max(a[0],b[0])+half)/cell),j0=Math.floor((Math.min(a[1],b[1])-half)/cell),j1=Math.floor((Math.max(a[1],b[1])+half)/cell);
+  for(let ci=i0;ci<=i1;ci++)for(let cj=j0;cj<=j1;cj++){const k=key(ci,cj);let list=cells.get(k);if(!list)cells.set(k,list=[]);list.push(segment);}
+ }
+ return {at(x,z){
+  const list=cells.get(key(Math.floor(x/cell),Math.floor(z/cell)));if(!list)return false;
+  for(const [ax,az,bx,bz,half] of list){
+   const dx=bx-ax,dz=bz-az,l2=dx*dx+dz*dz||1,t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/l2)),px=ax+dx*t-x,pz=az+dz*t-z;
+   if(px*px+pz*pz<=half*half)return true;
+  }
+  return false;
+ }};
+}
+
+// An index that answers like `inner`, except that a mapped building is not there where `open` says
+// the way is clear. Posts, boards and other street obstacles in the same index stay solid.
+export function openWays(inner,open){
+ const index=Object.create(inner);
+ index.at=(x,z)=>{const hit=inner.at(x,z);return hit&&/^osm-/.test(hit.id||'')&&open(x,z)?null:hit;};
+ return index;
+}
+
+/**
+ * Prague's ground, built once the data is loaded. It sets the drive height at once, so the road
+ * surfaces, decks and statues placed afterwards all stand on the same heights the cars use.
+ */
+export function createPragueGround(data,mobility){
+ registerPragueChannel(data);
+ // Passages get their own index: the first road polygon at a point is often the street beside or
+ // above the passage, and then neither its deck nor its way through the building was found.
+ const passages=new SpatialIndex(data.roads.filter(r=>r.passage));
+ const roads=new SpatialIndex(data.roads.filter(r=>!/Koroke/.test(r.kind)));
+ const streets=new SpatialIndex(data.roads.filter(r=>/^Ajorata/.test(r.kind||'')&&!isDeckSurface(r)));
+ const landings=new SpatialIndex([...data.roads,...data.pavement].filter(r=>!isDeckSurface(r)&&!r.passage));
+ const bridgeDecks=createBridgeDecks([...data.roads,...data.pavement].filter(isDeckSurface),{under:streets,around:landings});
+// Bare ground within a grid cell of a bridge stays at or below the lowest ground around it, so
+ // the coarse ground mesh cannot rise through a deck or its ramp.
+ const NEAR=[[0,0],[7,0],[-7,0],[0,7],[0,-7],[7,7],[-7,7],[7,-7],[-7,-7]];
+ setGroundCeiling((x,z)=>{
+  let near=false,low=Infinity;
+  for(const [dx,dz] of NEAR){if(bridgeDecks.on(x+dx,z+dz))near=true;const h=groundAt(x+dx,z+dz);if(h<low)low=h;}
+  return near?low-.15:null;
+ });
+ const corridors=createCorridors([{edges:mobility?.roads?.edges,half:2.3},{edges:mobility?.walks?.edges,half:1}]);
+ // One height for every vehicle, road surface and pavement: a passage's own deck, then a bridge
+ // deck, then the ground. A bridge wins over a street mapped under it, so the lookup no longer
+ // flips between the two levels from one metre to the next.
+ const driveHeight=(x,z)=>passageDeck(passages,x,z)??bridgeDecks.heightAt(x,z)??groundAt(x,z);
+ setDriveHeight(driveHeight);
+ const open=(x,z)=>!!(passages.at(x,z)||roads.at(x,z)||corridors.at(x,z));
+ return {dry:pragueDry,passages,bridgeDecks,corridors,driveHeight,open,
+  /** Deck height for meshes that stand on a bridge. */
+  deckHeight:(x,z)=>bridgeDecks.heightAt(x,z)??groundAt(x,z),
+  /** Collision rules on the finished world: call after its building indexes are set. */
+  install(world){
+   world.roadClearsBuildings=true; // OSM footprints spilled onto asphalt are not solid mid-road walls
+   world.featuredBridges=[...data.roads,...data.pavement].filter(isFeaturedBridge);
+   world.passages=passages;world.bridgeDecks=bridgeDecks;world.driveHeight=driveHeight;
+   world.buildings=openWays(world.buildings,open);
+   if(world.collisionBuildings)world.collisionBuildings=openWays(world.collisionBuildings,open);
+   return world;
+  }};
+}
+
+/** The whole set-up for tools and tests: prepared data plus a world with the same indexes as the game. */
+export function setupPragueWorld(rawData,rawMobility){
+ const {data,mobility}=preparePragueData(rawData,rawMobility);
+ const ground=createPragueGround(data,mobility);
+ return {data,mobility,ground,world({buildings=new SpatialIndex(data.buildings)}={}){
+  const world={buildings,roads:new SpatialIndex(data.roads.filter(r=>!/Koroke/.test(r.kind))),pavement:new SpatialIndex(data.pavement),trafficForbidden:new SpatialIndex(data.roads.filter(r=>/Koroke/.test(r.kind))),water:data.water};
+  world.cameraBuildings=world.sightBuildings=new SpatialIndex(data.buildings);world.collisionBuildings=world.cameraBuildings;
+  return ground.install(world);
+ }};
+}
