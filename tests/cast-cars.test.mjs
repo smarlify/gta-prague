@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Box3, Vector3} from 'three';
 import {createVehicle, animateVehicle} from '../src/vehicles.js';
 import {CAR_TYPES, VEHICLE_TYPES, TRANSPORTER_PAINT, PANAMERA_PAINT, ES_PAINT, TUKTUK_PAINT, GWAGEN_PAINT, SCALA_PAINT, X5_PAINT, RAM_PAINT, ROADSTER_PAINT} from '../src/vehicle-models.js';
-import {TRANSPORTER_LABEL} from '../src/cast-cars.js';
+import {TRANSPORTER_LABEL, TRANSPORTER_LABEL_GREEN, TRANSPORTER_LABEL_PURPLE} from '../src/cast-cars.js';
 import {CHARACTERS, characterById, resolveDriver} from '../src/character-select.js';
 import {resolveDriverStart} from '../src/pavlova.js';
 import {STRAKOVA_AKADEMIE, URAD_VLADY, VELVYSLANECTVI_JAPONSKA, XTV, VLTAVA_PRIVOZ, VLTAVA_START, waterStart} from '../src/driver-starts.js';
@@ -94,11 +94,15 @@ test('the new cars carry their names, finishes and the Transporter slogan', () =
   }
   assert.equal(new Set([TRANSPORTER_PAINT, PANAMERA_PAINT, ES_PAINT, TUKTUK_PAINT, GWAGEN_PAINT, SCALA_PAINT, X5_PAINT, RAM_PAINT, ROADSTER_PAINT]).size, 9, 'every cast car has its own colour');
   assert.deepEqual(TRANSPORTER_LABEL, ['JEZDÍM NA NAFTU', 'NEPATŘÍM DO ŠROTU']);
+  assert.equal(TRANSPORTER_LABEL_GREEN, '#39A935', 'Svobodní green');
+  assert.equal(TRANSPORTER_LABEL_PURPLE, '#6B2D7B', 'Svobodní purple');
   const van = createVehicle(0, true, 'transporter');
   const labels = [];
   van.traverse((o) => { if (o.name === 'label') labels.push(o); });
   assert.equal(labels.length, 3, 'both flanks and the rear doors');
   assert.equal(van.getObjectByName('body').userData.label, 'JEZDÍM NA NAFTU – NEPATŘÍM DO ŠROTU');
+  // Without a real canvas the texture is null and the label material falls back to green.
+  assert.equal(`#${labels[0].material.color.getHexString().toUpperCase()}`, TRANSPORTER_LABEL_GREEN);
   const panamera = createVehicle(0, true, 'panamera').userData.spec, es = createVehicle(0, true, 'es').userData.spec;
   assert.ok(panamera.h < 1.45 && panamera.l > 5, 'long and low');
   assert.ok(es.l > 4.9 && es.h < 1.5);

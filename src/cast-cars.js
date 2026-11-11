@@ -169,15 +169,19 @@ export function buildX5(s,detailed){
 }
 
 // "Jezdím na naftu – nepatřím do šrotu": drawn once, shared by both sides and the rear doors.
+// Svobodní identity green + purple (no official pair in-repo; recognisable party colours).
 export const TRANSPORTER_LABEL=['JEZDÍM NA NAFTU','NEPATŘÍM DO ŠROTU'];
+export const TRANSPORTER_LABEL_GREEN='#39A935';
+export const TRANSPORTER_LABEL_PURPLE='#6B2D7B';
 let labelTexture=null;
 function transporterLabel(){
  if(labelTexture||typeof document==='undefined')return labelTexture;
  const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=320;
  const ctx=canvas.getContext('2d');if(!ctx)return null;
  ctx.clearRect(0,0,1024,320);ctx.textAlign='center';ctx.textBaseline='middle';
- ctx.font='800 104px "Arial Black",Arial,sans-serif';ctx.fillStyle='#14233f';ctx.fillText(TRANSPORTER_LABEL[0],512,92,990);
- ctx.fillStyle='#c4161c';ctx.fillRect(40,156,944,8);
+ // Split lines: green then purple, so both brand colours read at game viewing distance.
+ ctx.font='800 104px "Arial Black",Arial,sans-serif';ctx.fillStyle=TRANSPORTER_LABEL_GREEN;ctx.fillText(TRANSPORTER_LABEL[0],512,92,990);
+ ctx.fillStyle=TRANSPORTER_LABEL_PURPLE;ctx.fillRect(40,156,944,8);
  ctx.font='800 96px "Arial Black",Arial,sans-serif';ctx.fillText(TRANSPORTER_LABEL[1],512,238,990);
  labelTexture=new THREE.CanvasTexture(canvas);labelTexture.colorSpace=THREE.SRGBColorSpace;labelTexture.anisotropy=8;
  return labelTexture;
@@ -218,7 +222,7 @@ export function buildTransporter(s,detailed){
  k.plates(-L-.016,L+.014,{y:.52,yRear:.50});
  const body=k.finish();
  // The slogan on both flanks and across the rear doors.
- const map=transporterLabel(),material=new THREE.MeshStandardMaterial({map,color:map?'#ffffff':'#14233f',transparent:true,opacity:map?1:0,roughness:.55,polygonOffset:true,polygonOffsetFactor:-2});
+ const map=transporterLabel(),material=new THREE.MeshStandardMaterial({map,color:map?'#ffffff':TRANSPORTER_LABEL_GREEN,transparent:true,opacity:map?1:0,roughness:.55,polygonOffset:true,polygonOffsetFactor:-2});
  material.name='label';
  const lean=Math.atan2(W*.085,H-B),sideX=W*.985-(.42/(H-B))*W*.085+.012;
  for(const side of [-1,1]){const g=new THREE.PlaneGeometry(2.25,.70);g.rotateY(side*Math.PI/2);g.rotateZ(side*lean);g.translate(side*sideX,B+.42,(cab+L)/2+.05);const mesh=new THREE.Mesh(g,material);mesh.name='label';body.add(mesh);}
