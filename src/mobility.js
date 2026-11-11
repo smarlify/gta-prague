@@ -52,6 +52,21 @@ const LOOKAHEAD=45;
 // Same direction only: the car behind gives way when two footprints touch (merging lanes); the leader may pull away.
 // Side by side, the lower id goes first. Previously both refused to move and deadlocked forever.
 const yieldsTo=(a,b)=>{if(Math.cos(a.heading-b.heading)<.9)return true;const forward=(b.x-a.x)*-Math.sin(a.heading)+(b.z-a.z)*-Math.cos(a.heading);return forward>.3||(forward>-.3&&b.id<a.id);};
+// spawn() used to scan every edge of the city (27k lanes, 115k footpaths) for each actor it placed.
+// Edges are bucketed once by midpoint; a spawn reads only the buckets within reach, in the original order.
+const EDGE_CELL=128,edgeGrids=new WeakMap();
+function edgeGrid(edges){
+ let grid=edgeGrids.get(edges);if(!grid)edgeGrids.set(edges,grid={cells:new Map(),count:0});
+ // Outer regions append to the same array while driving: index only what arrived since the last look.
+ for(let i=grid.count;i<edges.length;i++){const e=edges[i],p=e.points[Math.floor(e.points.length/2)],k=Math.floor(p[0]/EDGE_CELL)+','+Math.floor(p[1]/EDGE_CELL);let cell=grid.cells.get(k);if(!cell)grid.cells.set(k,cell=[]);cell.push(i);}
+ grid.count=edges.length;return grid.cells;
+}
+export function edgesNear(edges,x,z,radius){
+ const grid=edgeGrid(edges),found=[];
+ for(let cx=Math.floor((x-radius)/EDGE_CELL);cx<=Math.floor((x+radius)/EDGE_CELL);cx++)for(let cz=Math.floor((z-radius)/EDGE_CELL);cz<=Math.floor((z+radius)/EDGE_CELL);cz++){const cell=grid.get(cx+','+cz);if(cell)for(const i of cell)found.push(i);}
+ found.sort((a,b)=>a-b);
+ return found.map(i=>edges[i]);
+}
 export class Mobility {
  constructor(data,world,{cars=52,people=100,stationCars=0,corridorCars=0,corridor=null,random=Math.random}={}){
   this.roads=prepareGraph(data.roads);this.walks=prepareGraph(data.walks);this.signals=data.signals;this.signalControl=annotateJunctions(this.roads,data.signals||[]);annotateCrossings(this.walks,this.signalControl);this.signalAxes=this.signalControl.axes;this.world=world;this.random=random;this.time=0;this.collisions=0;this.externalObstacles=[];this.externalBodies=[];this.trams=null;this.edgeCars=new Map();this.boxCars=new Map();this.approaching=new Map();
@@ -143,7 +158,8 @@ export class Mobility {
   if(a.corridorOnly&&!this.nearCorridor(player)){a.edge=null;a.speed=0;return;}
   const graph=a.walking?this.walks:this.roads;
   // Prefer nearby routes; edge midpoint avoids choosing a remote end of a long road.
-  const nearby=(a.stationOnly?this.stationEdges:a.corridorOnly?this.corridorEdges:graph.edges).filter(e=>{const p=e.points[Math.floor(e.points.length/2)],d=Math.hypot(p[0]-player.x,p[1]-player.z);return (!a.walking||!e.crossing)&&d<(a.walking?200:a.corridorOnly?520:320)&&e.length>(a.walking?3:10)&&!(!a.walking&&(this.obstructed?.has(e)||this.trap(e,2)));});
+  const reach=a.walking?200:a.corridorOnly?520:320;
+  const nearby=edgesNear(a.stationOnly?this.stationEdges:a.corridorOnly?this.corridorEdges:graph.edges,player.x,player.z,reach).filter(e=>{const p=e.points[Math.floor(e.points.length/2)],d=Math.hypot(p[0]-player.x,p[1]-player.z);return (!a.walking||!e.crossing)&&d<(a.walking?200:a.corridorOnly?520:320)&&e.length>(a.walking?3:10)&&!(!a.walking&&(this.obstructed?.has(e)||this.trap(e,2)));});
   for(let trial=0;trial<80&&nearby.length;trial++){
    a.edge=nearby[Math.floor(this.random()*nearby.length)];a.s=this.random()*a.edge.length;a.plan=[];a.prevDir=undefined;
    const p=this.position(a);

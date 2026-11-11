@@ -222,3 +222,7 @@ body.clean-capture.driving #online-players{visibility:hidden;pointer-events:none
 @media(max-width:700px) and (pointer:fine){#buy-billboard{bottom:240px}}
 @media(pointer:coarse){#buy-billboard{bottom:calc(var(--mobile-bottom, 16px) + 168px);min-height:44px;min-width:44px;touch-action:manipulation}}
 body.busted #buy-billboard,body.arrest-cinematic #buy-billboard{visibility:hidden}
+
+/* Low quality tier: backdrop blur re-samples the WebGL canvas under every HUD panel on each frame. */
+.low-quality .location-tag,.low-quality .journey,.low-quality .speedometer,.low-quality .topbar .wordmark,.low-quality .end-panel,.low-quality #pause-overlay,.low-quality #busted-overlay{backdrop-filter:none}
+.low-quality #pause-overlay{background:#f5f3ebd8}

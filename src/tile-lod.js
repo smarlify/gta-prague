@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {DRAW_DISTANCE} from './sky.js';
+import {QUALITY} from './quality.js';
 
 // Distance levels for measured building tiles, with hysteresis so a tile parked on a threshold
 // never flickers between representations:
@@ -7,7 +8,7 @@ import {DRAW_DISTANCE} from './sky.js';
 //  far    — one merged measured shell per texture atlas: same walls and roofs, no windows, no shadows
 //  hidden — beyond the fogged distance
 // Authored landmark fronts inside tiles (shell meshes with the 'detail' role) stay visible at every level.
-export const LOD={near:240,far:290,visible:DRAW_DISTANCE,detail:180,shadow:130};
+export const LOD={near:QUALITY.buildingNear,far:QUALITY.buildingFar,visible:DRAW_DISTANCE,detail:QUALITY.buildingDetail,shadow:QUALITY.buildingShadow,provisional:QUALITY.buildingWindows};
 
 export function tileLevel(previous,distance,bands=LOD){
  if(distance>bands.visible)return 'hidden';
@@ -47,7 +48,8 @@ export function applyTileLod(group,level,focus,bands=LOD){
   const d=u.box.distanceToPoint(focus);
   if(u.source){mesh.visible=level==='near';mesh.castShadow=mesh.visible&&d<bands.shadow;continue;}
   const hero=!!u.shell&&u.role==='detail';
-  mesh.visible=level==='near'?!!(u.shell||u.provisional||d<bands.detail):hero;
+  // Generated placeholder windows are most of a street's triangles: the low tier keeps them only close by.
+  mesh.visible=level==='near'?!!(u.shell||(u.provisional&&d<(bands.provisional??Infinity))||d<bands.detail):hero;
   mesh.castShadow=!!u.shell&&level==='near'&&mesh.visible&&d<bands.shadow;
  }
  return level;
