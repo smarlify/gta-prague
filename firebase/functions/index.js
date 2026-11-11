@@ -222,7 +222,8 @@ export const listBillboardCreatives = onRequest({region, cors: true}, async (req
 });
 
 // A player at a board opens that board's public link. One open costs the owner's shared pool one credit.
-export const openBillboardVisit = onRequest({region, cors: true, invoker: 'public'}, async (req, res) => {
+// Leave invoker unset: org Domain Restricted Sharing blocks allUsers, and Cloud Run stays public via invokerIamDisabled.
+export const openBillboardVisit = onRequest({region, cors: true}, async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({error: 'POST only'});
     return;
