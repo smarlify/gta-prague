@@ -264,8 +264,10 @@ class RemoteActor {
     if (!this.ped) {
       this.ped = createPedMesh(this.uid, net.character || '');
       this.root.add(this.ped.batch.group);
-      this.ped.batch.group.position.y = -groundAt(seat.x, seat.z);
     }
+    // The driver shares the car's slope pitch and roll, so the figure stays inside the cabin.
+    this.ped.batch.group.position.y = 0;
+    this.ped.batch.group.rotation.copy(this.car.rotation);
     this.syncLook(net);
     const actor = {
       x: seat.x,
@@ -273,7 +275,8 @@ class RemoteActor {
       heading: 0,
       speed: 0,
       pose: seat.pose,
-      groundY: seat.groundY - 0.12,
+      // draw() adds the terrain height at the seat's local coordinates; take it back out.
+      groundY: seat.groundY - 0.12 - groundAt(seat.x, seat.z),
       running: false,
       grip: false,
       seated: true,
@@ -347,7 +350,7 @@ class RemoteActor {
         const bike = this.ride.anchors || PLAYER_BIKE;
         const actor = {
           x: 0, z: 0, heading: 0, speed: Math.abs(speed), pose,
-          groundY: pose === 'scooter' ? PLAYER_SCOOTER.groundY + (this.ride.lift || 0.12) - 0.12 : (this.ride.lift || 0.12),
+          groundY: (pose === 'scooter' ? PLAYER_SCOOTER.groundY + (this.ride.lift || 0.12) - 0.12 : (this.ride.lift || 0.12)) - groundAt(0, 0),
           running: false, grip: true, seated: false,
           bike: { ...bike, crank: (this.ride._dist || 0) * bike.crankPerMetre },
           scooter: PLAYER_SCOOTER,
@@ -362,14 +365,14 @@ class RemoteActor {
       this.syncLook(net);
       const actor = {
         x: 0, z: 0, heading: 0, speed: Math.abs(speed), pose: 'walk',
-        groundY: 0.12, running: Math.abs(speed) > 2.5, grip: false, seated: false,
+        groundY: 0.12 - groundAt(0, 0), running: Math.abs(speed) > 2.5, grip: false, seated: false,
       };
       this.ped.batch.begin();
       advanceGait(actor, this.ped.gait, dt, this.ped.look);
       this.ped.batch.draw(actor, this.ped.look, this.ped.gait);
       this.ped.batch.end();
       this.ped.batch.group.visible = true;
-      this.ped.batch.group.position.y = groundAt(x, z) - this.root.position.y + 0.12;
+      this.ped.batch.group.position.y = groundAt(x, z) - this.root.position.y;
     }
 
     if (this.label) this.label.position.y = this.mode === 'car' ? 2.2 : 2.5;
