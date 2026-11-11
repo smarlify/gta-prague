@@ -13,6 +13,7 @@ import {setBusLivery} from './bus-renderer.js';
 import {selectCity,useCity,pickStart,startUrl,dataUrl,registerCities,visitScene} from './cities.js';
 import {createStartPicker,pickerStep} from './start-picker.js';
 import {bindCharacterPicker,characterSwitchRebuilds,occupiedRide,playerPageTitle,resolveDriver,writeCharacterId} from './character-select.js';
+import {withUtm} from './utm.js';
 import {CHASE_JOIN_SPEED,CHASE_LEAD_SPEED,CHASE_UNIT_SPEED,DIVADLO_BEZ_ZABRADLI,KE_HRADU,POSLANECKA_SNEMOVNA,PRAZSKY_HRAD,STRAKOVA_AKADEMIE,URAD_VLADY,VELVYSLANECTVI_JAPONSKA,XTV,waterStart,slachtaArrest,slachtaChaseLayout,slachtaWearsUniform} from './driver-starts.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
@@ -1370,7 +1371,7 @@ async function boot(){
     document.querySelector('#sources-dialog .help-note').textContent=`An evolving reconstruction of the city. Building heights, facades and street details may be estimated. ${hasTerrain()?'Terrain follows the bundled elevation data.':'Terrain is flattened.'} Traffic and public transport are simulated rather than live services.`;
     document.querySelector('#sources-dialog .attribution').textContent=city.attribution;
     const sourceLinks=document.querySelector('#sources-dialog .source-links');sourceLinks.replaceChildren();
-    for(const [label,href]of [['OpenStreetMap','https://www.openstreetmap.org/copyright'],['Data and asset credits','https://github.com/worldhood/worldhood/blob/main/NOTICE.md']]){const a=document.createElement('a');a.textContent=label+' ↗';a.href=href;a.target='_blank';a.rel='noreferrer';sourceLinks.append(a);}
+    for(const [label,href]of [['OpenStreetMap','https://www.openstreetmap.org/copyright'],['Data and asset credits','https://github.com/worldhood/worldhood/blob/main/NOTICE.md']]){const a=document.createElement('a');a.textContent=label+' ↗';a.href=withUtm(href,'sources');a.target='_blank';a.rel='noreferrer';sourceLinks.append(a);}
     document.querySelector('#map-dialog .map-caption').firstChild.textContent=`${city.name.toUpperCase()} FROM OPEN DATA `;
     document.querySelector('#help-dialog .help-note').textContent='Explore this single-player city playground on foot, by car, bicycle or scooter. Share the streets with simulated traffic and pedestrians. Available rides start near each starting point; buildings and water constrain movement. The starting car is a Roadster: hold Shift and the cold-gas rockets lift it, then pitch with W and S.';
     $('district-label').textContent=city.name.toUpperCase();

@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const COFFEE = 'https://buymeacoffee.com/smarlify';
-const PLAYFUL = 'https://playful.smarlify.co/';
+const COFFEE = 'https://buymeacoffee.com/smarlify?utm_source=gtapraha&utm_medium=referral&utm_campaign=coffee';
+const PLAYFUL_WELCOME = 'https://playful.smarlify.co/?utm_source=gtapraha&utm_medium=referral&utm_campaign=playful';
+const PLAYFUL_ABOUT = 'https://playful.smarlify.co/?utm_source=gtapraha&utm_medium=referral&utm_campaign=about';
+const PLAYFUL_PAUSE = 'https://playful.smarlify.co/?utm_source=gtapraha&utm_medium=referral&utm_campaign=pause';
 
 test('welcome, pause, and about show coffee and Playful without naming Lasse', async () => {
   const welcome = await readFile(new URL('../index.html', import.meta.url), 'utf8');
@@ -14,13 +16,17 @@ test('welcome, pause, and about show coffee and Playful without naming Lasse', a
   for (const html of [welcome, about]) {
     assert.match(html, /Buy Me a Coffee/);
     assert.match(html, /Gaming Hub \(Playful\)/);
-    assert.match(html, new RegExp(`href="${COFFEE}" target="_blank" rel="noopener noreferrer"`));
-    assert.match(html, new RegExp(`href="${PLAYFUL}" target="_blank" rel="noopener noreferrer"`));
+    assert.ok(html.includes(`href="${COFFEE}" target="_blank" rel="noopener noreferrer"`));
     assert.doesNotMatch(html, /lasse/i);
     assert.doesNotMatch(html, /Text Dave/);
     assert.doesNotMatch(html, /GTA Prague co-authored/);
     assert.match(html, /An open-source project: co-authored by <a [^>]*>Dave Nekovář<\/a>(?!\.)/);
   }
+  assert.ok(welcome.includes(`href="${PLAYFUL_WELCOME}" target="_blank" rel="noopener noreferrer"`));
+  assert.ok(about.includes(`href="${PLAYFUL_ABOUT}" target="_blank" rel="noopener noreferrer"`));
+  assert.ok(welcome.includes(`href="${PLAYFUL_PAUSE}"`));
+  assert.match(welcome, /utm_source=gtapraha&utm_medium=referral&utm_campaign=github/);
+  assert.match(welcome, /utm_source=gtapraha&utm_medium=referral&utm_campaign=contact/);
 
   const phone = boot.slice(boot.indexOf('@media(max-width:700px)'), boot.indexOf('@media(pointer:coarse)'));
   assert.match(phone, /#intro\.boot-screen\{[^}]*width:min\(440px,calc\(100% - 24px - env\(safe-area-inset-left\)\)\)/);
@@ -36,8 +42,8 @@ test('welcome, pause, and about show coffee and Playful without naming Lasse', a
   assert.match(pause, /justify-content:flex-start/);
   assert.doesNotMatch(pause, /justify-content:center/);
 
-  assert.match(welcome, /class="coffee-btn" href="https:\/\/buymeacoffee\.com\/smarlify"/);
+  assert.ok(welcome.includes(`class="coffee-btn" href="${COFFEE}"`));
   assert.match(welcome, /id="pause-overlay"[\s\S]*Gaming Hub \(Playful\)/);
-  assert.match(about, /class="secondary" href="https:\/\/buymeacoffee\.com\/smarlify"/);
+  assert.ok(about.includes(`class="secondary" href="${COFFEE}"`));
   assert.match(boot, /\.boot-footer a\.coffee-btn\{[^}]*background:#bf4d2b/);
 });
