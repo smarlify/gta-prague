@@ -61,11 +61,11 @@ body.ads-standalone .ads-page {
   display: grid;
   gap: 0.75rem;
 }
-.ads-page select,
 .ads-page input[type="file"] {
   font: inherit;
   font-size: 16px;
 }
+.ads-page select,
 .ads-page input[type="email"],
 .ads-page input[type="password"],
 .ads-page input[type="url"] {

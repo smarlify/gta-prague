@@ -3,7 +3,7 @@ import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import {randomUUID} from 'node:crypto';
-import {applyBillboardOpen, boardId, chargeLinkOpen, checkoutAmount, emptyAccount, httpUrl, ownedBoardIds, pragueDayKey, selectBoardForCheckout, settleCredits} from './ad-credits.js';
+import {accountHasCreative, applyBillboardOpen, boardId, chargeLinkOpen, checkoutAmount, emptyAccount, faceForBoard, httpUrl, ownedBoardIds, pragueDayKey, selectBoardForCheckout, settleCredits} from './ad-credits.js';
 import {claimAsPaidSession, createRevolutCheckout, paidSessionAccount, settlePaidSession} from './billboard-payment.js';
 
 // Gen2 runs as the Compute Engine service account, which needs roles/datastore.user.
@@ -165,9 +165,10 @@ async function openOwnedBoard(id) {
     const fresh = await tx.get(ref);
     const account = {uid: preview.uid, ...emptyAccount(), ...(fresh.exists ? fresh.data() : {})};
     const owns = ownedBoardIds(account).includes(id);
-    const link = httpUrl(account.linkUrl);
+    const face = faceForBoard(account, id);
+    const link = httpUrl(face.linkUrl);
     const charge = chargeLinkOpen(account);
-    if (!owns || !link || !account.imageUrl || !charge.ok) return;
+    if (!owns || !link || !face.imageUrl || !charge.ok) return;
     tx.set(ref, {
       credits: charge.account.credits,
       spent: charge.account.spent,
@@ -201,11 +202,12 @@ export const listBillboardCreatives = onRequest({region, cors: true}, async (req
     const creatives = [];
     for (const doc of snap.docs) {
       const settled = await settleAccount(doc.ref);
-      if (settled.imageUrl && ownedBoardIds(settled).length) {
+      if (accountHasCreative(settled) && ownedBoardIds(settled).length) {
         const ids = ownedBoardIds(settled);
         creatives.push({
           uid: doc.id,
-          imageUrl: settled.imageUrl,
+          imageUrl: settled.imageUrl || '',
+          faces: settled.faces && typeof settled.faces === 'object' ? settled.faces : {},
           credits: settled.credits,
           selectedBoardId: boardId(settled.selectedBoardId) || ids[0] || '',
           boardIds: ids,

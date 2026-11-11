@@ -18,7 +18,49 @@ export function checkoutAmount({feePaid = false} = {}) {
 }
 
 export function emptyAccount() {
-  return {credits: 0, spent: 0, feePaid: false, imageUrl: '', linkUrl: '', paused: true, lastSettledDay: '', selectedBoardId: ''};
+  return {
+    credits: 0,
+    spent: 0,
+    feePaid: false,
+    imageUrl: '',
+    linkUrl: '',
+    faces: {},
+    paused: true,
+    lastSettledDay: '',
+    selectedBoardId: '',
+  };
+}
+
+// Per-board creative, with the old account-level image as fallback for every owned site.
+export function faceForBoard(account, siteId) {
+  const id = boardId(siteId);
+  const faces = account?.faces && typeof account.faces === 'object' ? account.faces : null;
+  const face = id && faces && typeof faces[id] === 'object' ? faces[id] : null;
+  if (face) {
+    const imageUrl = typeof face.imageUrl === 'string' ? face.imageUrl : '';
+    if (imageUrl) {
+      return {
+        imageUrl,
+        linkUrl: typeof face.linkUrl === 'string' ? face.linkUrl : '',
+      };
+    }
+  }
+  const imageUrl = typeof account?.imageUrl === 'string' ? account.imageUrl : '';
+  if (!imageUrl) return {imageUrl: '', linkUrl: ''};
+  return {
+    imageUrl,
+    linkUrl: typeof account?.linkUrl === 'string' ? account.linkUrl : '',
+  };
+}
+
+export function accountHasCreative(account) {
+  if (typeof account?.imageUrl === 'string' && account.imageUrl) return true;
+  const faces = account?.faces;
+  if (!faces || typeof faces !== 'object') return false;
+  for (const face of Object.values(faces)) {
+    if (face && typeof face === 'object' && typeof face.imageUrl === 'string' && face.imageUrl) return true;
+  }
+  return false;
 }
 
 // An advertiser link is an http(s) address. Anything else is dropped.
@@ -153,7 +195,7 @@ export function settleCredits(account, todayKey) {
     selectedBoardId: boardId(account?.selectedBoardId) || owned[0] || '',
   };
   // A zero balance pauses new link opens. The saved image stays on the boards they own.
-  if (!current.imageUrl || current.credits === 0) {
+  if (!accountHasCreative(current) || current.credits === 0) {
     return withOwnedBoards({...current, paused: true});
   }
   if (current.paused || !current.lastSettledDay) {
@@ -195,7 +237,7 @@ function displayOrder(a, b) {
 // A creative with an image owns every board on its account, even at zero credits.
 // Two buyers of the same board prefer whoever still has credits, then the earlier account id.
 export function assignBoards(boardIds, creatives) {
-  const live = (creatives || []).filter((item) => item?.imageUrl && ownedBoardIds(item).length);
+  const live = (creatives || []).filter((item) => accountHasCreative(item) && ownedBoardIds(item).length);
   const assigned = new Map();
   for (const id of boardIds) {
     const claimants = live.filter((item) => ownedBoardIds(item).includes(id)).sort(displayOrder);
@@ -233,8 +275,9 @@ export function applyBillboardOpen(accounts, siteId) {
   const id = boardId(siteId);
   const assigned = assignBoards(id ? [id] : [], list);
   const creative = id ? assigned.get(id) : undefined;
-  const url = httpUrl(creative?.linkUrl);
-  if (!creative?.uid || !url || !(creative.credits > 0)) return {ok: false, url: '', accounts: list};
+  const face = creative ? faceForBoard(creative, id) : {imageUrl: '', linkUrl: ''};
+  const url = httpUrl(face.linkUrl);
+  if (!creative?.uid || !face.imageUrl || !url || !(creative.credits > 0)) return {ok: false, url: '', accounts: list};
   const index = list.findIndex((account) => account.uid === creative.uid);
   if (index < 0) return {ok: false, url: '', accounts: list};
   const charge = chargeLinkOpen(list[index]);
@@ -250,7 +293,9 @@ export function facesForDay(sites, creatives, dayKey) {
   const assigned = assignBoards(sites.map((site) => site.id), creatives);
   return sites.map((site) => {
     const creative = assigned.get(site.id);
-    return {id: site.id, imageUrl: creative?.imageUrl || null, linkUrl: creative ? httpUrl(creative.linkUrl) : ''};
+    if (!creative) return {id: site.id, imageUrl: null, linkUrl: ''};
+    const face = faceForBoard(creative, site.id);
+    return {id: site.id, imageUrl: face.imageUrl || null, linkUrl: face.imageUrl ? httpUrl(face.linkUrl) : ''};
   });
 }
 
