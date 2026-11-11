@@ -88,6 +88,48 @@ export const CHARACTERS = Object.freeze([
     flies: false,
     pavlova: false,
   }),
+  Object.freeze({
+    id: 'vondracek',
+    label: 'VW Transporter — Libor Vondráček',
+    name: 'Libor Vondráček',
+    type: 'transporter',
+    flies: false,
+    pavlova: false,
+  }),
+  Object.freeze({
+    id: 'bartos',
+    label: 'Přívoz — Ivan Bartoš',
+    name: 'Ivan Bartoš',
+    type: 'ferry',
+    ride: 'ferry',
+    flies: false,
+    pavlova: false,
+    water: true,
+  }),
+  Object.freeze({
+    id: 'rajchl',
+    label: 'Porsche Panamera — Jindřich Rajchl',
+    name: 'Jindřich Rajchl',
+    type: 'panamera',
+    flies: false,
+    pavlova: false,
+  }),
+  Object.freeze({
+    id: 'okamura',
+    label: 'Tuktuk — Tomio Okamura',
+    name: 'Tomio Okamura',
+    type: 'tuktuk',
+    flies: false,
+    pavlova: false,
+  }),
+  Object.freeze({
+    id: 'xaver',
+    label: 'Lexus ES — Luboš Xaver Veselý',
+    name: 'Luboš Xaver Veselý',
+    type: 'es',
+    flies: false,
+    pavlova: false,
+  }),
 ]);
 
 export const DEFAULT_CHARACTER_ID = 'elon';
@@ -101,7 +143,7 @@ export function characterById(id) {
   return CHARACTERS.find((choice) => choice.id === id) || CHARACTERS.find((choice) => choice.id === DEFAULT_CHARACTER_ID);
 }
 
-/** The listed choice `step` places away. -1 from Filip is Petr Macinka, and +1 from Petr Macinka is Filip. */
+/** The listed choice `step` places away. -1 from Filip is the last driver in the list, and +1 from that driver is Filip. */
 export function cycleCharacter(id, step) {
   const choices = listedCharacters();
   const index = choices.findIndex((choice) => choice.id === id);
@@ -120,7 +162,7 @@ export function characterSwitchRebuilds(previous, next) {
 /** The ride the player is on, or null while they are in a car or on foot. */
 export function occupiedRide(travel) {
   const mode = travel?.mode;
-  if (mode === 'bike' || mode === 'motorbike' || mode === 'challenger') return mode;
+  if (mode === 'bike' || mode === 'motorbike' || mode === 'challenger' || mode === 'ferry') return mode;
   return null;
 }
 
@@ -172,6 +214,22 @@ const DRIVER_QUERY = {
   'jan-kraus': 'kraus',
   macinka: 'macinka',
   'petr-macinka': 'macinka',
+  vondracek: 'vondracek',
+  libor: 'vondracek',
+  'libor-vondracek': 'vondracek',
+  bartos: 'bartos',
+  ivan: 'bartos',
+  'ivan-bartos': 'bartos',
+  rajchl: 'rajchl',
+  jindrich: 'rajchl',
+  'jindrich-rajchl': 'rajchl',
+  okamura: 'okamura',
+  tomio: 'okamura',
+  'tomio-okamura': 'okamura',
+  xaver: 'xaver',
+  vesely: 'xaver',
+  lubos: 'xaver',
+  'lubos-xaver-vesely': 'xaver',
 };
 
 /** The listed character named by ?driver=, or null when the param is missing, unknown, or hidden. */
