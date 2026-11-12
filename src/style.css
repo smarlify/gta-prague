@@ -226,3 +226,6 @@ body.busted #buy-billboard,body.arrest-cinematic #buy-billboard{visibility:hidde
 /* Low quality tier: backdrop blur re-samples the WebGL canvas under every HUD panel on each frame. */
 .low-quality .location-tag,.low-quality .journey,.low-quality .speedometer,.low-quality .topbar .wordmark,.low-quality .end-panel,.low-quality #pause-overlay,.low-quality #busted-overlay{backdrop-filter:none}
 .low-quality #pause-overlay{background:#f5f3ebd8}
+
+/* Graphics quality toggle beside the sound button: HQ / LQ in small caps. */
+.quality-btn .quality-tier{font-size:10px;font-weight:750;letter-spacing:.5px}

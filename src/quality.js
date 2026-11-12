@@ -1,7 +1,8 @@
 // One quality tier for the whole session, picked once at load.
-// `high` is the look the game was tuned for. `low` is for phones and weak laptops: it drops the
-// post chain, halves the shadow map, shortens every distance band and thins out the street life.
-// ?quality=low|high pins a tier (remembered); ?quality=auto forgets the pin.
+// `high` is the look the game was tuned for and every visit starts there. `low` is a choice the
+// player makes with the quality button beside the sound button (or ?quality=low): it drops the post
+// chain, halves the shadow map, shortens every distance band and thins out the street life.
+// The choice is remembered; ?quality=auto forgets it.
 export const QUALITY_KEY='gta-praha-quality';
 
 export const TIERS=Object.freeze({
@@ -21,13 +22,10 @@ export const TIERS=Object.freeze({
 
 const valid=v=>v==='low'||v==='high';
 
-// Pure: which tier a device gets. `query` is the ?quality= value, `stored` the remembered pin.
-export function pickTier({query=null,stored=null,coarse=false,memory=undefined,cores=undefined}={}){
+// Pure: which tier a visit gets. `query` is the ?quality= value, `stored` the remembered choice.
+export function pickTier({query=null,stored=null}={}){
  if(valid(query))return query;
  if(query!=='auto'&&valid(stored))return stored;
- if(coarse)return 'low';
- if(memory!==undefined&&memory<=4)return 'low';
- if(cores!==undefined&&cores<=4)return 'low';
  return 'high';
 }
 
@@ -39,29 +37,21 @@ function detect(){
  const store=storage();
  let stored=null;try{stored=store?.getItem(QUALITY_KEY)??null;}catch{}
  try{if(valid(query))store?.setItem(QUALITY_KEY,query);else if(query==='auto')store?.removeItem(QUALITY_KEY);}catch{}
- let coarse=false;try{coarse=!!g.matchMedia?.('(pointer:coarse)').matches;}catch{}
- // Outside a browser (tests, build scripts) there is nothing to detect: stay on the tuned tier.
- const browser=typeof g.document!=='undefined';
- return pickTier({query,stored,coarse,memory:browser?g.navigator?.deviceMemory:undefined,cores:browser?g.navigator?.hardwareConcurrency:undefined});
+ return pickTier({query,stored});
 }
 
 export const QUALITY=TIERS[detect()];
 
-// A device that started on `high` and cannot hold it: remember `low` for the next load.
-export function rememberLowTier(){try{storage()?.setItem(QUALITY_KEY,'low');}catch{}}
+/** The other tier: what the quality button switches to. */
+export const otherTier=name=>name==='low'?'high':'low';
 
-// Watches the adaptive resolution. When it has sat on its floor and frames are still slow for
-// `after` seconds, fires once so the caller can shed the expensive passes.
-export function createTierWatch({after=5,slowMs=24}={}){
- let slowFor=0,fired=false;
- return {
-  get fired(){return fired;},
-  update(frameMs,dt,atFloor){
-   if(fired)return false;
-   if(!(frameMs>0)||frameMs>250)return false; // a suspended tab is not load
-   slowFor=atFloor&&frameMs>slowMs?slowFor+dt:Math.max(0,slowFor-dt*2);
-   if(slowFor<after)return false;
-   fired=true;return true;
-  },
- };
+// Remembers `name` and reloads without a ?quality= pin, so the new tier applies to the whole scene
+// (draw distance, shadows and the post chain are fixed at load).
+export function switchQuality(name,location=globalThis.location){
+ if(!valid(name))return false;
+ try{storage()?.setItem(QUALITY_KEY,name);}catch{}
+ if(!location)return true;
+ const url=new URL(location.href);url.searchParams.delete('quality');
+ location.replace(url.toString());
+ return true;
 }
