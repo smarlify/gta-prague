@@ -85,6 +85,10 @@ test('Divadlo Bez zábradlí is on Jungmannova in front of Palác Adria', () => 
   assert.equal(road?.kind, 'Ajorata');
   assert.ok(DIVADLO_BEZ_ZABRADLI.x > theatre.x, 'east of Národní divadlo');
   assert.equal(buildings.at(DIVADLO_BEZ_ZABRADLI.x, DIVADLO_BEZ_ZABRADLI.z), undefined);
+  // Kraus keeps the same spot; heading is the prior Jungmannova face flipped by π.
+  assert.equal(DIVADLO_BEZ_ZABRADLI.heading, 0.1486);
+  assert.equal(authored.heading, 0.1486);
+  assert.ok(Math.abs(DIVADLO_BEZ_ZABRADLI.heading - (-2.993 + Math.PI)) < 1e-3, 'turned around on Jungmannova');
   assert.ok(carSamples(makeCar(DIVADLO_BEZ_ZABRADLI.x, DIVADLO_BEZ_ZABRADLI.z, DIVADLO_BEZ_ZABRADLI.heading)).every(([x, z]) => roads.at(x, z)?.name === 'Jungmannova'));
   const passage = city.pavement.find((p) => p.name === 'pasáž Adria');
   const [px, pz] = [(passage.bbox[0] + passage.bbox[2]) / 2, (passage.bbox[1] + passage.bbox[3]) / 2];

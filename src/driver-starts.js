@@ -131,6 +131,7 @@ export function waterStart(driver) {
 
 // Jungmannova in front of Palác Adria (pasáž Adria), east of Národní divadlo.
 // Snapped onto the carriageway, facing along the street. Not inside the palace.
+// Heading is the Jungmannova start turned around (previous -2.993 + Math.PI).
 export const DIVADLO_BEZ_ZABRADLI = Object.freeze({
   name: 'Divadlo Bez zábradlí',
   id: 'divadlo-bez-zabradli',
@@ -138,7 +139,7 @@ export const DIVADLO_BEZ_ZABRADLI = Object.freeze({
   street: 'Jungmannova',
   x: 73.6,
   z: 552.4,
-  heading: -2.993,
+  heading: 0.1486,
 });
 
 /** A point `metres` behind a body, opposite the way it is facing. */
