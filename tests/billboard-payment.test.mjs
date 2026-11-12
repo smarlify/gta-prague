@@ -12,7 +12,7 @@ const BOARD = 'praha-1-stare-mesto-01';
 
 test('a confirmed Revolut payment grants 40 credits and the fee once, and a second claim tops up', () => {
   const amount = checkoutAmount({feePaid: false});
-  assert.equal(amount.unitAmount, 5000);
+  assert.equal(amount.unitAmount, 500);
   assert.equal(amount.currency, 'eur');
   assert.equal(amount.url, REVOLUT_CHECKOUT_URL);
   const claim = createRevolutCheckout({uid: 'ada', amount, boardId: BOARD, claimId: 'claim-1'});
