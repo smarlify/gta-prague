@@ -4,7 +4,7 @@
 import {SpatialIndex} from './geo.js';
 import {groundAt,waterAt,setDriveHeight} from './terrain.js';
 import {setRiverChannel,setDryPassages,setBridgeSpans,pointInRiverChannel,setGroundCeiling} from './terrain-mesh.js';
-import {stripBoredTunnels,isBridgeSurface,isFeaturedBridge,passageDeck} from './passage.js';
+import {stripBoredTunnels,isBridgeSurface,isFeaturedBridge,isCharlesBridge,approachBridge,bridgeDriveHeight,passageDeck} from './passage.js';
 
 // Dry land and river channel as the bridge rules see them.
 export const pragueDry=Object.freeze({
@@ -29,6 +29,8 @@ export function registerPragueChannel(data){
 // (Prašný most) is an ordinary street and keeps the ground under it.
 export const isDeckSurface=item=>/Silta/.test(item?.kind||'');
 
+// Karlův most and its approach streets, with room for the 40 m blend.
+const CHARLES_BOX=[-1000,-80,-380,300];
 const DECK_DIRS=Array.from({length:8},(_,i)=>[Math.cos(i*Math.PI/8),Math.sin(i*Math.PI/8)]);
 const DECK_REACH=16,DECK_STEP=1,DECK_CELL=2,UNSET=-99999;
 
@@ -48,9 +50,8 @@ const DECK_REACH=16,DECK_STEP=1,DECK_CELL=2,UNSET=-99999;
 // above it, the two cannot both be right, because the game has one height per point: the street
 // keeps its ground and the bridge ramps down to it over the last twelve metres. That only happens
 // to the few cycle and service bridges the terrain bake did not grade-separate.
-// `around` is an index of every other road and pavement: what a bridge lands on at its ends.
-export function createBridgeDecks(surfaces,{height=groundAt,under=null,around=null}={}){
- const index=new SpatialIndex(surfaces),grids=new Map(),profiles=new Map();
+export function createBridgeDecks(surfaces,{height=groundAt,under=null}={}){
+ const index=new SpatialIndex(surfaces),grids=new Map(),lines=new Map();
  const RAMP=12,RAMP_DIRS=Array.from({length:8},(_,i)=>[Math.cos(i*Math.PI/4),Math.sin(i*Math.PI/4)]);
  function meetStreets(x,z,deck){
   if(!under)return deck;
@@ -74,39 +75,22 @@ export function createBridgeDecks(surfaces,{height=groundAt,under=null,around=nu
   }
   return best||{x,z};
  }
- // What a polygon adds to the ground under its centre line:
- //  - a straight deck from end to end, when its middle lies well below both ends (a footbridge the
- //    terrain never raised);
- //  - a correction at an end that does not meet the street beyond it. Karlův most is baked as a
- //    ramp that ends 3.6 m below Křižovnické náměstí; the deck is tilted to arrive level with it.
- function profileFor(item){
-  if(profiles.has(item))return profiles.get(item);
+ // Straight deck from end to end, only for a polygon whose middle lies well below both ends:
+ // a footbridge the terrain never raised.
+ function lineFor(item){
+  if(lines.has(item))return lines.get(item);
   const ring=item.rings[0];let cx=0,cz=0;for(const p of ring){cx+=p[0];cz+=p[1];}cx/=ring.length;cz/=ring.length;
   let xx=0,xz=0,zz=0;for(const p of ring){const dx=p[0]-cx,dz=p[1]-cz;xx+=dx*dx;xz+=dx*dz;zz+=dz*dz;}
   const angle=.5*Math.atan2(2*xz,xx-zz),ax=Math.cos(angle),az=Math.sin(angle);
   let t0=Infinity,t1=-Infinity;for(const p of ring){const t=(p[0]-cx)*ax+(p[1]-cz)*az;if(t<t0)t0=t;if(t>t1)t1=t;}
-  const span=t1-t0,along=(x,z)=>span>0?Math.max(0,Math.min(1,(((x-cx)*ax+(z-cz)*az)-t0)/span)):0;
-  const capPoint=t=>{let sx=0,sz=0,n=0;for(const p of ring){const q=(p[0]-cx)*ax+(p[1]-cz)*az;if(Math.abs(q-t)<3){sx+=p[0];sz+=p[1];n++;}}return n?[sx/n,sz/n]:[cx+ax*t,cz+az*t];};
-  const ends=[[t0,-1],[t1,1]].map(([t,dir])=>{
-   const [px,pz]=capPoint(t),inside=centre(px-ax*dir*2,pz-az*dir*2),deck=height(inside.x,inside.z);
-   // The street the bridge lands on, a few metres beyond its end.
-   let error=0;
-   if(around)for(const reach of [3,5,8]){const qx=px+ax*dir*reach,qz=pz+az*dir*reach;if(on(qx,qz))break;if(around.at(qx,qz)){error=height(qx,qz)-deck;break;}}
-   return {deck,error:Math.abs(error)>.4&&Math.abs(error)<8?error:0};
-  });
-  const mid=centre(cx,cz),sag=Math.min(ends[0].deck,ends[1].deck)-height(mid.x,mid.z),straight=span>8&&sag>1.5;
-  const profile={
-   line:straight?(x,z)=>ends[0].deck+(ends[1].deck-ends[0].deck)*along(x,z):null,
-   correction:ends[0].error||ends[1].error?(x,z)=>ends[0].error+(ends[1].error-ends[0].error)*along(x,z):null,
-  };
-  profiles.set(item,profile);return profile;
+  const cap=t=>{let sum=0,n=0;for(const p of ring){const q=(p[0]-cx)*ax+(p[1]-cz)*az;if(Math.abs(q-t)<3){sum+=height(p[0],p[1]);n++;}}return n?sum/n:height(cx+ax*t,cz+az*t);};
+  const h0=cap(t0),h1=cap(t1),mid=centre(cx,cz),sag=Math.min(h0,h1)-height(mid.x,mid.z);
+  const line=t1-t0>8&&sag>1.5?(x,z)=>{const t=Math.max(0,Math.min(1,(((x-cx)*ax+(z-cz)*az)-t0)/(t1-t0)));return h0+(h1-h0)*t;}:null;
+  lines.set(item,line);return line;
  }
  function exact(x,z,item){
-  const c=centre(x,z),profile=profileFor(item);
-  let h=height(c.x,c.z);
-  if(profile.line)h=Math.max(h,profile.line(x,z));
-  if(profile.correction)h+=profile.correction(x,z);
-  return h;
+  const c=centre(x,z),line=lineFor(item);
+  return line?Math.max(height(c.x,c.z),line(x,z)):height(c.x,c.z);
  }
  function gridFor(item){
   let grid=grids.get(item);
@@ -171,8 +155,18 @@ export function createPragueGround(data,mobility){
  const passages=new SpatialIndex(data.roads.filter(r=>r.passage));
  const roads=new SpatialIndex(data.roads.filter(r=>!/Koroke/.test(r.kind)));
  const streets=new SpatialIndex(data.roads.filter(r=>/^Ajorata/.test(r.kind||'')&&!isDeckSurface(r)));
- const landings=new SpatialIndex([...data.roads,...data.pavement].filter(r=>!isDeckSurface(r)&&!r.passage));
- const bridgeDecks=createBridgeDecks([...data.roads,...data.pavement].filter(isDeckSurface),{under:streets,around:landings});
+ // Karlův most is the one bridge the terrain bake got wrong: it is baked as a ramp that ends 3.6 m
+ // below Křižovnické náměstí. It keeps the older rule (lift to the bank, blend onto Mostecká,
+ // Křižovnická and Karlova over 40 m), which was tuned for it. Every other bridge uses the decks.
+ const surfaces=new SpatialIndex([...data.roads,...data.pavement]),charles=[...data.roads,...data.pavement].filter(isCharlesBridge);
+ const charlesHeight=(x,z)=>{
+  if(!charles.length)return null;
+  const b=CHARLES_BOX;if(x<b[0]||x>b[2]||z<b[1]||z>b[3])return null;
+  const surface=surfaces.at(x,z);
+  if(!surface||!(isCharlesBridge(surface)||approachBridge(surface)==='charles'))return null;
+  return bridgeDriveHeight(x,z,{groundAt,surface,featured:charles,...pragueDry});
+ };
+ const bridgeDecks=createBridgeDecks([...data.roads,...data.pavement].filter(r=>isDeckSurface(r)&&!isCharlesBridge(r)),{under:streets});
 // Bare ground within a grid cell of a bridge stays at or below the lowest ground around it, so
  // the coarse ground mesh cannot rise through a deck or its ramp.
  const NEAR=[[0,0],[7,0],[-7,0],[0,7],[0,-7],[7,7],[-7,7],[7,-7],[-7,-7]];
@@ -185,12 +179,12 @@ export function createPragueGround(data,mobility){
  // One height for every vehicle, road surface and pavement: a passage's own deck, then a bridge
  // deck, then the ground. A bridge wins over a street mapped under it, so the lookup no longer
  // flips between the two levels from one metre to the next.
- const driveHeight=(x,z)=>passageDeck(passages,x,z)??bridgeDecks.heightAt(x,z)??groundAt(x,z);
+ const driveHeight=(x,z)=>passageDeck(passages,x,z)??charlesHeight(x,z)??bridgeDecks.heightAt(x,z)??groundAt(x,z);
  setDriveHeight(driveHeight);
  const open=(x,z)=>!!(passages.at(x,z)||roads.at(x,z)||corridors.at(x,z));
  return {dry:pragueDry,passages,bridgeDecks,corridors,driveHeight,open,
   /** Deck height for meshes that stand on a bridge. */
-  deckHeight:(x,z)=>bridgeDecks.heightAt(x,z)??groundAt(x,z),
+  deckHeight:(x,z)=>charlesHeight(x,z)??bridgeDecks.heightAt(x,z)??groundAt(x,z),
   /** Collision rules on the finished world: call after its building indexes are set. */
   install(world){
    world.roadClearsBuildings=true; // OSM footprints spilled onto asphalt are not solid mid-road walls
