@@ -6,6 +6,7 @@ import {PRAGUE_AREAS} from './area-caption.js';
 import {groundAt, waterAt} from './terrain.js';
 import {bridgeDeckHeight, isBridgeSurface} from './passage.js';
 import {boardId, httpUrl, paintPlaceholder, facesForDay, pragueDayKey} from '../firebase/functions/ad-credits.js';
+import {withUtm} from './utm.js';
 import storedSites from './prague-billboard-sites.json' with {type: 'json'};
 
 export const BOARDS_PER_DISTRICT = 10;
@@ -83,7 +84,7 @@ function browserOpen(href) {
 export function openBillboardLink(url, opener = browserOpen) {
   const href = httpUrl(url);
   if (!href) return false;
-  opener(href);
+  opener(withUtm(href, 'billboard'));
   return true;
 }
 

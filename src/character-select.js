@@ -134,16 +134,26 @@ export const CHARACTERS = Object.freeze([
 
 export const DEFAULT_CHARACTER_ID = 'elon';
 
-/** Drivers the welcome card and a bare visit can land on. */
+/** Family name used for listed order. Last token of `name` (Dave N. → N., Luboš Xaver Veselý → Veselý). */
+export function characterSurname(name) {
+  const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
+  return parts.at(-1) || '';
+}
+
+function bySurnameAsc(a, b) {
+  return characterSurname(a.name).localeCompare(characterSurname(b.name), 'cs', {sensitivity: 'base'});
+}
+
+/** Drivers the welcome card and a bare visit can land on, surname ascending (Zeman last). */
 export function listedCharacters() {
-  return CHARACTERS.filter((choice) => choice.listed !== false);
+  return CHARACTERS.filter((choice) => choice.listed !== false).slice().sort(bySurnameAsc);
 }
 
 export function characterById(id) {
   return CHARACTERS.find((choice) => choice.id === id) || CHARACTERS.find((choice) => choice.id === DEFAULT_CHARACTER_ID);
 }
 
-/** The listed choice `step` places away. -1 from Filip is the last driver in the list, and +1 from that driver is Filip. */
+/** The listed choice `step` places away. -1 from the first surname is Zeman, and +1 from Zeman wraps to the first. */
 export function cycleCharacter(id, step) {
   const choices = listedCharacters();
   const index = choices.findIndex((choice) => choice.id === id);

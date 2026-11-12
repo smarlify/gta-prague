@@ -281,10 +281,12 @@ test('a paid board visits its link and an empty board stays for sale', () => {
   assert.equal(billboardCallToAction({imageUrl: 'https://example.test/ad.jpg', linkUrl: 'javascript:alert(1)'}).kind, 'shown');
   assert.equal(billboardCallToAction({linkUrl: 'https://smarlify.co'}).kind, 'buy');
   const opened = [];
-  assert.equal(openBillboardLink('https://smarlify.co/visit', (href) => opened.push(href)), true);
-  assert.deepEqual(opened, ['https://smarlify.co/visit']);
+  assert.equal(openBillboardLink('https://smarlify.co/visit?ref=ada', (href) => opened.push(href)), true);
+  assert.deepEqual(opened, ['https://smarlify.co/visit?ref=ada&utm_source=gtapraha&utm_medium=referral&utm_campaign=billboard']);
   assert.equal(openBillboardLink('javascript:alert(1)', () => opened.push('nope')), false);
-  assert.deepEqual(opened, ['https://smarlify.co/visit']);
+  assert.deepEqual(opened, ['https://smarlify.co/visit?ref=ada&utm_source=gtapraha&utm_medium=referral&utm_campaign=billboard']);
+  assert.equal(openBillboardLink('https://smarlify.co/?utm_source=kept&utm_medium=email&utm_campaign=ad', (href) => opened.push(href)), true);
+  assert.equal(opened.at(-1), 'https://smarlify.co/?utm_source=kept&utm_medium=email&utm_campaign=ad');
   const fitted = billboardTextureSize(3024, 1964);
   assert.equal(fitted.scaled, true);
   assert.equal(fitted.width, 2048);
