@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {XTV} from '../src/driver-starts.js';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {SpatialIndex} from '../src/geo.js';
@@ -70,9 +71,17 @@ test('a placed board sits on the pavement and outside buildings', () => {
 
 test('stored Prague boards are on the pavement and not inside a building', () => {
   const data = JSON.parse(gunzipSync(readFileSync('public/cities/prague/city.pack')).toString('utf8'));
-  assert.equal(storedSites.length, PRAGUE_AREAS.length * BOARDS_PER_DISTRICT);
+  // Ten placed boards per district, plus the boards authored by hand for one address.
+  const placed = storedSites.filter((site) => !site.authored);
+  assert.equal(placed.length, PRAGUE_AREAS.length * BOARDS_PER_DISTRICT);
+  assert.equal(new Set(storedSites.map((site) => site.id)).size, storedSites.length, 'every board has its own id');
+  const xtv = storedSites.find((site) => site.id === 'praha-2-nove-mesto-xtv');
+  assert.ok(xtv?.authored, 'the XTV board is authored');
+  assert.ok(Math.hypot(xtv.x - XTV.x, xtv.z - XTV.z) < 18, 'the XTV board is within buying reach of the XTV start');
+  // It faces the carriageway: the XTV start is in front of the panel, not behind it.
+  assert.ok((XTV.x - xtv.x) * Math.sin(xtv.yaw) + (XTV.z - xtv.z) * Math.cos(xtv.yaw) > 5, 'the XTV board faces Wilsonova');
   const counts = new Map();
-  for (const site of storedSites) counts.set(site.district, (counts.get(site.district) || 0) + 1);
+  for (const site of placed) counts.set(site.district, (counts.get(site.district) || 0) + 1);
   for (const area of PRAGUE_AREAS) assert.equal(counts.get(area.district), BOARDS_PER_DISTRICT, area.district);
   const buildings = new SpatialIndex(data.buildings);
   const pavement = new SpatialIndex(data.pavement);
