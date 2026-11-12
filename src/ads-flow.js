@@ -71,13 +71,13 @@ function checkoutMarkup() {
       </form>
     </section>
     <section class="board-panel" id="board-payment" hidden>
-      <p>GTA Praha has sent you a payment request for 50 €. Pay with Revolut Link, Revolut Pay, or scan the code.</p>
+      <p>GTA Praha has sent you a payment request for 5 €. Pay with Revolut Link, Revolut Pay, or scan the code.</p>
       <p class="ads-pay-label">Revolut Link</p>
       <p><a class="ads-revolut" id="ads-revolut" href="${REVOLUT_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer">${REVOLUT_CHECKOUT_URL}</a></p>
       <a class="ads-revolut primary-btn" id="ads-revolut-pay" href="${REVOLUT_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer">Revolut Pay</a>
       <figure class="ads-qr-block">
-        <img id="ads-revolut-qr" src="${REVOLUT_QR_PATH}" width="220" height="220" alt="QR code to pay 50 euro with Revolut" />
-        <figcaption>Scan to pay 50 €</figcaption>
+        <img id="ads-revolut-qr" src="${REVOLUT_QR_PATH}" width="220" height="220" alt="QR code to pay 5 euro with Revolut" />
+        <figcaption>Scan to pay 5 €</figcaption>
       </figure>
     </section>
     <section class="board-panel" id="ads-account" hidden>
@@ -99,7 +99,7 @@ function checkoutMarkup() {
       </label>
       <p id="ads-price" class="board-note"></p>
       <div class="board-actions">
-        <button id="ads-confirm" class="primary-btn" type="button">I've paid the 50 €</button>
+        <button id="ads-confirm" class="primary-btn" type="button">I've paid the 5 €</button>
         <button id="ads-sign-out" class="ghost-btn" type="button">Sign out</button>
       </div>
     </section>`;
@@ -164,8 +164,8 @@ function bind(root, options) {
   function paintPrice(account) {
     const amount = checkoutAmount({feePaid: !!account.feePaid});
     q('ads-price').textContent = amount.includesFee
-      ? 'The 50 € request covers the listing fee and 40 credits. One credit keeps the image up for one day in Prague.'
-      : 'The 50 € request adds another 40 credits. One credit keeps the image up for one day in Prague.';
+      ? 'The 5 € request covers the listing fee and 40 credits. One credit keeps the image up for one day in Prague.'
+      : 'The 5 € request adds another 40 credits. One credit keeps the image up for one day in Prague.';
   }
 
   function resolveActiveBoard(account) {
@@ -442,7 +442,7 @@ function bind(root, options) {
     return authedPost(adsEndpoints().checkout, {boardId: chosenBoard()}).then((payload) => {
       pendingClaim = payload.claimId || '';
       if (!pendingClaim) throw new Error('Checkout did not return a payment.');
-      if (announce) q('ads-status').textContent = 'After you pay the 50 € on Revolut, confirm it here.';
+      if (announce) q('ads-status').textContent = 'After you pay the 5 € on Revolut, confirm it here.';
       return pendingClaim;
     });
   }

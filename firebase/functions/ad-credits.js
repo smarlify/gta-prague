@@ -1,9 +1,9 @@
-// One pack is 40 board-days. Payment is a single 50 € Revolut request.
+// One pack is 40 board-days. Payment is a single 5 € Revolut request.
 export const PACK_CREDITS = 40;
-export const BILLBOARD_PRICE_EUR = 50;
-export const REVOLUT_PAYMENT_ID = '7a5ccc40-cc12-4892-9280-de78ea04baf6';
+export const BILLBOARD_PRICE_EUR = 5;
+export const REVOLUT_PAYMENT_ID = '76feb752-5bd9-40a0-923c-f4c3f1602c7c';
 export const REVOLUT_CHECKOUT_URL = `https://checkout.revolut.com/pay/${REVOLUT_PAYMENT_ID}`;
-export const REVOLUT_QR_PATH = '/ads/revolut-50-eur-qr.png';
+export const REVOLUT_QR_PATH = '/ads/revolut-5-eur-qr.png';
 export const PLACEHOLDER_CS = 'Zde může být vaše reklama';
 export const PLACEHOLDER_EN = 'Your ad can be here';
 

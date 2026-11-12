@@ -33,7 +33,7 @@ export function settlePaidSession(account, session, {alreadyRecorded = false} = 
 }
 
 // Revolut's payment request does not call this server. The signed-in advertiser
-// opens the 50 € link, then confirms that claim so one pack is applied.
+// opens the 5 € link, then confirms that claim so one pack is applied.
 export function createRevolutCheckout({uid, amount, boardId: chosen, claimId}) {
   if (!uid) throw new Error('Sign in required');
   const id = String(claimId || '');

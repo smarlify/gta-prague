@@ -79,7 +79,7 @@ test('the advertiser page submits account creation and keeps Revolut behind sign
   assert.doesNotMatch(adsFlow, /payment appears after you are signed in/);
   assert.match(checkout, /id="ads-submit"[^>]*type="submit">Create account/);
   assert.match(checkout, /id="board-payment" hidden/);
-  assert.match(checkout, /I've paid the 50 €/);
+  assert.match(checkout, /I've paid the 5 €/);
   assert.match(checkout, /class="board-actions"/);
   const css = readFileSync(new URL('../src/ads-page.css', import.meta.url), 'utf8');
   assert.match(css, /\.ads-page #ads-auth \{[^}]*gap:\s*1rem/);

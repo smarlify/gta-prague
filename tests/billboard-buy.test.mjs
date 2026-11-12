@@ -3,25 +3,25 @@ import assert from 'node:assert/strict';
 import {existsSync, readFileSync} from 'node:fs';
 import {REVOLUT_CHECKOUT_URL, REVOLUT_QR_PATH} from '../firebase/functions/ad-credits.js';
 
-test('the advertiser pays the 50 € Revolut request and signs in with email', () => {
+test('the advertiser pays the 5 € Revolut request and signs in with email', () => {
   const adsFlow = readFileSync(new URL('../src/ads-flow.js', import.meta.url), 'utf8');
   const buy = readFileSync(new URL('../src/billboard-buy.js', import.meta.url), 'utf8');
   const firebase = readFileSync(new URL('../src/firebase.js', import.meta.url), 'utf8');
   const pkg = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
-  assert.match(adsFlow, /GTA Praha has sent you a payment request for 50/);
+  assert.match(adsFlow, /GTA Praha has sent you a payment request for 5/);
   assert.match(adsFlow, /Revolut Link/);
   assert.match(adsFlow, /Revolut Pay/);
-  assert.match(adsFlow, /Scan to pay 50/);
+  assert.match(adsFlow, /Scan to pay 5/);
   assert.match(adsFlow, /REVOLUT_CHECKOUT_URL/);
   assert.match(adsFlow, /REVOLUT_QR_PATH/);
-  assert.equal(REVOLUT_QR_PATH, '/ads/revolut-50-eur-qr.png');
+  assert.equal(REVOLUT_QR_PATH, '/ads/revolut-5-eur-qr.png');
   assert.equal(existsSync(new URL(`../public${REVOLUT_QR_PATH}`, import.meta.url)), true);
   assert.match(adsFlow, /id="ads-email"/);
   assert.match(adsFlow, /id="ads-password"/);
   assert.match(adsFlow, /createEmailAccount/);
   assert.match(adsFlow, /signInWithEmail/);
   assert.match(adsFlow, /ads-confirm/);
-  assert.equal(REVOLUT_CHECKOUT_URL, 'https://checkout.revolut.com/pay/7a5ccc40-cc12-4892-9280-de78ea04baf6');
+  assert.equal(REVOLUT_CHECKOUT_URL, 'https://checkout.revolut.com/pay/76feb752-5bd9-40a0-923c-f4c3f1602c7c');
   assert.doesNotMatch(adsFlow, /signInWithPopup|GoogleAuthProvider|Sign in with Google|stripe/i);
   assert.doesNotMatch(buy, /stripe|loadStripe|signInWithPopup/i);
   assert.doesNotMatch(firebase, /GoogleAuthProvider|signInWithPopup/);
@@ -61,7 +61,7 @@ test('the in-game modal links to the advertiser page and leaves sign-in there', 
   assert.match(checkout, /REVOLUT_CHECKOUT_URL/);
   assert.match(checkout, /id="board-payment" hidden/);
   assert.match(checkout, /id="ads-account" hidden/);
-  assert.match(checkout, /I've paid the 50 €/);
+  assert.match(checkout, /I've paid the 5 €/);
   assert.doesNotMatch(checkout, /id="ads-create"|type="button">Create account/);
   assert.doesNotMatch(adsFlow, /class="ads-card"|class="ads-note"/);
   assert.doesNotMatch(css, /\.ads-card|\.ads-note/);

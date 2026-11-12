@@ -105,11 +105,11 @@ test('stored Prague boards are on the pavement and not inside a building', () =>
   }
 });
 
-test('the Revolut request is 50 € and the first purchase records the fee', () => {
+test('the Revolut request is 5 € and the first purchase records the fee', () => {
   const first = checkoutAmount({feePaid: false});
   assert.equal(first.credits, PACK_CREDITS);
   assert.equal(first.includesFee, true);
-  assert.equal(first.unitAmount, 5000);
+  assert.equal(first.unitAmount, 500);
   assert.equal(first.currency, 'eur');
   assert.equal(first.url, REVOLUT_CHECKOUT_URL);
   const opened = grantPurchase(emptyAccount(), {includesFee: true});
@@ -118,7 +118,7 @@ test('the Revolut request is 50 € and the first purchase records the fee', () 
   const again = checkoutAmount({feePaid: true});
   assert.equal(again.credits, 40);
   assert.equal(again.includesFee, false);
-  assert.equal(again.unitAmount, 5000);
+  assert.equal(again.unitAmount, 500);
   const topped = grantPurchase(opened, {includesFee: false});
   assert.equal(topped.credits, 80);
   assert.throws(() => grantPurchase(topped, {includesFee: true}), /already paid/);
