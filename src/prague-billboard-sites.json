@@ -350,6 +350,15 @@
     "yaw": 0
   },
   {
+    "id": "praha-2-nove-mesto-xtv",
+    "district": "Praha 2 - Nové Město",
+    "x": 958,
+    "z": 544,
+    "yaw": 4.7124,
+    "authored": true,
+    "note": "In front of XTV on Wilsonova, beside Praha hlavní nádraží. Faces the carriageway, 10 m from the XTV start."
+  },
+  {
     "id": "praha-2-vinohrady-01",
     "district": "Praha 2 - Vinohrady",
     "x": 1188.65,
