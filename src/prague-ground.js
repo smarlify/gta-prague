@@ -1,7 +1,7 @@
 // Prague's ground rules in one place: which mapped roads are tunnels, how high a bridge deck or a
 // passage is, and what the car may drive through. src/main.js and scripts/prague-drive-audit.mjs
 // both build their world here, so the audit measures exactly what the game does.
-import {SpatialIndex} from './geo.js';
+import {SpatialIndex,pointInPolygon} from './geo.js';
 import {groundAt,waterAt,setDriveHeight} from './terrain.js';
 import {setRiverChannel,setDryPassages,setBridgeSpans,pointInRiverChannel,setGroundCeiling} from './terrain-mesh.js';
 import {stripBoredTunnels,isBridgeSurface,isFeaturedBridge,isCharlesBridge,approachBridge,bridgeDriveHeight,passageDeck} from './passage.js';
@@ -70,6 +70,8 @@ export function createBridgeDecks(surfaces,{height=groundAt,under=null}={}){
    while(a<DECK_REACH&&on(x+dx*(a+DECK_STEP),z+dz*(a+DECK_STEP)))a+=DECK_STEP;
    while(b<DECK_REACH&&on(x-dx*(b+DECK_STEP),z-dz*(b+DECK_STEP)))b+=DECK_STEP;
    if(a>=DECK_REACH&&b>=DECK_REACH)continue; // a plaza-sized deck in this direction: not a cross-section
+   // Find each edge to an eighth of a metre, so the middle does not jump as the point moves.
+   for(let half=DECK_STEP/2;half>.1;half/=2){if(a<DECK_REACH&&on(x+dx*(a+half),z+dz*(a+half)))a+=half;if(b<DECK_REACH&&on(x-dx*(b+half),z-dz*(b+half)))b+=half;}
    const length=a+b;
    if(!best||length<best.length)best={length,x:x+dx*(a-b)/2,z:z+dz*(a-b)/2};
   }
@@ -140,7 +142,14 @@ export function createCorridors(graphs,cell=24){
 // the way is clear. Posts, boards and other street obstacles in the same index stay solid.
 export function openWays(inner,open){
  const index=Object.create(inner);
- index.at=(x,z)=>{const hit=inner.at(x,z);return hit&&/^osm-/.test(hit.id||'')&&open(x,z)?null:hit;};
+ const building=item=>/^osm-/.test(item.id||'');
+ index.at=(x,z)=>{
+  const hit=inner.at(x,z);
+  if(!hit||!building(hit)||!open(x,z))return hit;
+  // The building is open here. Anything else standing on the same spot still counts.
+  for(const p of inner.near(x,z)){if(p===hit||p.disabled||building(p))continue;const b=p.bbox;if(x>=b[0]&&x<=b[2]&&z>=b[1]&&z<=b[3]&&pointInPolygon(x,z,p.rings))return p;}
+  return undefined;
+ };
  return index;
 }
 
