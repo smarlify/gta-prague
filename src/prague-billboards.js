@@ -3,8 +3,8 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {SpatialIndex} from './geo.js';
 import {solidBox} from './world-objects.js';
 import {PRAGUE_AREAS} from './area-caption.js';
-import {groundAt, waterAt} from './terrain.js';
-import {bridgeDeckHeight, isBridgeSurface} from './passage.js';
+import {groundAt, waterAt, driveAt} from './terrain.js';
+import {isBridgeSurface} from './passage.js';
 import {boardId, httpUrl, paintPlaceholder, facesForDay, pragueDayKey} from '../firebase/functions/ad-credits.js';
 import {withUtm} from './utm.js';
 import storedSites from './prague-billboard-sites.json' with {type: 'json'};
@@ -334,16 +334,13 @@ function inWater(x, z, indexes) {
 }
 
 // Hillside ground, or the bridge deck when the point is on a bridge pavement.
-// The deck is the street; the river bed under it is not.
+// The deck is the street; the river bed under it is not. The deck height is the one the cars
+// drive on (src/prague-ground.js installs it), so a board on a bridge stands on the same deck.
 export function billboardStreetHeight(x, z, indexes = null) {
   const ground = groundAt(x, z);
   const surface = indexes?.pavement?.at(x, z) || indexes?.roads?.at(x, z);
   if (!surface || !isBridgeSurface(surface)) return ground;
-  const deck = bridgeDeckHeight(groundAt, x, z, {
-    dry: (px, pz) => !inWater(px, pz, indexes),
-    inChannel: (px, pz) => inWater(px, pz, indexes),
-  });
-  return Math.max(ground, deck);
+  return Math.max(ground, driveAt(x, z));
 }
 
 function panelSamples(site) {
@@ -394,7 +391,7 @@ function placeholderTexture() {
   return texture;
 }
 
-function boardFrame(site, y0) {
+function boardFrame(site, y0, indexes = null) {
   const frames = [];
   const box = (w, h, d, x, y, z) => {
     const geometry = new THREE.BoxGeometry(w, h, d);
@@ -408,7 +405,10 @@ function boardFrame(site, y0) {
   for (const side of [1, -1]) {
     const x = site.x + Math.cos(site.yaw) * along * side;
     const z = site.z - Math.sin(site.yaw) * along * side;
-    box(0.22, BOARD_BOTTOM, 0.22, x, y0 + BOARD_BOTTOM / 2, z);
+    // Each post reaches down to the street under it, so on a slope the downhill post does not float.
+    const base = Math.min(y0, billboardStreetHeight(x, z, indexes)) - 0.15;
+    const length = y0 + BOARD_BOTTOM - base;
+    box(0.22, length, 0.22, x, base + length / 2, z);
   }
   return frames;
 }
@@ -434,7 +434,7 @@ export function createPragueBillboards(sites = storedSites, city = null) {
   const faces = new Map();
   for (const site of sites) {
     const y0 = billboardSeat(site, indexes);
-    frames.push(...boardFrame(site, y0));
+    frames.push(...boardFrame(site, y0, indexes));
     obstacles.push(...supportObstacles(site));
     const materials = [];
     for (const back of [0, Math.PI]) {

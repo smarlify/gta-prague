@@ -63,6 +63,8 @@ export function travelActorAppearance(travel,actor,{lift=.12}={}){
  const h=actor?.heading||0,c=Math.cos(h),s=Math.sin(h);
  return {
   pose,seated:driving,seatY:driving?seat.seatY:.5,
+  // The seat in the car's own frame, for a renderer that can tilt the driver with the body.
+  seat:driving?{x:seat.x,z:seat.z,groundY:seat.groundY}:null,
   groundY:driving?seat.groundY:swimming?-.55:pose==='scooter'?PLAYER_SCOOTER.groundY+lift-.12:pose==='cycle'?lift:.12,
   x:driving?actor.x+seat.x*c+seat.z*s:actor.x,
   z:driving?actor.z-seat.x*s+seat.z*c:actor.z,
@@ -96,7 +98,7 @@ export function createPlayerTravelRenderer(scene){
   characterId=next;applyCharacterLook(look,next);
   for(const key of UNIFORM_KEYS){if(look[key]===undefined)delete civilian[key];else civilian[key]=look[key];}
   dressed=false;return look;
- },update(travel,dt,{visible=true,actorVisible=true,hold=null,uniform=false}={}){
+ },update(travel,dt,{visible=true,actorVisible=true,hold=null,uniform=false,seatFrame=null}={}){
   group.visible=visible;if(!travel)return;
   if(!!uniform!==dressed){dressPlayerLook(look,civilian,!!uniform);dressed=!!uniform;}
   const p=travel.viewActor();
@@ -126,6 +128,14 @@ export function createPlayerTravelRenderer(scene){
    const actor={...p,...appearance,gaitDirection:pose==='walk'&&p.speed<0?-1:1,
     bike:{...bike,crank:p.distance*bike.crankPerMetre},scooter:PLAYER_SCOOTER};
    if(pose==='walk'&&hold!==null&&!p.knockdown)actor.hold=hold;
+   // A seated driver rides in the car's frame: same height, pitch, roll and flight altitude as
+   // the body. Placed on the terrain separately, the driver slid out through the door on a slope
+   // and stayed on the ground under a bridge deck or a flying Roadster.
+   const frame=appearance.seat&&seatFrame?seatFrame:null;
+   if(frame){
+    person.group.position.copy(frame.position);person.group.quaternion.copy(frame.quaternion);
+    Object.assign(actor,{x:appearance.seat.x,z:appearance.seat.z,heading:0,groundY:appearance.seat.groundY-CAR_LIFT-groundAt(appearance.seat.x,appearance.seat.z)});
+   }else{person.group.position.set(0,0,0);person.group.quaternion.identity();}
    advanceGait(actor,gait,dt,look);person.draw(actor,look,gait);
    if(pose==='walk'&&!p.knockdown){const J=person.joints,j=JOINT.handR,c=Math.cos(p.heading),s=Math.sin(p.heading),y=actor.groundY+groundAt(p.x,p.z);
     hand={x:p.x+J[j]*c+J[j+2]*s,y:y+J[j+1],z:p.z-J[j]*s+J[j+2]*c,heading:p.heading};}

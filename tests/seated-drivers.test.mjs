@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Group, Scene} from 'three';
+import {Group, Matrix4, Scene, Vector3} from 'three';
 import {createJoints, posePerson, personLook, JOINT} from '../src/person-model.js';
 import {
   SEATED_DRIVE_POSE,
@@ -186,3 +186,35 @@ test('remote drivers sit the same way, and a remote ambulance cab stays empty', 
     assert.equal(mesh.getObjectByName('glass').material.transparent, false);
   }
 }));
+
+test('the seated driver rides in the car frame: tilted, lifted and flying with the body', () => {
+  const renderer = createPlayerTravelRenderer(new Group());
+  const heads = renderer.group.getObjectByName('Person heads');
+  const person = heads.parent;
+  const m = new Matrix4(), p = new Vector3();
+  const headInCar = (frame) => {
+    heads.getMatrixAt(0, m);
+    p.setFromMatrixPosition(m);
+    person.updateMatrixWorld(true);
+    const world = p.clone().applyMatrix4(person.matrixWorld);
+    frame.updateMatrixWorld(true);
+    return {world, local: world.clone().applyMatrix4(new Matrix4().copy(frame.matrixWorld).invert())};
+  };
+  for (const [type, belt, roof] of [['scala', 0.96, 1.4], ['gwagen', 1.3, 1.9], ['roadster', 0.62, 1.04], ['transporter', 1.18, 1.96], ['tuktuk', 0.9, 1.76]]) {
+    // A steep slope, on a deck 30 m up (or a Roadster in flight), heading off axis.
+    const frame = new Group();
+    frame.rotation.order = 'YXZ';
+    frame.position.set(120, 30.12, -75);
+    frame.rotation.set(0.5, 1.1, -0.55);
+    renderer.update(carTravel({type}, {x: 120, z: -75, heading: 1.1, speed: 9, distance: 3}), 1 / 60, {seatFrame: frame});
+    const {world, local} = headInCar(frame);
+    assert.ok(local.y > belt + 0.04 - 0.12 && local.y < roof - 0.02 - 0.12, `${type} head sits between belt and roof in the tilted car (${local.y.toFixed(2)})`);
+    const seat = seatedCabDriver({type});
+    assert.ok(Math.abs(local.x - seat.x) < 0.12, `${type} head stays over the seat sideways (${local.x.toFixed(2)})`);
+    assert.ok(world.y > 30, `${type} driver is up with the car, not on the ground (${world.y.toFixed(2)})`);
+  }
+  // Without a frame, and on foot, nothing is left tilted.
+  renderer.update({mode: 'walk', rides: [], viewActor: () => ({x: 1, z: 2, heading: 0, speed: 1, distance: 0})}, 1 / 60, {seatFrame: new Group()});
+  assert.deepEqual(person.position.toArray(), [0, 0, 0]);
+  assert.deepEqual(person.quaternion.toArray(), [0, 0, 0, 1]);
+});
