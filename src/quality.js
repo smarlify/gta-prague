@@ -1,8 +1,9 @@
 // One quality tier for the whole session, picked once at load.
-// `high` is the look the game was tuned for and every visit starts there. `low` is a choice the
-// player makes with the quality button beside the sound button (or ?quality=low): it drops the post
-// chain, halves the shadow map, shortens every distance band and thins out the street life.
-// The choice is remembered; ?quality=auto forgets it.
+// `high` is the look the game was tuned for: laptops and desktops start there. Phones and tablets
+// (a touch screen as the main pointer) start on `low`: it drops the post chain, halves the shadow
+// map, shortens every distance band and thins out the street life. The graphics button beside the
+// sound button switches tier and remembers the choice; ?quality=low|high pins one, ?quality=auto
+// forgets the choice.
 export const QUALITY_KEY='gta-praha-quality';
 
 export const TIERS=Object.freeze({
@@ -22,11 +23,12 @@ export const TIERS=Object.freeze({
 
 const valid=v=>v==='low'||v==='high';
 
-// Pure: which tier a visit gets. `query` is the ?quality= value, `stored` the remembered choice.
-export function pickTier({query=null,stored=null}={}){
+// Pure: which tier a visit gets. `query` is the ?quality= value, `stored` the remembered choice,
+// `mobile` whether the device is a phone or tablet.
+export function pickTier({query=null,stored=null,mobile=false}={}){
  if(valid(query))return query;
  if(query!=='auto'&&valid(stored))return stored;
- return 'high';
+ return mobile?'low':'high';
 }
 
 function storage(){try{return globalThis.localStorage||null;}catch{return null;}}
@@ -37,7 +39,8 @@ function detect(){
  const store=storage();
  let stored=null;try{stored=store?.getItem(QUALITY_KEY)??null;}catch{}
  try{if(valid(query))store?.setItem(QUALITY_KEY,query);else if(query==='auto')store?.removeItem(QUALITY_KEY);}catch{}
- return pickTier({query,stored});
+ let mobile=false;try{mobile=!!g.matchMedia?.('(pointer:coarse)').matches;}catch{}
+ return pickTier({query,stored,mobile});
 }
 
 export const QUALITY=TIERS[detect()];

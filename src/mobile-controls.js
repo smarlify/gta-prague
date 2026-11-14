@@ -65,7 +65,7 @@ export function createMobileControls({keys,canPlay=()=>true,onMenuChange=()=>{},
   doc.getElementById('mobile-day-value').textContent=doc.getElementById('look-label')?.textContent||'Midday';
   doc.getElementById('mobile-weather-value').textContent=doc.getElementById('weather-label')?.textContent||'Clear';
   doc.getElementById('mobile-sound-value').textContent=doc.getElementById('sound-btn')?.getAttribute('aria-label')==='Mute sound'?'On':'Off';
-  const quality=doc.getElementById('mobile-quality-value');if(quality)quality.textContent=doc.querySelector('#quality-btn .quality-tier')?.textContent==='LQ'?'Low':'High';
+  const quality=doc.getElementById('mobile-quality-value');if(quality)quality.textContent=doc.getElementById('quality-btn')?.dataset.tier==='low'?'Low':'High';
  }
  function openMenu(){
   if(!touch()||!state.started||state.busted||state.paused||state.mapOpen||disposed)return;

@@ -3,8 +3,12 @@ import assert from 'node:assert/strict';
 import {pickTier,TIERS,QUALITY,otherTier,switchQuality,QUALITY_KEY} from '../src/quality.js';
 import {edgesNear} from '../src/mobility.js';
 
-test('every visit starts on high; only the player choice or ?quality= picks low',()=>{
+test('laptops start on high and phones on low; a choice or ?quality= overrides',()=>{
  assert.equal(pickTier({}),'high');
+ assert.equal(pickTier({mobile:true}),'low');
+ assert.equal(pickTier({mobile:true,stored:'high'}),'high','a phone that chose high keeps it');
+ assert.equal(pickTier({mobile:true,query:'high'}),'high');
+ assert.equal(pickTier({mobile:true,query:'auto',stored:'high'}),'low','auto forgets the choice');
  assert.equal(pickTier({stored:'low'}),'low');
  assert.equal(pickTier({stored:'high'}),'high');
  assert.equal(pickTier({query:'low'}),'low');

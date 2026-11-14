@@ -227,5 +227,8 @@ body.busted #buy-billboard,body.arrest-cinematic #buy-billboard{visibility:hidde
 .low-quality .location-tag,.low-quality .journey,.low-quality .speedometer,.low-quality .topbar .wordmark,.low-quality .end-panel,.low-quality #pause-overlay,.low-quality #busted-overlay{backdrop-filter:none}
 .low-quality #pause-overlay{background:#f5f3ebd8}
 
-/* Graphics quality toggle beside the sound button: HQ / LQ in small caps. */
-.quality-btn .quality-tier{font-size:10px;font-weight:750;letter-spacing:.5px}
+/* Graphics quality toggle beside the sound button: sparkles, crossed out on low quality. */
+.quality-btn{display:inline-flex;align-items:center;justify-content:center}
+.quality-icon{display:block}.quality-icon .spark{fill:currentColor}
+.quality-icon .quality-slash{stroke:#b8b7aa;stroke-width:2;stroke-linecap:round;display:none}
+.quality-btn.low .quality-icon .spark{opacity:.55}.quality-btn.low .quality-icon .quality-slash{display:inline}

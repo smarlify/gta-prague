@@ -982,8 +982,9 @@ async function setSound(on){
 }
 $('sound-btn').addEventListener('click',()=>setSound(!sound));
 // Graphics quality: high by default. The button switches tier and reloads (the scene is built for one tier).
-function paintQualityButton(){const next=otherTier(QUALITY.name),label=QUALITY.name==='low'?'Low quality graphics. Switch to high quality (reloads)':'High quality graphics. Switch to low quality for slower devices (reloads)';
- const b=$('quality-btn');b.querySelector('.quality-tier').textContent=QUALITY.name==='low'?'LQ':'HQ';b.setAttribute('aria-label',label);b.title=label;b.dataset.next=next;}
+// The icon is sparkles (full effects); on low quality it is crossed out, like ♪ when the sound is off.
+function paintQualityButton(){const low=QUALITY.name==='low',label=low?'Graphics: low quality. Click for high quality (reloads)':'Graphics: high quality. Click for low quality on slower devices (reloads)';
+ const b=$('quality-btn');b.classList.toggle('low',low);b.dataset.tier=QUALITY.name;b.setAttribute('aria-label',label);b.title=label;}
 paintQualityButton();
 $('quality-btn').addEventListener('click',()=>{toast(QUALITY.name==='low'?'Switching to high quality…':'Switching to low quality…');setTimeout(()=>switchQuality(otherTier(QUALITY.name)),250);});
 // Start is a user gesture: turn sound on so the CC0 beds actually play on Heroku
