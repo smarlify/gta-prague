@@ -17,7 +17,7 @@ import {withUtm} from './utm.js';
 import {CHASE_JOIN_SPEED,CHASE_LEAD_SPEED,CHASE_UNIT_SPEED,DIVADLO_BEZ_ZABRADLI,KE_HRADU,POSLANECKA_SNEMOVNA,PRAZSKY_HRAD,STRAKOVA_AKADEMIE,URAD_VLADY,VELVYSLANECTVI_JAPONSKA,XTV,waterStart,slachtaArrest,slachtaChaseLayout,slachtaWearsUniform} from './driver-starts.js';
 import {writeStoredPlayerName} from './net/player-name.js';
 import {createAdaptiveResolution} from './adaptive-quality.js';
-import {QUALITY,createTierWatch,rememberLowTier} from './quality.js';
+import {QUALITY,otherTier,switchQuality} from './quality.js';
 import {carSamples,makeCar,driveStep,simulationSteps,PLAYER_MAX_SPEED,displayedSpeedKmh} from './physics.js';
 import {roadsterStep,carIsAirborne,ROADSTER_AIR_MAX} from './roadster-flight.js';
 import {animateVehicle,cycleHeadlights,headlightModeLabel,playerHeadlightsOn,streetLampsOn,vehicleLampsOn} from './vehicles.js';
@@ -212,7 +212,7 @@ const focus=new THREE.Vector3(0,0,85);
 // The post chain renders into its own multisampled target, so canvas MSAA would only be paid for twice.
 // The low tier has no post chain and no MSAA at all: fill rate is what phones run out of.
 const renderer=new THREE.WebGLRenderer({canvas:$('world'),antialias:false,powerPreference:'high-performance'});
-const maxPixelRatio=Math.min(devicePixelRatio,QUALITY.maxPixelRatio),minPixelRatio=Math.min(maxPixelRatio,QUALITY.minPixelRatio),resolution=createAdaptiveResolution({max:maxPixelRatio,min:minPixelRatio}),tierWatch=createTierWatch();
+const maxPixelRatio=Math.min(devicePixelRatio,QUALITY.maxPixelRatio),minPixelRatio=Math.min(maxPixelRatio,QUALITY.minPixelRatio),resolution=createAdaptiveResolution({max:maxPixelRatio,min:minPixelRatio});
 document.body.classList.toggle('low-quality',QUALITY.name==='low');
 renderer.setPixelRatio(maxPixelRatio);
 renderer.setSize(captureFrame.w,captureFrame.h);
@@ -981,11 +981,17 @@ async function setSound(on){
  $('sound-btn').setAttribute('aria-label',sound?'Mute sound':'Enable sound');$('sound-btn').title=sound?'Mute sound':'Enable sound';$('sound-btn').querySelector('.mute-slash').hidden=sound;
 }
 $('sound-btn').addEventListener('click',()=>setSound(!sound));
+// Graphics quality: high by default. The button switches tier and reloads (the scene is built for one tier).
+// The icon is sparkles (full effects); on low quality it is crossed out, like ♪ when the sound is off.
+function paintQualityButton(){const low=QUALITY.name==='low',label=low?'Graphics: low quality. Click for high quality (reloads)':'Graphics: high quality. Click for low quality on slower devices (reloads)';
+ const b=$('quality-btn');b.classList.toggle('low',low);b.dataset.tier=QUALITY.name;b.setAttribute('aria-label',label);b.title=label;}
+paintQualityButton();
+$('quality-btn').addEventListener('click',()=>{toast(QUALITY.name==='low'?'Switching to high quality…':'Switching to low quality…');setTimeout(()=>switchQuality(otherTier(QUALITY.name)),250);});
 // Start is a user gesture: turn sound on so the CC0 beds actually play on Heroku
 // without a second click on ♪ (autoplay still blocks keyboard-only starts).
 $('start-btn').addEventListener('click',()=>{if(!sound)setSound(true);},{capture:true});
 // After a HUD action, the next movement/interaction key belongs to the game.
-for(const id of ['view-btn','look-btn','weather-btn','sound-btn','zoom-in','zoom-out'])$(id).addEventListener('click',focusWorldControls);
+for(const id of ['view-btn','look-btn','weather-btn','sound-btn','quality-btn','zoom-in','zoom-out'])$(id).addEventListener('click',focusWorldControls);
 
 mobileControls=createMobileControls({
  keys,
@@ -994,7 +1000,7 @@ mobileControls=createMobileControls({
  actions:{
   map:()=>showDialog('map-dialog'),camera:cycleCamera,
   daytime:()=>{look.cycle();toast(look.label);},
-  weather:()=>{look.cycleWeather();toast(look.weatherLabel);},sound:()=>$('sound-btn').click(),
+  weather:()=>{look.cycleWeather();toast(look.weatherLabel);},sound:()=>$('sound-btn').click(),quality:()=>$('quality-btn').click(),
   help:()=>showDialog('help-dialog'),reset,sources:()=>showDialog('sources-dialog'),
   lights:cyclePlayerLights,siren:togglePlayerSiren,pause:()=>setPaused(true),
  },
@@ -1154,8 +1160,6 @@ function frame(now){
  stationStreetLife?.update(car,ready&&!paused&&!mapOpen?dt:0);
  // Resize before drawing: changing the pixel ratio clears the canvas, which flashed a blank frame when done after.
  if(ready&&resolution.update(frameMs,dt))renderer.setPixelRatio(resolution.scale);
- // Still slow at the lowest resolution: shed the post chain now and start the next visit on the low tier.
- if(ready&&!paused&&post&&!post.options.bypass&&tierWatch.update(frameMs,dt,resolution.scale<=minPixelRatio)){post.options.bypass=true;document.body.classList.add('low-quality');rememberLowTier();}
  look.update(dt,now/1000); // blends the active look and re-applies its sun offset after the shadow target above
  cityAudio.clap(audioContext,{enabled:!!(sound&&started&&!paused&&!mapOpen),cues:look.consumeThunder()});
  if(post)post.render(scene,camera);else renderer.render(scene,camera);

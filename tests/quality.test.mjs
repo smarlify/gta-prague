@@ -1,23 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {pickTier,TIERS,QUALITY,createTierWatch} from '../src/quality.js';
+import {pickTier,TIERS,QUALITY,otherTier,switchQuality,QUALITY_KEY} from '../src/quality.js';
 import {edgesNear} from '../src/mobility.js';
 
-test('phones and weak devices start on the low tier, everything else on the tuned one',()=>{
+test('laptops start on high and phones on low; a choice or ?quality= overrides',()=>{
  assert.equal(pickTier({}),'high');
- assert.equal(pickTier({coarse:true}),'low');
- assert.equal(pickTier({memory:4,cores:8}),'low');
- assert.equal(pickTier({memory:8,cores:4}),'low');
- assert.equal(pickTier({memory:8,cores:8}),'high');
+ assert.equal(pickTier({mobile:true}),'low');
+ assert.equal(pickTier({mobile:true,stored:'high'}),'high','a phone that chose high keeps it');
+ assert.equal(pickTier({mobile:true,query:'high'}),'high');
+ assert.equal(pickTier({mobile:true,query:'auto',stored:'high'}),'low','auto forgets the choice');
+ assert.equal(pickTier({stored:'low'}),'low');
+ assert.equal(pickTier({stored:'high'}),'high');
+ assert.equal(pickTier({query:'low'}),'low');
+ assert.equal(pickTier({query:'high',stored:'low'}),'high');
+ assert.equal(pickTier({query:'auto',stored:'low'}),'high');
+ assert.equal(pickTier({query:'ultra',stored:'bogus'}),'high');
 });
 
-test('?quality= pins a tier over detection, a remembered pin holds, and auto forgets it',()=>{
- assert.equal(pickTier({query:'high',coarse:true}),'high');
- assert.equal(pickTier({query:'low',memory:32,cores:16}),'low');
- assert.equal(pickTier({stored:'low'}),'low');
- assert.equal(pickTier({stored:'high',coarse:true}),'high');
- assert.equal(pickTier({query:'auto',stored:'low'}),'high');
- assert.equal(pickTier({query:'ultra',stored:'bogus',coarse:true}),'low');
+test('the quality button remembers the other tier and reloads without the URL pin',()=>{
+ assert.equal(otherTier('high'),'low');assert.equal(otherTier('low'),'high');
+ const saved=new Map(),original=globalThis.localStorage;
+ globalThis.localStorage={setItem:(k,v)=>saved.set(k,v),getItem:k=>saved.get(k)??null,removeItem:k=>saved.delete(k)};
+ try{
+  let replaced=null;
+  assert.equal(switchQuality('low',{href:'https://example.test/?driver=dave&quality=high',replace:u=>{replaced=u;}}),true);
+  assert.equal(saved.get(QUALITY_KEY),'low');
+  assert.equal(replaced,'https://example.test/?driver=dave');
+  assert.equal(switchQuality('ultra',{href:'https://example.test/',replace(){throw Error('no reload');}}),false);
+ }finally{if(original===undefined)delete globalThis.localStorage;else globalThis.localStorage=original;}
 });
 
 test('outside a browser the tuned tier is used, and low is cheaper on every axis',()=>{
@@ -26,14 +36,6 @@ test('outside a browser the tuned tier is used, and low is cheaper on every axis
  assert.equal(low.post,false);assert.equal(low.headBeams,false);
  for(const k of ['maxPixelRatio','minPixelRatio','shadowMap','drawDistance','fogNear','cameraFar','buildingNear','buildingFar','buildingDetail','buildingShadow','buildingWindows','cars','people'])assert.ok(low[k]<high[k],k);
  for(const t of [high,low]){assert.ok(t.fogNear<t.drawDistance&&t.drawDistance<t.cameraFar);assert.ok(t.buildingNear<t.buildingFar&&t.buildingFar<t.drawDistance);}
-});
-
-test('the tier watch fires once after sustained slow frames at the resolution floor only',()=>{
- const run=(w,ms,seconds,floor)=>{let fired=0;for(let t=0;t<seconds;t+=ms/1000)if(w.update(ms,ms/1000,floor))fired++;return fired;};
- const a=createTierWatch();assert.equal(run(a,40,20,false),0,'not at the floor');
- const b=createTierWatch();assert.equal(run(b,16,20,true),0,'fast frames');
- const c=createTierWatch();assert.equal(run(c,40,4,true),0);assert.equal(run(c,40,3,true),1);assert.equal(run(c,40,10,true),0,'fires once');assert.equal(c.fired,true);
- const d=createTierWatch();d.update(900,.9,true);assert.equal(run(d,40,4,true),0,'a suspended tab does not count');
 });
 
 test('the spawn edge lookup returns exactly the edges a full scan finds, in order',()=>{
